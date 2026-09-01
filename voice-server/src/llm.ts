@@ -87,3 +87,45 @@ export async function correrTurno(opts: {
     transferSolicitada,
   };
 }
+
+export interface ResumenLlamada {
+  motivo: string;
+  solicitud: string;
+  resultado: string;
+  accionPendiente: string;
+}
+
+/**
+ * Genera el resumen estructurado al colgar. Es una llamada aparte (no reusa
+ * el historial de la conversación) para no arrastrar el contexto de
+ * herramientas y mantener la salida estrictamente JSON.
+ */
+export async function generarResumen(turnos: { hablante: string; texto: string }[]): Promise<ResumenLlamada | null> {
+  const transcripcionPlano = turnos.map((t) => `${t.hablante}: ${t.texto}`).join("\n");
+
+  try {
+    const respuesta = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 400,
+      system:
+        "Resumes llamadas telefónicas de atención al cliente. Responde ÚNICAMENTE con un objeto JSON " +
+        'con las claves "motivo", "solicitud", "resultado" y "accionPendiente" (string cada una, en español, ' +
+        'una frase corta). Si no aplica algo, usa "" (string vacío). No agregues texto fuera del JSON.',
+      messages: [{ role: "user", content: `Transcripción:\n${transcripcionPlano}` }],
+    });
+
+    const bloqueTexto = respuesta.content.find((b) => b.type === "text");
+    if (bloqueTexto?.type !== "text") return null;
+
+    const json = JSON.parse(bloqueTexto.text.trim());
+    return {
+      motivo: json.motivo ?? "",
+      solicitud: json.solicitud ?? "",
+      resultado: json.resultado ?? "",
+      accionPendiente: json.accionPendiente ?? "",
+    };
+  } catch (err) {
+    console.error("Error generando resumen de llamada:", err);
+    return null;
+  }
+}

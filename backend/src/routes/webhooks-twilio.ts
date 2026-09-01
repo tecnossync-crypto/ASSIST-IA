@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { twimlConnectVoiceAgent, twimlDialHumano, twimlColgar } from "../lib/twiml.js";
+import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -92,12 +93,21 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
 
   app.post("/webhooks/twilio/recording-status", async (req, reply) => {
     const body = req.body as Record<string, string>;
-    app.log.info(body, "Grabación lista en Twilio");
+    const { CallSid: callSid, RecordingSid: recordingSid, RecordingStatus: status, RecordingDuration: duration } = body;
 
-    // TODO Fase 0/1: job que descarga la grabación desde Twilio Recordings API,
-    // la sube a storage propio (R2/S3), calcula hash de integridad,
-    // inserta en `grabaciones`, y borra el original en Twilio.
+    app.log.info(body, "Callback de grabación de Twilio");
 
+    // Respondemos ya para no hacer esperar a Twilio; el job corre aparte.
     reply.send({ ok: true });
+
+    if (status !== "completed" || !recordingSid || !callSid) return;
+
+    procesarGrabacion({
+      callSid,
+      recordingSid,
+      recordingDurationSegundos: duration ? parseInt(duration, 10) : null,
+    }).catch((err) => {
+      app.log.error({ err, callSid, recordingSid }, "Error procesando grabación");
+    });
   });
 }

@@ -5,6 +5,7 @@ import cors from "@fastify/cors";
 import { healthRoutes } from "./routes/health.js";
 import { webhooksTwilioRoutes } from "./routes/webhooks-twilio.js";
 import { internalRoutes } from "./routes/internal.js";
+import { llamadasRoutes } from "./routes/llamadas.js";
 
 const app = Fastify({ logger: true });
 
@@ -15,6 +16,7 @@ await app.register(cors, { origin: true });
 await app.register(healthRoutes);
 await app.register(webhooksTwilioRoutes);
 await app.register(internalRoutes);
+await app.register(llamadasRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 

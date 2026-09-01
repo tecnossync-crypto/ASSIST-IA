@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { construirSystemPrompt, correrTurno } from "./llm.js";
+import { construirSystemPrompt, correrTurno, generarResumen } from "./llm.js";
 import { getEmpresaConfig, guardarTranscripcion } from "./backend-client.js";
 import type { EmpresaConfig, TurnoConversacion } from "./types.js";
 
@@ -55,14 +55,23 @@ export class ConversationSession {
   }
 
   /**
-   * Al terminar la llamada: guarda la transcripción cruda en Postgres.
-   * El resumen (motivo/solicitud/resultado) queda como TODO explícito para
-   * no fingir un análisis que no se hizo — se puede llamar a un LLM aparte
-   * en un job posterior en vez de bloquear el cierre de la llamada.
+   * Al terminar la llamada: genera el resumen (motivo/solicitud/resultado/
+   * acción pendiente) con una llamada aparte al LLM y guarda todo junto con
+   * la transcripción cruda en Postgres. Si el resumen falla, igual se
+   * guarda la transcripción — la constancia no debe depender del resumen.
    */
   async finalizar() {
     if (this.turnos.length === 0) return;
-    await guardarTranscripcion(this.callSid, { textoCompleto: this.turnos }).catch((err) => {
+
+    const resumen = await generarResumen(this.turnos);
+
+    await guardarTranscripcion(this.callSid, {
+      textoCompleto: this.turnos,
+      resumenMotivo: resumen?.motivo,
+      resumenSolicitud: resumen?.solicitud,
+      resumenResultado: resumen?.resultado,
+      accionPendiente: resumen?.accionPendiente,
+    }).catch((err) => {
       console.error(`[${this.callSid}] error guardando transcripción:`, err);
     });
   }

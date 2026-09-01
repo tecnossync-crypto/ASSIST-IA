@@ -8,7 +8,7 @@ CREATE TABLE empresas (
     nombre              TEXT NOT NULL,
     twilio_account_sid  TEXT,
     twilio_auth_token_enc TEXT,        -- encriptado a nivel de aplicación, nunca en claro
-    twilio_phone_number TEXT,
+    twilio_phone_number TEXT UNIQUE,
     guion_agente        JSONB NOT NULL DEFAULT '{}'::jsonb, -- saludo, qué resuelve, cuándo transfiere
     horario_atencion    JSONB NOT NULL DEFAULT '{}'::jsonb,
     numeros_transferencia JSONB NOT NULL DEFAULT '[]'::jsonb,
