@@ -4,8 +4,8 @@ SaaS de gestión de llamadas con agente de voz IA sobre la cuenta de Twilio del 
 
 ## Estructura
 
-- `backend/` — API Fastify + TypeScript: webhooks de Twilio, lógica de negocio, auth del dashboard.
-- `voice-server/` — servidor de voz IA (WebSocket con ConversationRelay). Pendiente de Fase 1.
+- `backend/` — API Fastify + TypeScript: webhooks de Twilio, endpoints internos para el voice-server, lógica de negocio, auth del dashboard (pendiente).
+- `voice-server/` — servidor de voz IA: WebSocket con Twilio ConversationRelay, conversa con Claude, ejecuta herramientas (`transferir_a_humano`, `registrar_solicitud`).
 - `dashboard/` — Next.js. Pendiente de Fase 1.
 - `docs/` — documentación del proyecto.
 
@@ -13,22 +13,36 @@ SaaS de gestión de llamadas con agente de voz IA sobre la cuenta de Twilio del 
 
 **Fase 0 — Fundación** (en progreso). Ver checklist en [docs/fase-0-checklist.md](docs/fase-0-checklist.md).
 
-## Backend: arranque local
+## Cómo se conectan las piezas
+
+1. Twilio recibe la llamada → `POST /webhooks/twilio/voice-inbound` en el backend.
+2. El backend responde TwiML: graba, conecta el audio por WebSocket a `voice-server` (ConversationRelay), y deja un `<Redirect>` de respaldo.
+3. `voice-server` mantiene la conversación con Claude y llama al backend (`/internal/...`, con `INTERNAL_API_KEY`) para leer el guion de la empresa, registrar solicitudes, marcar transferencias y guardar la transcripción.
+4. Si el agente decide transferir, `voice-server` termina ConversationRelay (`{"type":"end"}`); TwiML cae al `<Redirect>` → `POST /webhooks/twilio/post-relay`, que hace el `<Dial>` real hacia el humano.
+
+## Arranque local
+
+Necesitas 2 procesos corriendo a la vez (backend y voice-server) más PostgreSQL.
 
 ```bash
+# 1. Variables de entorno (un solo .env en la raíz, compartido por ambos)
+cp .env.example .env   # completar credenciales reales, nunca commitear
+
+# 2. Backend
 cd backend
 npm install
-cp ../.env.example ../.env   # completar credenciales reales, nunca commitear
-npm run migrate              # aplica backend/src/db/schema.sql
-npm run dev                  # http://localhost:3001
+npm run migrate        # aplica backend/src/db/schema.sql
+npm run dev             # http://localhost:3001
+
+# 3. Voice-server (otra terminal)
+cd ../voice-server
+npm install
+npm run dev             # ws://localhost:3002/voice-stream
 ```
 
-Requiere PostgreSQL corriendo y `DATABASE_URL` configurado en `.env`.
+## Exponer los servicios a Twilio en desarrollo
 
-## Exponer el webhook a Twilio en desarrollo
+Twilio necesita URLs públicas para el webhook y para el WebSocket. Usa un túnel (ngrok, Cloudflare Tunnel) para cada uno y configura:
 
-Twilio necesita una URL pública. Usa un túnel (ngrok, Cloudflare Tunnel) apuntando a `localhost:3001` y configura esa URL en la consola de Twilio como webhook de voz entrante:
-
-```
-https://tu-tunel.example.com/webhooks/twilio/voice-inbound
-```
+- Webhook de voz entrante (consola de Twilio, en el número): `https://tu-tunel-backend.example.com/webhooks/twilio/voice-inbound`
+- `VOICE_WS_URL` en `.env`: `wss://tu-tunel-voice-server.example.com/voice-stream`

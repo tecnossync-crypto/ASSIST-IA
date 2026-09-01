@@ -48,6 +48,7 @@ CREATE TABLE llamadas (
     numero_destino      TEXT NOT NULL,
     estado              TEXT NOT NULL DEFAULT 'en_curso', -- en_curso | completada | fallida | transferida
     transferida         BOOLEAN NOT NULL DEFAULT false,
+    transferencia_destino TEXT, -- número al que se redirige cuando el agente decide transferir
     duracion_segundos   INTEGER,
     costo_estimado_usd  NUMERIC(10, 4),
     iniciada_en         TIMESTAMPTZ NOT NULL DEFAULT now(),

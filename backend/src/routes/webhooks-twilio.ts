@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
-import { twimlConnectVoiceAgent } from "../lib/twiml.js";
+import { twimlConnectVoiceAgent, twimlDialHumano, twimlColgar } from "../lib/twiml.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -47,6 +47,29 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
 
     const twiml = twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid });
     reply.type("text/xml").send(twiml);
+  });
+
+  // Se ejecuta cuando ConversationRelay termina (el agente mandó "end" o la
+  // llamada se cayó) y TwiML cae al <Redirect> puesto después de <Connect>.
+  // Si el agente marcó transferencia, aquí sale el <Dial> real; si no, cuelga.
+  app.post("/webhooks/twilio/post-relay", async (req, reply) => {
+    const body = req.body as Record<string, string>;
+    const callSid = body.CallSid;
+
+    const llamada = await pool.query<{ transferencia_destino: string | null }>(
+      "SELECT transferencia_destino FROM llamadas WHERE call_sid = $1",
+      [callSid]
+    );
+
+    const destino = llamada.rows[0]?.transferencia_destino ?? null;
+
+    if (destino) {
+      app.log.info({ callSid, destino }, "Transfiriendo llamada a humano");
+      reply.type("text/xml").send(twimlDialHumano(destino));
+      return;
+    }
+
+    reply.type("text/xml").send(twimlColgar());
   });
 
   app.post("/webhooks/twilio/call-status", async (req, reply) => {

@@ -1,0 +1,144 @@
+import type { FastifyInstance } from "fastify";
+import { pool } from "../db/pool.js";
+import { requireInternalKey } from "../lib/internal-auth.js";
+
+/**
+ * Endpoints que solo llama el voice-server (nunca Twilio, nunca el dashboard).
+ * El voice-server no toca Postgres directamente: pasa por aquí para que toda
+ * escritura quede en un solo lugar y respete el aislamiento por empresa_id.
+ */
+export async function internalRoutes(app: FastifyInstance) {
+  app.addHook("preHandler", (req, reply, done) => {
+    if (!requireInternalKey(req, reply)) return;
+    done();
+  });
+
+  // El agente decidió que hace falta un humano. Marca la llamada con el
+  // destino de transferencia; el webhook post-relay hará el <Dial> real
+  // cuando ConversationRelay termine y TwiML caiga al <Redirect>.
+  app.post<{
+    Params: { callSid: string };
+    Body: { numeroTransferencia: string };
+  }>("/internal/llamadas/:callSid/transferir", async (req, reply) => {
+    const { callSid } = req.params;
+    const { numeroTransferencia } = req.body;
+
+    if (!numeroTransferencia) {
+      reply.code(400).send({ error: "numeroTransferencia es requerido" });
+      return;
+    }
+
+    const result = await pool.query(
+      `UPDATE llamadas
+       SET transferida = true, transferencia_destino = $2, estado = 'transferida'
+       WHERE call_sid = $1
+       RETURNING id`,
+      [callSid, numeroTransferencia]
+    );
+
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: "llamada no encontrada" });
+      return;
+    }
+
+    reply.send({ ok: true });
+  });
+
+  // Guarda la transcripción completa + resumen generado por el LLM al
+  // terminar la llamada.
+  app.post<{
+    Params: { callSid: string };
+    Body: {
+      textoCompleto: unknown;
+      resumenMotivo?: string;
+      resumenSolicitud?: string;
+      resumenResultado?: string;
+      accionPendiente?: string;
+    };
+  }>("/internal/llamadas/:callSid/transcripcion", async (req, reply) => {
+    const { callSid } = req.params;
+    const { textoCompleto, resumenMotivo, resumenSolicitud, resumenResultado, accionPendiente } =
+      req.body;
+
+    const llamada = await pool.query<{ id: string; empresa_id: string }>(
+      "SELECT id, empresa_id FROM llamadas WHERE call_sid = $1",
+      [callSid]
+    );
+
+    if (llamada.rows.length === 0) {
+      reply.code(404).send({ error: "llamada no encontrada" });
+      return;
+    }
+
+    const { id: llamadaId, empresa_id: empresaId } = llamada.rows[0];
+
+    await pool.query(
+      `INSERT INTO transcripciones
+         (empresa_id, llamada_id, texto_completo, resumen_motivo, resumen_solicitud, resumen_resultado, accion_pendiente)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        empresaId,
+        llamadaId,
+        JSON.stringify(textoCompleto),
+        resumenMotivo ?? null,
+        resumenSolicitud ?? null,
+        resumenResultado ?? null,
+        accionPendiente ?? null,
+      ]
+    );
+
+    reply.send({ ok: true });
+  });
+
+  // Registra lo que el cliente pidió (cotización, reclamo, cita...) según
+  // lo extraiga el agente durante la llamada.
+  app.post<{
+    Params: { callSid: string };
+    Body: { tipo?: string; descripcion?: string };
+  }>("/internal/llamadas/:callSid/solicitud", async (req, reply) => {
+    const { callSid } = req.params;
+    const { tipo, descripcion } = req.body;
+
+    const llamada = await pool.query<{ id: string; empresa_id: string }>(
+      "SELECT id, empresa_id FROM llamadas WHERE call_sid = $1",
+      [callSid]
+    );
+
+    if (llamada.rows.length === 0) {
+      reply.code(404).send({ error: "llamada no encontrada" });
+      return;
+    }
+
+    const { id: llamadaId, empresa_id: empresaId } = llamada.rows[0];
+
+    await pool.query(
+      `INSERT INTO solicitudes (empresa_id, llamada_id, tipo, descripcion)
+       VALUES ($1, $2, $3, $4)`,
+      [empresaId, llamadaId, tipo ?? null, descripcion ?? null]
+    );
+
+    reply.send({ ok: true });
+  });
+
+  // El voice-server necesita el guion y los números de transferencia de la
+  // empresa al arrancar cada sesión de ConversationRelay.
+  app.get<{ Params: { empresaId: string } }>(
+    "/internal/empresas/:empresaId/config-agente",
+    async (req, reply) => {
+      const { empresaId } = req.params;
+
+      const result = await pool.query(
+        `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia
+         FROM empresas WHERE id = $1`,
+        [empresaId]
+      );
+
+      if (result.rows.length === 0) {
+        reply.code(404).send({ error: "empresa no encontrada" });
+        return;
+      }
+
+      reply.send(result.rows[0]);
+    }
+  );
+}

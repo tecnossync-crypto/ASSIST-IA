@@ -24,9 +24,16 @@
 - [x] Webhook `/webhooks/twilio/voice-inbound` (TwiML: graba + conecta a ConversationRelay).
 - [x] Webhook `/webhooks/twilio/call-status` (actualiza estado/duración).
 - [x] Webhook `/webhooks/twilio/recording-status` (placeholder, falta el job de descarga).
-- [ ] `voice-server`: servidor WebSocket que recibe el texto de ConversationRelay y habla con el LLM.
+- [x] Webhook `/webhooks/twilio/post-relay` (resuelve `<Dial>` cuando el agente pidió transferencia).
+- [x] Endpoints internos backend↔voice-server (`/internal/...`, protegidos con `INTERNAL_API_KEY`).
+- [x] `voice-server`: servidor WebSocket (ConversationRelay) que conversa con Claude y ejecuta herramientas.
+  - [x] Herramienta `transferir_a_humano` (marca destino + termina ConversationRelay).
+  - [x] Herramienta `registrar_solicitud` (inserta en `solicitudes`).
+  - [x] Guarda transcripción cruda al colgar.
+  - [ ] Resumen automático (motivo/solicitud/resultado) — hoy queda solo el texto crudo, falta el paso de resumen.
 - [ ] Job de grabación: descargar desde Twilio → subir a storage propio → hash de integridad → borrar en Twilio.
-- [ ] Seed: insertar la primera fila en `empresas` con los datos reales del cliente.
+- [ ] Seed: insertar la primera fila en `empresas` con los datos reales del cliente (incluye `guion_agente` y `numeros_transferencia`, que ahora sí usa el agente en vivo).
+- [ ] Probar de punta a punta con una llamada real (requiere número Twilio + túneles de dev).
 
 ## Entregable de Fase 0
 
