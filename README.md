@@ -6,7 +6,7 @@ SaaS de gestión de llamadas con agente de voz IA sobre la cuenta de Twilio del 
 
 - `backend/` — API Fastify + TypeScript: webhooks de Twilio, endpoints internos para el voice-server, lógica de negocio, auth del dashboard (pendiente).
 - `voice-server/` — servidor de voz IA: WebSocket con Twilio ConversationRelay, conversa con Claude, ejecuta herramientas (`transferir_a_humano`, `registrar_solicitud`).
-- `dashboard/` — Next.js. Pendiente de Fase 1.
+- `dashboard/` — Next.js: lista de llamadas con búsqueda/filtro y detalle (audio, transcripción, resumen).
 - `docs/` — documentación del proyecto.
 
 ## Estado
@@ -38,7 +38,26 @@ npm run dev             # http://localhost:3001
 cd ../voice-server
 npm install
 npm run dev             # ws://localhost:3002/voice-stream
+
+# 4. Dashboard (otra terminal)
+cd ../dashboard
+npm install
+cp .env.local.example .env.local   # completar NEXT_PUBLIC_EMPRESA_ID con el id real
+npm run dev                          # http://localhost:3000
 ```
+
+## Seed de la primera empresa
+
+Antes de poder ver algo en el dashboard hace falta al menos una empresa en la base:
+
+```bash
+cd backend
+# completar en .env: SEED_EMPRESA_NOMBRE, TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER,
+# ENCRYPTION_KEY, y opcionalmente SEED_GUION_* / SEED_NUMEROS_TRANSFERENCIA
+npm run seed
+```
+
+El id que imprime el comando es el que va en `NEXT_PUBLIC_EMPRESA_ID` del dashboard.
 
 ## Exponer los servicios a Twilio en desarrollo
 

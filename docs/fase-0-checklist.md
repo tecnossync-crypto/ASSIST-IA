@@ -30,10 +30,14 @@
   - [x] Herramienta `transferir_a_humano` (marca destino + termina ConversationRelay).
   - [x] Herramienta `registrar_solicitud` (inserta en `solicitudes`).
   - [x] Guarda transcripción cruda al colgar.
-  - [ ] Resumen automático (motivo/solicitud/resultado) — hoy queda solo el texto crudo, falta el paso de resumen.
-- [ ] Job de grabación: descargar desde Twilio → subir a storage propio → hash de integridad → borrar en Twilio.
-- [ ] Seed: insertar la primera fila en `empresas` con los datos reales del cliente (incluye `guion_agente` y `numeros_transferencia`, que ahora sí usa el agente en vivo).
+  - [x] Resumen automático (motivo/solicitud/resultado/acción pendiente) generado por Claude al colgar.
+- [x] Job de grabación: descarga desde Twilio → sube a storage propio (S3/R2) → hash SHA-256 → borra en Twilio.
+- [x] Encriptación (AES-256-GCM) del `twilio_auth_token` por empresa (`ENCRYPTION_KEY`).
+- [x] Seed (`npm run seed` en backend): inserta la empresa desde variables de entorno (`SEED_*`, `TWILIO_*`).
+- [x] API de lectura (`GET /api/llamadas`, `GET /api/llamadas/:id`) para el dashboard — **sin autenticación todavía**, ver TODO en [backend/src/routes/llamadas.ts](../backend/src/routes/llamadas.ts).
+- [x] Dashboard v1 (Next.js): lista con búsqueda/filtro por estado, detalle con reproductor (URL firmada), transcripción y resumen.
 - [ ] Probar de punta a punta con una llamada real (requiere número Twilio + túneles de dev).
+- [ ] Autenticación del dashboard (tabla `usuarios`, login) antes de exponerlo fuera de localhost.
 
 ## Entregable de Fase 0
 

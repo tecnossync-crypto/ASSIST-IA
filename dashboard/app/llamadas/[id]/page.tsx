@@ -1,0 +1,102 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { obtenerLlamada } from "@/lib/api";
+import { formatFechaHora, formatDuracion, etiquetaEstado } from "@/lib/format";
+
+export default async function LlamadaDetallePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
+  const data = await obtenerLlamada(id).catch(() => null);
+  if (!data) notFound();
+
+  const { llamada, transcripcion, grabacion } = data;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <Link href="/llamadas" className="text-sm text-neutral-500 hover:underline">
+          ← Volver a llamadas
+        </Link>
+      </div>
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold">
+            Llamada {llamada.direccion === "entrante" ? "entrante" : "saliente"} —{" "}
+            {formatFechaHora(llamada.iniciada_en)}
+          </h1>
+          <p className="text-sm text-neutral-500">
+            {llamada.numero_origen} → {llamada.numero_destino} · {formatDuracion(llamada.duracion_segundos)} ·{" "}
+            {etiquetaEstado(llamada.estado)}
+            {llamada.transferida && llamada.transferencia_destino
+              ? ` · transferida a ${llamada.transferencia_destino}`
+              : ""}
+          </p>
+        </div>
+      </div>
+
+      <section className="rounded-lg border border-neutral-200 bg-white p-4">
+        <h2 className="mb-2 text-sm font-semibold text-neutral-700">Grabación</h2>
+        {grabacion?.audioUrl ? (
+          <audio controls src={grabacion.audioUrl} className="w-full" />
+        ) : (
+          <p className="text-sm text-neutral-400">
+            {grabacion ? "No se pudo generar el enlace de reproducción." : "Grabación aún no disponible."}
+          </p>
+        )}
+        {grabacion && (
+          <p className="mt-2 break-all text-xs text-neutral-400">
+            Hash de integridad: {grabacion.hash_integridad}
+          </p>
+        )}
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4">
+          <h2 className="mb-2 text-sm font-semibold text-neutral-700">Resumen</h2>
+          {transcripcion ? (
+            <dl className="space-y-2 text-sm">
+              <div>
+                <dt className="text-neutral-500">Motivo</dt>
+                <dd>{transcripcion.resumen_motivo || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-neutral-500">Solicitud</dt>
+                <dd>{transcripcion.resumen_solicitud || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-neutral-500">Resultado</dt>
+                <dd>{transcripcion.resumen_resultado || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-neutral-500">Acción pendiente</dt>
+                <dd>{transcripcion.accion_pendiente || "—"}</dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="text-sm text-neutral-400">Aún no hay resumen para esta llamada.</p>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-neutral-200 bg-white p-4">
+          <h2 className="mb-2 text-sm font-semibold text-neutral-700">Transcripción</h2>
+          {transcripcion && transcripcion.texto_completo?.length > 0 ? (
+            <ol className="max-h-96 space-y-2 overflow-y-auto text-sm">
+              {transcripcion.texto_completo.map((turno, i) => (
+                <li key={i} className={turno.hablante === "agente" ? "text-neutral-700" : "text-neutral-900"}>
+                  <span className="font-medium capitalize">{turno.hablante}:</span> {turno.texto}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm text-neutral-400">Sin transcripción todavía.</p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
