@@ -35,6 +35,10 @@ export type ConversationRelayOutgoing =
 export interface EmpresaConfig {
   nombre: string;
   guion_agente: {
+    // Si la empresa escribe su propio prompt completo, este campo manda y
+    // los campos guiados de abajo se ignoran (siguen existiendo por si la
+    // empresa prefiere el modo guiado en vez de escribir el prompt a mano).
+    prompt_personalizado?: string;
     saludo?: string;
     que_resuelve?: string;
     datos_a_tomar?: string[];

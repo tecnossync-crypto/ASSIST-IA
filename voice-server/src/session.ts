@@ -1,4 +1,4 @@
-import type Anthropic from "@anthropic-ai/sdk";
+import type OpenAI from "openai";
 import { construirSystemPrompt, correrTurno, generarResumen } from "./llm.js";
 import { getEmpresaConfig, guardarTranscripcion } from "./backend-client.js";
 import type { EmpresaConfig, TurnoConversacion } from "./types.js";
@@ -10,7 +10,7 @@ import type { EmpresaConfig, TurnoConversacion } from "./types.js";
  * real es la grabación + lo que se guarda en Postgres al final.
  */
 export class ConversationSession {
-  private historial: Anthropic.MessageParam[] = [];
+  private historial: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
   private turnos: TurnoConversacion[] = [];
   private systemPrompt = "";
   private empresa: EmpresaConfig | null = null;

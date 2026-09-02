@@ -5,7 +5,7 @@ SaaS de gestión de llamadas con agente de voz IA sobre la cuenta de Twilio del 
 ## Estructura
 
 - `backend/` — API Fastify + TypeScript: webhooks de Twilio, endpoints internos para el voice-server, lógica de negocio, auth del dashboard (pendiente).
-- `voice-server/` — servidor de voz IA: WebSocket con Twilio ConversationRelay, conversa con Claude, ejecuta herramientas (`transferir_a_humano`, `registrar_solicitud`).
+- `voice-server/` — servidor de voz IA: WebSocket con Twilio ConversationRelay, conversa con OpenAI (GPT), ejecuta herramientas (`transferir_a_humano`, `registrar_solicitud`).
 - `dashboard/` — Next.js: lista de llamadas con búsqueda/filtro y detalle (audio, transcripción, resumen).
 - `docs/` — documentación del proyecto.
 
@@ -17,7 +17,7 @@ SaaS de gestión de llamadas con agente de voz IA sobre la cuenta de Twilio del 
 
 1. Twilio recibe la llamada → `POST /webhooks/twilio/voice-inbound` en el backend.
 2. El backend responde TwiML: graba, conecta el audio por WebSocket a `voice-server` (ConversationRelay), y deja un `<Redirect>` de respaldo.
-3. `voice-server` mantiene la conversación con Claude y llama al backend (`/internal/...`, con `INTERNAL_API_KEY`) para leer el guion de la empresa, registrar solicitudes, marcar transferencias y guardar la transcripción.
+3. `voice-server` mantiene la conversación con OpenAI (GPT) y llama al backend (`/internal/...`, con `INTERNAL_API_KEY`) para leer el guion de la empresa, registrar solicitudes, marcar transferencias y guardar la transcripción.
 4. Si el agente decide transferir, `voice-server` termina ConversationRelay (`{"type":"end"}`); TwiML cae al `<Redirect>` → `POST /webhooks/twilio/post-relay`, que hace el `<Dial>` real hacia el humano.
 
 ## Arranque local

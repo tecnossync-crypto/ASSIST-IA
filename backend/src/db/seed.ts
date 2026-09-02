@@ -24,7 +24,10 @@ async function main() {
     );
   }
 
+  // Si la empresa da un prompt completo (SEED_GUION_PROMPT_PERSONALIZADO),
+  // ese manda y los campos guiados de abajo quedan solo como respaldo/registro.
   const guionAgente = {
+    prompt_personalizado: process.env.SEED_GUION_PROMPT_PERSONALIZADO ?? "",
     saludo: process.env.SEED_GUION_SALUDO ?? `Gracias por llamar a ${nombre}, ¿en qué le puedo ayudar?`,
     que_resuelve: process.env.SEED_GUION_QUE_RESUELVE ?? "",
     datos_a_tomar: (process.env.SEED_GUION_DATOS_A_TOMAR ?? "")

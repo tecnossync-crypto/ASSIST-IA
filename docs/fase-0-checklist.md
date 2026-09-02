@@ -26,11 +26,11 @@
 - [x] Webhook `/webhooks/twilio/recording-status` (placeholder, falta el job de descarga).
 - [x] Webhook `/webhooks/twilio/post-relay` (resuelve `<Dial>` cuando el agente pidió transferencia).
 - [x] Endpoints internos backend↔voice-server (`/internal/...`, protegidos con `INTERNAL_API_KEY`).
-- [x] `voice-server`: servidor WebSocket (ConversationRelay) que conversa con Claude y ejecuta herramientas.
+- [x] `voice-server`: servidor WebSocket (ConversationRelay) que conversa con OpenAI (GPT) y ejecuta herramientas.
   - [x] Herramienta `transferir_a_humano` (marca destino + termina ConversationRelay).
   - [x] Herramienta `registrar_solicitud` (inserta en `solicitudes`).
   - [x] Guarda transcripción cruda al colgar.
-  - [x] Resumen automático (motivo/solicitud/resultado/acción pendiente) generado por Claude al colgar.
+  - [x] Resumen automático (motivo/solicitud/resultado/acción pendiente) generado por OpenAI (GPT) al colgar.
 - [x] Job de grabación: descarga desde Twilio → sube a storage propio (S3/R2) → hash SHA-256 → borra en Twilio.
 - [x] Encriptación (AES-256-GCM) del `twilio_auth_token` por empresa (`ENCRYPTION_KEY`).
 - [x] Seed (`npm run seed` en backend): inserta la empresa desde variables de entorno (`SEED_*`, `TWILIO_*`).
