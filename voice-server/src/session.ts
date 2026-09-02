@@ -1,6 +1,6 @@
 import type OpenAI from "openai";
 import { construirSystemPrompt, correrTurno, generarResumen } from "./llm.js";
-import { getEmpresaConfig, guardarTranscripcion } from "./backend-client.js";
+import { getEmpresaConfig, getEmpresaConfigDeCampana, guardarTranscripcion } from "./backend-client.js";
 import type { EmpresaConfig, TurnoConversacion } from "./types.js";
 
 /**
@@ -17,11 +17,14 @@ export class ConversationSession {
 
   constructor(
     public readonly callSid: string,
-    public readonly empresaId: string
+    public readonly empresaId: string,
+    public readonly campanaContactoId?: string
   ) {}
 
   async inicializar() {
-    this.empresa = await getEmpresaConfig(this.empresaId);
+    this.empresa = this.campanaContactoId
+      ? await getEmpresaConfigDeCampana(this.campanaContactoId)
+      : await getEmpresaConfig(this.empresaId);
     this.systemPrompt = construirSystemPrompt(this.empresa);
   }
 

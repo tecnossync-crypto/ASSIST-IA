@@ -175,4 +175,50 @@ export async function internalRoutes(app: FastifyInstance) {
       reply.send(result.rows[0]);
     }
   );
+
+  // Igual que config-agente, pero para una llamada que sale de una campaña:
+  // el guion_override de la campaña pisa (shallow merge) los campos del
+  // guion_agente normal de la empresa. numeros_transferencia/voz/campos
+  // personalizados siguen siendo los de la empresa — las campañas no los tocan.
+  app.get<{ Params: { campanaContactoId: string } }>(
+    "/internal/campana-contactos/:campanaContactoId/config-agente",
+    async (req, reply) => {
+      const { campanaContactoId } = req.params;
+
+      const contacto = await pool.query<{ campana_id: string; empresa_id: string }>(
+        "SELECT campana_id, empresa_id FROM campana_contactos WHERE id = $1",
+        [campanaContactoId]
+      );
+      if (contacto.rows.length === 0) {
+        reply.code(404).send({ error: "contacto de campaña no encontrado" });
+        return;
+      }
+      const { campana_id: campanaId, empresa_id: empresaId } = contacto.rows[0];
+
+      const [empresa, campana] = await Promise.all([
+        pool.query(
+          `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados
+           FROM empresas WHERE id = $1`,
+          [empresaId]
+        ),
+        pool.query<{ guion_override: Record<string, unknown> | null }>(
+          "SELECT guion_override FROM campanas WHERE id = $1",
+          [campanaId]
+        ),
+      ]);
+
+      if (empresa.rows.length === 0) {
+        reply.code(404).send({ error: "empresa no encontrada" });
+        return;
+      }
+
+      const empresaRow = empresa.rows[0];
+      const override = campana.rows[0]?.guion_override ?? {};
+
+      reply.send({
+        ...empresaRow,
+        guion_agente: { ...empresaRow.guion_agente, ...override },
+      });
+    }
+  );
 }

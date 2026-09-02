@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { twimlConnectVoiceAgent, twimlDialHumano, twimlColgar } from "../lib/twiml.js";
 import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
+import { reprogramarOFallar } from "../jobs/dispatcher-campanas.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -53,16 +54,16 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   // Twilio llega acá cuando contestan una llamada saliente que nosotros
   // originamos (ver POST /api/llamadas/salientes). empresaId viaja en la
   // query string porque nosotros armamos esta URL al crear la llamada.
-  app.post<{ Querystring: { empresaId?: string } }>(
+  app.post<{ Querystring: { empresaId?: string; campanaContactoId?: string } }>(
     "/webhooks/twilio/voice-outbound",
     async (req, reply) => {
       const body = req.body as Record<string, string>;
       const callSid = body.CallSid;
       const from = body.From;
       const to = body.To;
-      const empresaId = req.query.empresaId;
+      const { empresaId, campanaContactoId } = req.query;
 
-      app.log.info({ callSid, from, to, empresaId }, "Llamada saliente contestada");
+      app.log.info({ callSid, from, to, empresaId, campanaContactoId }, "Llamada saliente contestada");
 
       if (!empresaId) {
         reply.type("text/xml").send(twimlColgar());
@@ -70,11 +71,18 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       }
 
       await pool.query(
-        `INSERT INTO llamadas (empresa_id, call_sid, direccion, numero_origen, numero_destino, estado)
-         VALUES ($1, $2, 'saliente', $3, $4, 'en_curso')
+        `INSERT INTO llamadas (empresa_id, call_sid, direccion, numero_origen, numero_destino, estado, campana_contacto_id)
+         VALUES ($1, $2, 'saliente', $3, $4, 'en_curso', $5)
          ON CONFLICT (call_sid) DO NOTHING`,
-        [empresaId, callSid, from, to]
+        [empresaId, callSid, from, to, campanaContactoId ?? null]
       );
+
+      if (campanaContactoId) {
+        await pool.query(
+          `UPDATE campana_contactos SET ultima_llamada_id = (SELECT id FROM llamadas WHERE call_sid = $2) WHERE id = $1`,
+          [campanaContactoId, callSid]
+        );
+      }
 
       const voiceWsUrl = process.env.VOICE_WS_URL;
       if (!voiceWsUrl) throw new Error("VOICE_WS_URL no está configurado");
@@ -85,7 +93,13 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       );
 
       reply.type("text/xml").send(
-        twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid, voz: voz.rows[0]?.voz_agente ?? null })
+        twimlConnectVoiceAgent({
+          voiceWsUrl,
+          empresaId,
+          callSid,
+          voz: voz.rows[0]?.voz_agente ?? null,
+          campanaContactoId,
+        })
       );
     }
   );
@@ -113,23 +127,45 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     reply.type("text/xml").send(twimlColgar());
   });
 
-  app.post("/webhooks/twilio/call-status", async (req, reply) => {
-    const body = req.body as Record<string, string>;
-    const { CallSid: callSid, CallStatus: status, CallDuration: duration } = body;
+  app.post<{ Querystring: { campanaContactoId?: string } }>(
+    "/webhooks/twilio/call-status",
+    async (req, reply) => {
+      const body = req.body as Record<string, string>;
+      const { CallSid: callSid, CallStatus: status, CallDuration: duration } = body;
+      const { campanaContactoId } = req.query;
 
-    app.log.info({ callSid, status, duration }, "Actualización de estado de llamada");
+      app.log.info({ callSid, status, duration, campanaContactoId }, "Actualización de estado de llamada");
 
-    if (status === "completed") {
-      await pool.query(
-        `UPDATE llamadas
-         SET estado = 'completada', duracion_segundos = $2, finalizada_en = now()
-         WHERE call_sid = $1`,
-        [callSid, duration ? parseInt(duration, 10) : null]
-      );
+      if (status === "completed") {
+        await pool.query(
+          `UPDATE llamadas
+           SET estado = 'completada', duracion_segundos = $2, finalizada_en = now()
+           WHERE call_sid = $1`,
+          [callSid, duration ? parseInt(duration, 10) : null]
+        );
+      }
+
+      // Si esta llamada es de una campaña, actualiza el contacto: completada
+      // si contestó, o reprograma/marca fallida según reintentos restantes.
+      if (campanaContactoId) {
+        if (status === "completed") {
+          await pool.query(`UPDATE campana_contactos SET estado = 'completada' WHERE id = $1`, [
+            campanaContactoId,
+          ]);
+        } else if (["busy", "no-answer", "failed", "canceled"].includes(status)) {
+          const contacto = await pool.query<{ campana_id: string }>(
+            "SELECT campana_id FROM campana_contactos WHERE id = $1",
+            [campanaContactoId]
+          );
+          if (contacto.rows[0]) {
+            await reprogramarOFallar(campanaContactoId, contacto.rows[0].campana_id);
+          }
+        }
+      }
+
+      reply.send({ ok: true });
     }
-
-    reply.send({ ok: true });
-  });
+  );
 
   app.post("/webhooks/twilio/recording-status", async (req, reply) => {
     const body = req.body as Record<string, string>;

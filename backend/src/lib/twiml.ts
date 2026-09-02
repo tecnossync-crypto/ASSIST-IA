@@ -9,13 +9,20 @@ export function twimlConnectVoiceAgent(opts: {
   empresaId: string;
   callSid: string;
   voz?: string | null;
+  campanaContactoId?: string | null;
 }): string {
-  const { voiceWsUrl, empresaId, callSid, voz } = opts;
+  const { voiceWsUrl, empresaId, callSid, voz, campanaContactoId } = opts;
 
   // El atributo voice de ConversationRelay elige la voz TTS (ej. un id de
   // Google/Amazon Polly). Si la empresa no eligió ninguna, se omite y
   // Twilio usa su voz por defecto.
   const vozAttr = voz ? ` voice="${voz}"` : "";
+
+  // Si la llamada viene de una campaña, el voice-server la usa para pedir
+  // el guion combinado (empresa + guion_override de la campaña).
+  const parametroCampana = campanaContactoId
+    ? `\n      <Parameter name="campanaContactoId" value="${campanaContactoId}" />`
+    : "";
 
   // <Record> deja constancia de la llamada completa; <Connect><ConversationRelay>
   // entrega el audio como texto por WebSocket a nuestro servidor de voz IA.
@@ -30,7 +37,7 @@ export function twimlConnectVoiceAgent(opts: {
   <Connect>
     <ConversationRelay url="${voiceWsUrl}"${vozAttr}>
       <Parameter name="empresaId" value="${empresaId}" />
-      <Parameter name="callSid" value="${callSid}" />
+      <Parameter name="callSid" value="${callSid}" />${parametroCampana}
     </ConversationRelay>
   </Connect>
   <Redirect method="POST">/webhooks/twilio/post-relay</Redirect>

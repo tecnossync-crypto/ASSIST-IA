@@ -42,6 +42,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 Llamadas
               </a>
               <a
+                href="/campanas"
+                className="rounded-lg px-3 py-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                Campañas
+              </a>
+              <a
                 href="/configuracion"
                 className="rounded-lg px-3 py-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
               >

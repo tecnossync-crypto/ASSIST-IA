@@ -137,3 +137,86 @@ export async function iniciarLlamadaSaliente(numero: string): Promise<{ callSid:
   }
   return res.json();
 }
+
+export interface CampanaResumen {
+  id: string;
+  nombre: string;
+  estado: "borrador" | "en_curso" | "pausada" | "completada";
+  reintentos_max: number;
+  horas_entre_reintentos: number;
+  creado_en: string;
+  total_contactos: string;
+  completados: string;
+  fallidos: string;
+  pendientes: string;
+  llamando: string;
+}
+
+export interface CampanaContacto {
+  id: string;
+  numero: string;
+  nombre: string | null;
+  estado: "pendiente" | "llamando" | "completada" | "fallida";
+  intentos: number;
+  ultima_llamada_id: string | null;
+  proximo_intento_en: string;
+  creado_en: string;
+}
+
+export interface CampanaDetalle {
+  campana: {
+    id: string;
+    empresa_id: string;
+    nombre: string;
+    estado: CampanaResumen["estado"];
+    reintentos_max: number;
+    horas_entre_reintentos: number;
+    guion_override: GuionAgente | null;
+    creado_en: string;
+  };
+  contactos: CampanaContacto[];
+}
+
+export async function listarCampanas(): Promise<CampanaResumen[]> {
+  const url = new URL("/api/campanas", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando campañas: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.campanas;
+}
+
+export async function crearCampana(data: {
+  nombre: string;
+  contactos: { numero: string; nombre?: string }[];
+  reintentosMax: number;
+  horasEntreReintentos: number;
+  guionOverride?: GuionAgente | null;
+}): Promise<{ campanaId: string }> {
+  const res = await fetch(new URL("/api/campanas", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, ...data }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error creando campaña: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function obtenerCampana(id: string): Promise<CampanaDetalle> {
+  const res = await fetch(new URL(`/api/campanas/${id}`, BACKEND_URL), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo campaña: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function iniciarCampana(id: string): Promise<void> {
+  const res = await fetch(new URL(`/api/campanas/${id}/iniciar`, BACKEND_URL), { method: "POST" });
+  if (!res.ok) throw new Error(`Error iniciando campaña: HTTP ${res.status}`);
+}
+
+export async function pausarCampana(id: string): Promise<void> {
+  const res = await fetch(new URL(`/api/campanas/${id}/pausar`, BACKEND_URL), { method: "POST" });
+  if (!res.ok) throw new Error(`Error pausando campaña: HTTP ${res.status}`);
+}

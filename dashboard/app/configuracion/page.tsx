@@ -1,5 +1,6 @@
 import { obtenerEmpresa } from "@/lib/api";
 import { guardarConfiguracion } from "./actions";
+import { SelectorVoz } from "@/components/SelectorVoz";
 
 export default async function ConfiguracionPage() {
   const empresa = await obtenerEmpresa();
@@ -43,20 +44,8 @@ export default async function ConfiguracionPage() {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="voz_agente" className="text-sm font-medium text-slate-700">
-            Voz del agente
-          </label>
-          <input
-            id="voz_agente"
-            name="voz_agente"
-            defaultValue={empresa.voz_agente ?? ""}
-            placeholder="Ej: es-US-Neural2-A (dejar vacío usa la voz por defecto)"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <p className="text-xs text-slate-400">
-            Id de voz de Twilio ConversationRelay (Google/Amazon Polly). Consulta la lista completa en la
-            documentación de Twilio antes de poner un valor — uno inválido hace fallar la llamada.
-          </p>
+          <span className="text-sm font-medium text-slate-700">Voz del agente</span>
+          <SelectorVoz defaultValue={empresa.voz_agente} />
         </div>
 
         <div className="flex flex-col gap-1">

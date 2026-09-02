@@ -33,6 +33,13 @@ export async function getEmpresaConfig(empresaId: string): Promise<EmpresaConfig
   return (await res.json()) as EmpresaConfig;
 }
 
+// Cuando la llamada viene de una campaña, el guion_override de la campaña
+// pisa (shallow merge) el guion_agente normal de la empresa.
+export async function getEmpresaConfigDeCampana(campanaContactoId: string): Promise<EmpresaConfig> {
+  const res = await internalFetch(`/internal/campana-contactos/${campanaContactoId}/config-agente`);
+  return (await res.json()) as EmpresaConfig;
+}
+
 export async function marcarTransferencia(callSid: string, numeroTransferencia: string) {
   await internalFetch(`/internal/llamadas/${callSid}/transferir`, {
     method: "POST",

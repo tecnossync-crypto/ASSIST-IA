@@ -1,12 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import twilio from "twilio";
-import { pool } from "../db/pool.js";
-import { desencriptar } from "../lib/crypto.js";
+import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
 
 /**
- * Dispara una llamada saliente desde el dashboard: la plataforma llama al
- * número que le des, usando el Twilio de la empresa. Fase 1: sin auth
- * todavía, mismo TODO que el resto de /api — no exponer sin resolver login.
+ * Dispara una llamada saliente manual desde el dashboard (botón "Llamar
+ * ahora"): la plataforma llama al número que le des, usando el Twilio de la
+ * empresa. Fase 1: sin auth todavía, mismo TODO que el resto de /api.
  */
 export async function llamadasSalientesRoutes(app: FastifyInstance) {
   app.post<{ Body: { empresaId: string; numero: string } }>(
@@ -19,34 +17,22 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
         return;
       }
 
-      const empresa = await pool.query<{
-        twilio_account_sid: string | null;
-        twilio_auth_token_enc: string | null;
-        twilio_phone_number: string | null;
-      }>(
-        "SELECT twilio_account_sid, twilio_auth_token_enc, twilio_phone_number FROM empresas WHERE id = $1",
-        [empresaId]
-      );
-
-      const row = empresa.rows[0];
-      if (!row?.twilio_account_sid || !row.twilio_auth_token_enc || !row.twilio_phone_number) {
-        reply.code(400).send({ error: "La empresa no tiene credenciales Twilio configuradas" });
-        return;
-      }
-
       const publicBaseUrl = process.env.PUBLIC_BASE_URL;
       if (!publicBaseUrl) {
         reply.code(500).send({ error: "PUBLIC_BASE_URL no está configurado" });
         return;
       }
 
-      const authToken = desencriptar(row.twilio_auth_token_enc);
-      const client = twilio(row.twilio_account_sid, authToken);
+      const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
+      if (!twilioEmpresa) {
+        reply.code(400).send({ error: "La empresa no tiene credenciales Twilio configuradas" });
+        return;
+      }
 
       try {
-        const call = await client.calls.create({
+        const call = await twilioEmpresa.client.calls.create({
           to: numero,
-          from: row.twilio_phone_number,
+          from: twilioEmpresa.fromNumber,
           url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}`,
           method: "POST",
           statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
