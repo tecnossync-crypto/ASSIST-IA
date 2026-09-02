@@ -175,7 +175,7 @@ export async function internalRoutes(app: FastifyInstance) {
 
       const result = await pool.query(
         `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados,
-                duracion_maxima_llamada_segundos
+                duracion_maxima_llamada_segundos, tiempo_respuesta_segundos
          FROM empresas WHERE id = $1`,
         [empresaId]
       );
@@ -210,7 +210,8 @@ export async function internalRoutes(app: FastifyInstance) {
 
       const [empresa, campana] = await Promise.all([
         pool.query(
-          `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados
+          `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados,
+                  duracion_maxima_llamada_segundos, tiempo_respuesta_segundos
            FROM empresas WHERE id = $1`,
           [empresaId]
         ),

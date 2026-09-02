@@ -108,6 +108,7 @@ export interface EmpresaConfig {
   etiquetas_disponibles: EtiquetaDisponible[];
   duracion_maxima_llamada_segundos: number;
   timeout_timbrado_segundos: number;
+  tiempo_respuesta_segundos: number;
 }
 
 export async function obtenerEmpresa(): Promise<EmpresaConfig> {
@@ -127,6 +128,7 @@ export async function actualizarEmpresa(data: {
   etiquetas_disponibles: EtiquetaDisponible[];
   duracion_maxima_llamada_segundos: number;
   timeout_timbrado_segundos: number;
+  tiempo_respuesta_segundos: number;
 }): Promise<void> {
   const res = await fetch(new URL("/api/empresa", BACKEND_URL), {
     method: "PUT",

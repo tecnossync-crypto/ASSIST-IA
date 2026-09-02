@@ -49,6 +49,7 @@ export interface EmpresaConfig {
   numeros_transferencia: string[];
   campos_personalizados?: { nombre: string; descripcion?: string }[];
   duracion_maxima_llamada_segundos?: number;
+  tiempo_respuesta_segundos?: number;
 }
 
 export interface TurnoConversacion {

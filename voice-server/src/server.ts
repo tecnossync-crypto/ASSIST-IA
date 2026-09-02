@@ -96,6 +96,9 @@ wss.on("connection", (ws) => {
 
           const resultado = await session.procesarMensajeCliente(msg.voicePrompt);
 
+          const pausaMs = session.tiempoRespuestaSegundos() * 1000;
+          if (pausaMs > 0) await new Promise((r) => setTimeout(r, pausaMs));
+
           if (resultado.textoRespuesta) {
             enviar(ws, { type: "text", token: resultado.textoRespuesta, last: true });
           }

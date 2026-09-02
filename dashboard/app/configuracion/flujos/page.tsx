@@ -1,6 +1,6 @@
 import { Workflow, Tag, ClipboardList } from "lucide-react";
 import { listarFlujosTrabajo } from "@/lib/api";
-import { ConfiguracionTabs } from "@/components/ConfiguracionTabs";
+import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { FlujoTrabajoForm } from "@/components/FlujoTrabajoForm";
 import { activarFlujoAction, desactivarFlujoAction, eliminarFlujoAction } from "./actions";
 
@@ -15,14 +15,11 @@ export default async function FlujosTrabajoPage() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold">Configuración</h1>
-        <p className="text-sm text-slate-500">
-          Reglas automáticas: cuando una llamada termina de cierta forma, la plataforma hace algo por ti.
-        </p>
-      </div>
-
-      <ConfiguracionTabs activo="/configuracion/flujos" />
+      <ConfiguracionHeader
+        Icon={Workflow}
+        titulo="Flujos de trabajo"
+        descripcion="Reglas automáticas: cuando una llamada termina de cierta forma, la plataforma hace algo por ti."
+      />
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">

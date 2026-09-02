@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { actualizarEmpresa, obtenerEmpresa, type CampoPersonalizado, type EtiquetaDisponible } from "@/lib/api";
 
-export async function guardarCamposYEtiquetas(formData: FormData) {
+export async function guardarContactosConfigAction(formData: FormData) {
   const camposJson = String(formData.get("campos_personalizados_json") ?? "[]");
   const etiquetasJson = String(formData.get("etiquetas_disponibles_json") ?? "[]");
 
@@ -29,11 +29,12 @@ export async function guardarCamposYEtiquetas(formData: FormData) {
     guion_agente: actual.guion_agente,
     numeros_transferencia: actual.numeros_transferencia,
     voz_agente: actual.voz_agente,
-    campos_personalizados,
-    etiquetas_disponibles,
     duracion_maxima_llamada_segundos: actual.duracion_maxima_llamada_segundos,
     timeout_timbrado_segundos: actual.timeout_timbrado_segundos,
+    tiempo_respuesta_segundos: actual.tiempo_respuesta_segundos,
+    campos_personalizados,
+    etiquetas_disponibles,
   });
 
-  revalidatePath("/configuracion/campos");
+  revalidatePath("/configuracion/contactos");
 }

@@ -33,6 +33,11 @@ export class ConversationSession {
     return this.empresa?.duracion_maxima_llamada_segundos ?? 600;
   }
 
+  /** Pausa artificial antes de que el bot responda, para que no se sienta instantáneo. */
+  tiempoRespuestaSegundos(): number {
+    return this.empresa?.tiempo_respuesta_segundos ?? 0;
+  }
+
   saludoInicial(): string {
     return this.empresa?.guion_agente?.saludo || `Gracias por llamar a ${this.empresa?.nombre ?? "nuestra empresa"}, ¿en qué le puedo ayudar?`;
   }

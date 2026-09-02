@@ -1,23 +1,39 @@
-import { Database, Tags } from "lucide-react";
+import Link from "next/link";
+import { Users, Database, Tags, Upload, ArrowUpRight } from "lucide-react";
 import { obtenerEmpresa } from "@/lib/api";
-import { ConfiguracionTabs } from "@/components/ConfiguracionTabs";
+import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { EditorCamposPersonalizados } from "@/components/EditorCamposPersonalizados";
 import { EditorEtiquetas } from "@/components/EditorEtiquetas";
-import { guardarCamposYEtiquetas } from "./actions";
+import { guardarContactosConfigAction } from "./actions";
 
-export default async function CamposYEtiquetasPage() {
+export default async function ContactosConfigPage() {
   const empresa = await obtenerEmpresa();
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold">Configuración</h1>
-        <p className="text-sm text-slate-500">Qué datos recolecta el agente y cómo se organizan los contactos.</p>
-      </div>
+      <ConfiguracionHeader
+        Icon={Users}
+        titulo="Contactos"
+        descripcion="Qué datos recolecta el agente y cómo se organizan tus clientes."
+      />
 
-      <ConfiguracionTabs activo="/configuracion/campos" />
+      <Link
+        href="/contactos"
+        className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300"
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+            <Upload size={16} />
+          </span>
+          <div>
+            <p className="text-sm font-medium text-slate-800">Importar contactos (CSV)</p>
+            <p className="text-xs text-slate-500">Se hace desde el módulo de Contactos, no aquí.</p>
+          </div>
+        </div>
+        <ArrowUpRight size={16} className="text-slate-400" />
+      </Link>
 
-      <form action={guardarCamposYEtiquetas} className="flex flex-col gap-6">
+      <form action={guardarContactosConfigAction} className="flex flex-col gap-6">
         <section className="rounded-lg border border-slate-200 bg-white p-5">
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
             <Database size={16} className="text-indigo-600" />
