@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Megaphone } from "lucide-react";
 import { listarCampanas } from "@/lib/api";
 import { formatFechaHora } from "@/lib/format";
 import { crearCampanaAction, iniciarCampanaAction, pausarCampanaAction } from "./actions";
+import { CampanaContactosInput } from "@/components/CampanaContactosInput";
 
 const ETIQUETAS_ESTADO: Record<string, string> = {
   borrador: "Borrador",
@@ -23,8 +25,9 @@ export default async function CampanasPage() {
       </div>
 
       <details className="rounded-lg border border-slate-200 bg-white">
-        <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-slate-700">
-          + Nueva campaña
+        <summary className="flex cursor-pointer select-none items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700">
+          <Megaphone size={15} className="text-indigo-600" />
+          Nueva campaña
         </summary>
         <form action={crearCampanaAction} className="flex flex-col gap-4 border-t border-slate-100 p-5">
           <div className="flex flex-col gap-1">
@@ -44,15 +47,7 @@ export default async function CampanasPage() {
             <label htmlFor="contactos" className="text-sm font-medium text-slate-700">
               Números a llamar
             </label>
-            <textarea
-              id="contactos"
-              name="contactos"
-              required
-              rows={6}
-              placeholder={"+18095551234, Juan Pérez\n+18095555678"}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            <p className="text-xs text-slate-400">Un número por línea. Formato: número o número, nombre.</p>
+            <CampanaContactosInput />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { requireInternalKey } from "../lib/internal-auth.js";
+import { upsertContacto } from "../lib/contactos.js";
 
 /**
  * Endpoints que solo llama el voice-server (nunca Twilio, nunca el dashboard).
@@ -104,8 +105,14 @@ export async function internalRoutes(app: FastifyInstance) {
       return;
     }
 
-    const llamada = await pool.query<{ id: string; empresa_id: string }>(
-      "SELECT id, empresa_id FROM llamadas WHERE call_sid = $1",
+    const llamada = await pool.query<{
+      id: string;
+      empresa_id: string;
+      direccion: "entrante" | "saliente";
+      numero_origen: string;
+      numero_destino: string;
+    }>(
+      "SELECT id, empresa_id, direccion, numero_origen, numero_destino FROM llamadas WHERE call_sid = $1",
       [callSid]
     );
 
@@ -114,12 +121,17 @@ export async function internalRoutes(app: FastifyInstance) {
       return;
     }
 
-    const { id: llamadaId, empresa_id: empresaId } = llamada.rows[0];
+    const { id: llamadaId, empresa_id: empresaId, direccion, numero_origen, numero_destino } =
+      llamada.rows[0];
 
     await pool.query(
       `INSERT INTO datos_llamada (empresa_id, llamada_id, campo, valor) VALUES ($1, $2, $3, $4)`,
       [empresaId, llamadaId, campo, valor]
     );
+
+    // El número del cliente (no el nuestro) es el que identifica el perfil.
+    const numeroCliente = direccion === "entrante" ? numero_origen : numero_destino;
+    await upsertContacto(empresaId, numeroCliente, campo, valor);
 
     reply.send({ ok: true });
   });

@@ -31,12 +31,15 @@ CREATE TABLE usuarios (
 );
 
 CREATE TABLE contactos (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    empresa_id  UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
-    numero      TEXT NOT NULL,
-    nombre      TEXT,
-    notas       TEXT,
-    creado_en   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id      UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    numero          TEXT NOT NULL,
+    nombre          TEXT,
+    apellido        TEXT,
+    notas           TEXT,
+    datos           JSONB NOT NULL DEFAULT '{}'::jsonb, -- campos personalizados capturados por el agente
+    creado_en       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (empresa_id, numero)
 );
 

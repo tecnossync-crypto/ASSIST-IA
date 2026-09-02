@@ -3,6 +3,7 @@ import { pool } from "../db/pool.js";
 import { twimlConnectVoiceAgent, twimlDialHumano, twimlColgar } from "../lib/twiml.js";
 import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
 import { reprogramarOFallar } from "../jobs/dispatcher-campanas.js";
+import { asegurarContacto } from "../lib/contactos.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -41,13 +42,14 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
        ON CONFLICT (call_sid) DO NOTHING`,
       [empresaId, callSid, from, to]
     );
+    await asegurarContacto(empresaId, from);
 
     const voiceWsUrl = process.env.VOICE_WS_URL;
-    if (!voiceWsUrl) {
-      throw new Error("VOICE_WS_URL no está configurado");
-    }
+    const publicBaseUrl = process.env.PUBLIC_BASE_URL;
+    if (!voiceWsUrl) throw new Error("VOICE_WS_URL no está configurado");
+    if (!publicBaseUrl) throw new Error("PUBLIC_BASE_URL no está configurado");
 
-    const twiml = twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid, voz });
+    const twiml = twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid, voz, publicBaseUrl });
     reply.type("text/xml").send(twiml);
   });
 
@@ -76,6 +78,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
          ON CONFLICT (call_sid) DO NOTHING`,
         [empresaId, callSid, from, to, campanaContactoId ?? null]
       );
+      await asegurarContacto(empresaId, to);
 
       if (campanaContactoId) {
         await pool.query(
@@ -85,7 +88,9 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       }
 
       const voiceWsUrl = process.env.VOICE_WS_URL;
+      const publicBaseUrl = process.env.PUBLIC_BASE_URL;
       if (!voiceWsUrl) throw new Error("VOICE_WS_URL no está configurado");
+      if (!publicBaseUrl) throw new Error("PUBLIC_BASE_URL no está configurado");
 
       const voz = await pool.query<{ voz_agente: string | null }>(
         "SELECT voz_agente FROM empresas WHERE id = $1",
@@ -99,6 +104,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           callSid,
           voz: voz.rows[0]?.voz_agente ?? null,
           campanaContactoId,
+          publicBaseUrl,
         })
       );
     }

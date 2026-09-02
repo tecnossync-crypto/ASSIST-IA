@@ -237,3 +237,40 @@ export async function pausarCampana(id: string): Promise<void> {
   const res = await fetch(new URL(`/api/campanas/${id}/pausar`, BACKEND_URL), { method: "POST" });
   if (!res.ok) throw new Error(`Error pausando campaña: HTTP ${res.status}`);
 }
+
+export interface ContactoResumen {
+  id: string;
+  numero: string;
+  nombre: string | null;
+  apellido: string | null;
+  datos: Record<string, string>;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface ContactoDetalle {
+  contacto: ContactoResumen & { notas: string | null };
+  llamadas: {
+    id: string;
+    direccion: "entrante" | "saliente";
+    estado: string;
+    duracion_segundos: number | null;
+    iniciada_en: string;
+  }[];
+}
+
+export async function listarContactos(q?: string): Promise<ContactoResumen[]> {
+  const url = new URL("/api/contactos", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  if (q) url.searchParams.set("q", q);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando contactos: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.contactos;
+}
+
+export async function obtenerContacto(id: string): Promise<ContactoDetalle> {
+  const res = await fetch(new URL(`/api/contactos/${id}`, BACKEND_URL), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo contacto: HTTP ${res.status}`);
+  return res.json();
+}

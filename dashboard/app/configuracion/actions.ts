@@ -8,32 +8,24 @@ export async function guardarConfiguracion(formData: FormData) {
   const promptPersonalizado = String(formData.get("prompt_personalizado") ?? "").trim();
   const saludo = String(formData.get("saludo") ?? "").trim();
   const queResuelve = String(formData.get("que_resuelve") ?? "").trim();
-  const datosATomar = String(formData.get("datos_a_tomar") ?? "").trim();
   const cuandoTransferir = String(formData.get("cuando_transferir") ?? "").trim();
   const numeros = String(formData.get("numeros_transferencia") ?? "").trim();
   const vozAgente = String(formData.get("voz_agente") ?? "").trim();
-  const camposRaw = String(formData.get("campos_personalizados") ?? "").trim();
+  const camposJson = String(formData.get("campos_personalizados_json") ?? "[]");
 
-  // Cada línea: "nombre" o "nombre: descripción".
-  const campos_personalizados: CampoPersonalizado[] = camposRaw
-    ? camposRaw
-        .split("\n")
-        .map((linea) => linea.trim())
-        .filter(Boolean)
-        .map((linea) => {
-          const [nombre, ...resto] = linea.split(":");
-          const descripcion = resto.join(":").trim();
-          return { nombre: nombre.trim(), descripcion: descripcion || undefined };
-        })
-    : [];
+  let campos_personalizados: CampoPersonalizado[] = [];
+  try {
+    campos_personalizados = (JSON.parse(camposJson) as CampoPersonalizado[]).filter((c) => c.nombre?.trim());
+  } catch {
+    campos_personalizados = [];
+  }
 
   const guion_agente: GuionAgente = {
     prompt_personalizado: promptPersonalizado || undefined,
     saludo: saludo || undefined,
     que_resuelve: queResuelve || undefined,
-    datos_a_tomar: datosATomar
-      ? datosATomar.split(",").map((s) => s.trim()).filter(Boolean)
-      : undefined,
+    // Estos tres siempre se piden, además de lo que la empresa agregue en campos_personalizados.
+    datos_a_tomar: ["nombre", "apellido", "telefono"],
     cuando_transferir: cuandoTransferir || undefined,
   };
 

@@ -41,8 +41,10 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
   return [
     base,
     `Números de transferencia disponibles: ${numeros}.`,
+    "En cuanto el cliente te dé su nombre y apellido, guárdalos con registrar_dato (campo \"nombre\" y campo " +
+      '"apellido", por separado). Esto siempre aplica, para todo cliente.',
     listaCampos
-      ? `Campos que esta empresa necesita que recolectes del cliente, además de lo demás: ${listaCampos}. ` +
+      ? `Campos que esta empresa necesita que recolectes del cliente, además de lo anterior: ${listaCampos}. ` +
         "Usa la herramienta registrar_dato una vez por cada uno en cuanto el cliente te lo dé."
       : "",
     "Usa la herramienta registrar_solicitud en cuanto identifiques qué necesita el cliente.",

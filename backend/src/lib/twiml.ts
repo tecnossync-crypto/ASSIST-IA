@@ -10,8 +10,9 @@ export function twimlConnectVoiceAgent(opts: {
   callSid: string;
   voz?: string | null;
   campanaContactoId?: string | null;
+  publicBaseUrl: string;
 }): string {
-  const { voiceWsUrl, empresaId, callSid, voz, campanaContactoId } = opts;
+  const { voiceWsUrl, empresaId, callSid, voz, campanaContactoId, publicBaseUrl } = opts;
 
   // El atributo voice de ConversationRelay elige la voz TTS (ej. un id de
   // Google/Amazon Polly). Si la empresa no eligió ninguna, se omite y
@@ -32,7 +33,7 @@ export function twimlConnectVoiceAgent(opts: {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
-    <Recording recordingStatusCallback="/webhooks/twilio/recording-status" />
+    <Recording recordingStatusCallback="${publicBaseUrl}/webhooks/twilio/recording-status" />
   </Start>
   <Connect>
     <ConversationRelay url="${voiceWsUrl}"${vozAttr}>
@@ -40,7 +41,7 @@ export function twimlConnectVoiceAgent(opts: {
       <Parameter name="callSid" value="${callSid}" />${parametroCampana}
     </ConversationRelay>
   </Connect>
-  <Redirect method="POST">/webhooks/twilio/post-relay</Redirect>
+  <Redirect method="POST">${publicBaseUrl}/webhooks/twilio/post-relay</Redirect>
 </Response>`;
 }
 

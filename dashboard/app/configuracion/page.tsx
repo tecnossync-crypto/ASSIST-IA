@@ -1,6 +1,8 @@
+import { Building2, Database, MessageSquareText, Sparkles } from "lucide-react";
 import { obtenerEmpresa } from "@/lib/api";
 import { guardarConfiguracion } from "./actions";
 import { SelectorVoz } from "@/components/SelectorVoz";
+import { EditorCamposPersonalizados } from "@/components/EditorCamposPersonalizados";
 
 export default async function ConfiguracionPage() {
   const empresa = await obtenerEmpresa();
@@ -15,132 +17,124 @@ export default async function ConfiguracionPage() {
         </p>
       </div>
 
-      <form action={guardarConfiguracion} className="flex flex-col gap-5 rounded-lg border border-slate-200 bg-white p-5">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="nombre" className="text-sm font-medium text-slate-700">
-            Nombre de la empresa
-          </label>
-          <input
-            id="nombre"
-            name="nombre"
-            defaultValue={empresa.nombre}
-            required
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
+      <form action={guardarConfiguracion} className="flex flex-col gap-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Building2 size={16} className="text-indigo-600" />
+            Datos de la empresa
+          </div>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="nombre" className="text-sm font-medium text-slate-700">
+                Nombre de la empresa
+              </label>
+              <input
+                id="nombre"
+                name="nombre"
+                defaultValue={empresa.nombre}
+                required
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="numeros_transferencia" className="text-sm font-medium text-slate-700">
-            Número(s) de transferencia
-          </label>
-          <input
-            id="numeros_transferencia"
-            name="numeros_transferencia"
-            defaultValue={empresa.numeros_transferencia?.join(", ")}
-            placeholder="+18095551234, +18095555678"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <p className="text-xs text-slate-400">Separados por coma si son varios.</p>
-        </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="numeros_transferencia" className="text-sm font-medium text-slate-700">
+                Número(s) de transferencia
+              </label>
+              <input
+                id="numeros_transferencia"
+                name="numeros_transferencia"
+                defaultValue={empresa.numeros_transferencia?.join(", ")}
+                placeholder="+18095551234, +18095555678"
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <p className="text-xs text-slate-400">Separados por coma si son varios.</p>
+            </div>
 
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-slate-700">Voz del agente</span>
-          <SelectorVoz defaultValue={empresa.voz_agente} />
-        </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-slate-700">Voz del agente</span>
+              <SelectorVoz defaultValue={empresa.voz_agente} />
+            </div>
+          </div>
+        </section>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="campos_personalizados" className="text-sm font-medium text-slate-700">
-            Campos personalizados a recolectar
-          </label>
-          <textarea
-            id="campos_personalizados"
-            name="campos_personalizados"
-            defaultValue={empresa.campos_personalizados
-              ?.map((c) => (c.descripcion ? `${c.nombre}: ${c.descripcion}` : c.nombre))
-              .join("\n")}
-            rows={4}
-            placeholder={"número de póliza: el número que aparece en su tarjeta de seguro\nplaca del vehículo"}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <p className="text-xs text-slate-400">
-            Un campo por línea. Formato: <code>nombre</code> o <code>nombre: descripción</code>. El agente los pedirá
-            y quedarán guardados en el detalle de cada llamada.
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Database size={16} className="text-indigo-600" />
+            Campos a recolectar
+          </div>
+          <p className="mb-3 text-xs text-slate-500">
+            Nombre, apellido y teléfono se guardan siempre. Agrega aquí lo que además necesites por este negocio
+            (número de póliza, placa, dirección…). Se guardan en el perfil de cada contacto.
           </p>
-        </div>
+          <EditorCamposPersonalizados valorInicial={empresa.campos_personalizados ?? []} />
+        </section>
 
-        <hr className="border-slate-100" />
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <Sparkles size={16} className="text-indigo-600" />
+            Prompt personalizado
+          </div>
+          <div className="flex flex-col gap-1">
+            <textarea
+              id="prompt_personalizado"
+              name="prompt_personalizado"
+              defaultValue={g.prompt_personalizado}
+              rows={5}
+              placeholder="Si escribes algo aquí, esto reemplaza por completo los campos guiados de abajo. Ej: 'Eres el asistente de [Empresa]. Saluda con calidez, pregunta el motivo de la llamada...'"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <p className="text-xs text-slate-400">
+              Si lo dejas vacío, se usan los campos guiados de abajo para armar el guion automáticamente.
+            </p>
+          </div>
+        </section>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="prompt_personalizado" className="text-sm font-medium text-slate-700">
-            Prompt personalizado (opcional)
-          </label>
-          <textarea
-            id="prompt_personalizado"
-            name="prompt_personalizado"
-            defaultValue={g.prompt_personalizado}
-            rows={5}
-            placeholder="Si escribes algo aquí, esto reemplaza por completo los campos guiados de abajo. Ej: 'Eres el asistente de [Empresa]. Saluda con calidez, pregunta el motivo de la llamada...'"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
-          />
-          <p className="text-xs text-slate-400">
-            Si lo dejas vacío, se usan los campos guiados de abajo para armar el guion automáticamente.
-          </p>
-        </div>
+        <section className="rounded-lg border border-slate-200 bg-white p-5">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <MessageSquareText size={16} className="text-indigo-600" />
+            Modo guiado <span className="font-normal text-slate-400">(se ignora si hay prompt personalizado)</span>
+          </div>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="saludo" className="text-sm text-slate-600">
+                Saludo inicial
+              </label>
+              <input
+                id="saludo"
+                name="saludo"
+                defaultValue={g.saludo}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
 
-        <hr className="border-slate-100" />
+            <div className="flex flex-col gap-1">
+              <label htmlFor="que_resuelve" className="text-sm text-slate-600">
+                Qué resuelve esta línea
+              </label>
+              <input
+                id="que_resuelve"
+                name="que_resuelve"
+                defaultValue={g.que_resuelve}
+                placeholder="Ej: agendar citas, cotizaciones, soporte técnico"
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
 
-        <p className="text-sm font-medium text-slate-700">Modo guiado (se ignora si hay prompt personalizado)</p>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="saludo" className="text-sm text-slate-600">
-            Saludo inicial
-          </label>
-          <input
-            id="saludo"
-            name="saludo"
-            defaultValue={g.saludo}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="que_resuelve" className="text-sm text-slate-600">
-            Qué resuelve esta línea
-          </label>
-          <input
-            id="que_resuelve"
-            name="que_resuelve"
-            defaultValue={g.que_resuelve}
-            placeholder="Ej: agendar citas, cotizaciones, soporte técnico"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="datos_a_tomar" className="text-sm text-slate-600">
-            Datos que debe pedir al cliente
-          </label>
-          <input
-            id="datos_a_tomar"
-            name="datos_a_tomar"
-            defaultValue={g.datos_a_tomar?.join(", ")}
-            placeholder="nombre, telefono, motivo"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="cuando_transferir" className="text-sm text-slate-600">
-            Cuándo transferir a un humano
-          </label>
-          <input
-            id="cuando_transferir"
-            name="cuando_transferir"
-            defaultValue={g.cuando_transferir}
-            placeholder="Ej: si el cliente lo pide o está molesto"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="cuando_transferir" className="text-sm text-slate-600">
+                Cuándo transferir a un humano
+              </label>
+              <input
+                id="cuando_transferir"
+                name="cuando_transferir"
+                defaultValue={g.cuando_transferir}
+                placeholder="Ej: si el cliente lo pide o está molesto"
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+        </section>
 
         <button
           type="submit"

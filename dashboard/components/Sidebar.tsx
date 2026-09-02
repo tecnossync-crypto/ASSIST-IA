@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LayoutDashboard, Phone, Megaphone, Users, Settings } from "lucide-react";
 
 const ITEMS = [
-  { href: "/", label: "Resumen", icon: "◆" },
-  { href: "/llamadas", label: "Llamadas", icon: "☎" },
-  { href: "/campanas", label: "Campañas", icon: "▲" },
-  { href: "/configuracion", label: "Configuración", icon: "⚙" },
+  { href: "/", label: "Resumen", Icon: LayoutDashboard },
+  { href: "/llamadas", label: "Llamadas", Icon: Phone },
+  { href: "/campanas", label: "Campañas", Icon: Megaphone },
+  { href: "/contactos", label: "Contactos", Icon: Users },
+  { href: "/configuracion", label: "Configuración", Icon: Settings },
 ];
 
 export function Sidebar() {
@@ -26,19 +28,19 @@ export function Sidebar() {
       </Link>
 
       <nav className="flex flex-col gap-0.5 px-3">
-        {ITEMS.map((item) => {
-          const activo = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        {ITEMS.map(({ href, label, Icon }) => {
+          const activo = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
-              key={item.href}
-              href={item.href}
+              key={href}
+              href={href}
               className={
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
                 (activo ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")
               }
             >
-              <span className="w-4 text-center text-xs">{item.icon}</span>
-              {item.label}
+              <Icon size={16} strokeWidth={2} />
+              {label}
             </Link>
           );
         })}
