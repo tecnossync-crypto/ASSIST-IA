@@ -9,3 +9,7 @@
 		reverse_proxy backend:3001
 	}
 }
+
+{$DASHBOARD_DOMAIN} {
+	reverse_proxy dashboard:3000
+}

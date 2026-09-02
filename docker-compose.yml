@@ -13,6 +13,18 @@ services:
     expose:
       - "3002"
 
+  dashboard:
+    build:
+      context: ./dashboard
+      args:
+        NEXT_PUBLIC_EMPRESA_ID: ${NEXT_PUBLIC_EMPRESA_ID}
+        BACKEND_URL: http://backend:3001
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=http://backend:3001
+    expose:
+      - "3000"
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -21,6 +33,7 @@ services:
       - "443:443"
     environment:
       - PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
+      - DASHBOARD_DOMAIN=${DASHBOARD_DOMAIN}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
@@ -28,6 +41,7 @@ services:
     depends_on:
       - backend
       - voice-server
+      - dashboard
 
 volumes:
   caddy_data:
