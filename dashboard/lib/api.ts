@@ -216,6 +216,23 @@ export async function iniciarCampana(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Error iniciando campaña: HTTP ${res.status}`);
 }
 
+export interface Resumen {
+  llamadas_hoy: string;
+  llamadas_activas: string;
+  transferidas_hoy: string;
+  entrantes_hoy: string;
+  salientes_hoy: string;
+  campanas_activas: string;
+}
+
+export async function obtenerResumen(): Promise<Resumen> {
+  const url = new URL("/api/resumen", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo resumen: HTTP ${res.status}`);
+  return res.json();
+}
+
 export async function pausarCampana(id: string): Promise<void> {
   const res = await fetch(new URL(`/api/campanas/${id}/pausar`, BACKEND_URL), { method: "POST" });
   if (!res.ok) throw new Error(`Error pausando campaña: HTTP ${res.status}`);

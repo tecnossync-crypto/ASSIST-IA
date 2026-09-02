@@ -15,6 +15,7 @@ import { llamadasRoutes } from "./routes/llamadas.js";
 import { empresaRoutes } from "./routes/empresa.js";
 import { llamadasSalientesRoutes } from "./routes/llamadas-salientes.js";
 import { campanasRoutes } from "./routes/campanas.js";
+import { resumenRoutes } from "./routes/resumen.js";
 import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
 
 const app = Fastify({ logger: true });
@@ -30,6 +31,7 @@ await app.register(llamadasRoutes);
 await app.register(empresaRoutes);
 await app.register(llamadasSalientesRoutes);
 await app.register(campanasRoutes);
+await app.register(resumenRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 
