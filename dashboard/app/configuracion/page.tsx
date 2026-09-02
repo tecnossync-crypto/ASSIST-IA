@@ -1,4 +1,4 @@
-import { Building2, MessageSquareText, Sparkles } from "lucide-react";
+import { Building2, MessageSquareText, Sparkles, PhoneCall } from "lucide-react";
 import { obtenerEmpresa } from "@/lib/api";
 import { guardarConfiguracion } from "./actions";
 import { SelectorVoz } from "@/components/SelectorVoz";
@@ -52,10 +52,58 @@ export default async function ConfiguracionPage() {
               />
               <p className="text-xs text-slate-400">Separados por coma si son varios.</p>
             </div>
+          </div>
+        </section>
 
+        <section className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-5">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <PhoneCall size={16} className="text-indigo-600" />
+            Gestor de llamadas
+          </div>
+          <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
               <span className="text-sm font-medium text-slate-700">Voz del agente</span>
               <SelectorVoz defaultValue={empresa.voz_agente} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="duracion_maxima_minutos" className="text-sm font-medium text-slate-700">
+                  Duración máxima por llamada
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="duracion_maxima_minutos"
+                    name="duracion_maxima_minutos"
+                    type="number"
+                    min={1}
+                    step={0.5}
+                    defaultValue={(empresa.duracion_maxima_llamada_segundos / 60).toString()}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-slate-500">min</span>
+                </div>
+                <p className="text-xs text-slate-400">Si se pasa, el bot se despide y corta la llamada.</p>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label htmlFor="timeout_timbrado_segundos" className="text-sm font-medium text-slate-700">
+                  Tiempo de timbrado (salientes)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="timeout_timbrado_segundos"
+                    name="timeout_timbrado_segundos"
+                    type="number"
+                    min={5}
+                    max={600}
+                    defaultValue={empresa.timeout_timbrado_segundos}
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-slate-500">seg</span>
+                </div>
+                <p className="text-xs text-slate-400">Cuánto espera antes de dar la llamada por "no contesta".</p>
+              </div>
             </div>
           </div>
         </section>

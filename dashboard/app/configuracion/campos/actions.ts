@@ -31,6 +31,8 @@ export async function guardarCamposYEtiquetas(formData: FormData) {
     voz_agente: actual.voz_agente,
     campos_personalizados,
     etiquetas_disponibles,
+    duracion_maxima_llamada_segundos: actual.duracion_maxima_llamada_segundos,
+    timeout_timbrado_segundos: actual.timeout_timbrado_segundos,
   });
 
   revalidatePath("/configuracion/campos");

@@ -3,17 +3,20 @@ import { pool } from "../db/pool.js";
 import { desencriptar } from "./crypto.js";
 
 /**
- * Cliente Twilio + número remitente de una empresa, desencriptando su
- * auth_token guardado. Centralizado acá porque lo usan tanto la llamada
- * saliente manual (dashboard) como el despachador de campañas.
+ * Cliente Twilio + número remitente + configuración de timbrado de una
+ * empresa, desencriptando su auth_token guardado. Centralizado acá porque
+ * lo usan tanto la llamada saliente manual (dashboard) como el despachador
+ * de campañas.
  */
 export async function clienteTwilioEmpresa(empresaId: string) {
   const result = await pool.query<{
     twilio_account_sid: string | null;
     twilio_auth_token_enc: string | null;
     twilio_phone_number: string | null;
+    timeout_timbrado_segundos: number;
   }>(
-    "SELECT twilio_account_sid, twilio_auth_token_enc, twilio_phone_number FROM empresas WHERE id = $1",
+    `SELECT twilio_account_sid, twilio_auth_token_enc, twilio_phone_number, timeout_timbrado_segundos
+     FROM empresas WHERE id = $1`,
     [empresaId]
   );
 
@@ -26,5 +29,6 @@ export async function clienteTwilioEmpresa(empresaId: string) {
   return {
     client: twilio(row.twilio_account_sid, authToken),
     fromNumber: row.twilio_phone_number,
+    timeoutTimbrado: row.timeout_timbrado_segundos,
   };
 }

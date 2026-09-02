@@ -106,6 +106,8 @@ export interface EmpresaConfig {
   voz_agente: string | null;
   campos_personalizados: CampoPersonalizado[];
   etiquetas_disponibles: EtiquetaDisponible[];
+  duracion_maxima_llamada_segundos: number;
+  timeout_timbrado_segundos: number;
 }
 
 export async function obtenerEmpresa(): Promise<EmpresaConfig> {
@@ -123,6 +125,8 @@ export async function actualizarEmpresa(data: {
   voz_agente: string | null;
   campos_personalizados: CampoPersonalizado[];
   etiquetas_disponibles: EtiquetaDisponible[];
+  duracion_maxima_llamada_segundos: number;
+  timeout_timbrado_segundos: number;
 }): Promise<void> {
   const res = await fetch(new URL("/api/empresa", BACKEND_URL), {
     method: "PUT",

@@ -11,6 +11,8 @@ export async function guardarConfiguracion(formData: FormData) {
   const cuandoTransferir = String(formData.get("cuando_transferir") ?? "").trim();
   const numeros = String(formData.get("numeros_transferencia") ?? "").trim();
   const vozAgente = String(formData.get("voz_agente") ?? "").trim();
+  const duracionMaximaMinutos = parseFloat(String(formData.get("duracion_maxima_minutos") ?? "10")) || 10;
+  const timeoutTimbrado = parseInt(String(formData.get("timeout_timbrado_segundos") ?? "30"), 10) || 30;
 
   const guion_agente: GuionAgente = {
     prompt_personalizado: promptPersonalizado || undefined,
@@ -36,6 +38,8 @@ export async function guardarConfiguracion(formData: FormData) {
     voz_agente: vozAgente || null,
     campos_personalizados: actual.campos_personalizados,
     etiquetas_disponibles: actual.etiquetas_disponibles,
+    duracion_maxima_llamada_segundos: Math.round(duracionMaximaMinutos * 60),
+    timeout_timbrado_segundos: timeoutTimbrado,
   });
   revalidatePath("/configuracion");
 }

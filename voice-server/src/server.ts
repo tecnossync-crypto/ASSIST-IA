@@ -30,6 +30,8 @@ function enviar(ws: WebSocket, mensaje: ConversationRelayOutgoing) {
 
 wss.on("connection", (ws) => {
   let session: ConversationSession | null = null;
+  let finalizadaManualmente = false;
+  let temporizadorLimite: NodeJS.Timeout | null = null;
 
   ws.on("message", async (raw) => {
     let msg: ConversationRelayIncoming;
@@ -58,6 +60,26 @@ wss.on("connection", (ws) => {
           const saludo = session.saludoInicial();
           session.registrarTurnoAgente(saludo);
           enviar(ws, { type: "text", token: saludo, last: true });
+
+          // Gestor de llamadas: si se llega al límite de duración, avisa y
+          // corta — no queda esperando a que el LLM decida terminar solo.
+          const limiteMs = session.duracionMaximaSegundos() * 1000;
+          temporizadorLimite = setTimeout(async () => {
+            if (!session) return;
+            console.log(`[${session.callSid}] duración máxima alcanzada, cerrando llamada`);
+            session.registrarTurnoAgente(
+              "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo."
+            );
+            enviar(ws, {
+              type: "text",
+              token: "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo.",
+              last: true,
+            });
+            finalizadaManualmente = true;
+            await session.finalizar();
+            enviar(ws, { type: "end" });
+            ws.close();
+          }, limiteMs);
           break;
         }
 
@@ -82,6 +104,8 @@ wss.on("connection", (ws) => {
             // El texto de despedida ya salió arriba; ahora sí terminamos la
             // sesión de ConversationRelay para que TwiML caiga al <Redirect>
             // que hace el <Dial> real hacia el humano.
+            if (temporizadorLimite) clearTimeout(temporizadorLimite);
+            finalizadaManualmente = true;
             await session.finalizar();
             enviar(ws, { type: "end" });
             ws.close();
@@ -104,6 +128,8 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
+    if (temporizadorLimite) clearTimeout(temporizadorLimite);
+    if (finalizadaManualmente) return;
     session?.finalizar().catch((err) => console.error("Error finalizando sesión:", err));
   });
 });

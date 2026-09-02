@@ -4,9 +4,10 @@ import { pool } from "../db/pool.js";
 /**
  * Configuración editable por la propia empresa desde el dashboard: nombre,
  * guion del agente (prompt personalizado o campos guiados), voz del TTS,
- * campos personalizados a recolectar, catálogo de etiquetas y números de
- * transferencia. Fase 1: sin autenticación todavía — mismo TODO que
- * llamadas.ts, no exponer fuera de localhost sin resolver login primero.
+ * límites del gestor de llamadas, campos personalizados a recolectar,
+ * catálogo de etiquetas y números de transferencia. Fase 1: sin
+ * autenticación todavía — mismo TODO que llamadas.ts, no exponer fuera de
+ * localhost sin resolver login primero.
  */
 export async function empresaRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { empresaId?: string } }>("/api/empresa", async (req, reply) => {
@@ -17,7 +18,8 @@ export async function empresaRoutes(app: FastifyInstance) {
     }
 
     const result = await pool.query(
-      `SELECT id, nombre, guion_agente, numeros_transferencia, voz_agente, campos_personalizados, etiquetas_disponibles
+      `SELECT id, nombre, guion_agente, numeros_transferencia, voz_agente, campos_personalizados,
+              etiquetas_disponibles, duracion_maxima_llamada_segundos, timeout_timbrado_segundos
        FROM empresas WHERE id = $1`,
       [empresaId]
     );
@@ -39,6 +41,8 @@ export async function empresaRoutes(app: FastifyInstance) {
       voz_agente?: string | null;
       campos_personalizados?: { nombre: string; descripcion?: string }[];
       etiquetas_disponibles?: { nombre: string; color?: string }[];
+      duracion_maxima_llamada_segundos?: number;
+      timeout_timbrado_segundos?: number;
     };
   }>("/api/empresa", async (req, reply) => {
     const {
@@ -49,6 +53,8 @@ export async function empresaRoutes(app: FastifyInstance) {
       voz_agente,
       campos_personalizados,
       etiquetas_disponibles,
+      duracion_maxima_llamada_segundos,
+      timeout_timbrado_segundos,
     } = req.body;
 
     if (!empresaId || !nombre) {
@@ -59,7 +65,8 @@ export async function empresaRoutes(app: FastifyInstance) {
     const result = await pool.query(
       `UPDATE empresas
        SET nombre = $2, guion_agente = $3, numeros_transferencia = $4,
-           voz_agente = $5, campos_personalizados = $6, etiquetas_disponibles = $7
+           voz_agente = $5, campos_personalizados = $6, etiquetas_disponibles = $7,
+           duracion_maxima_llamada_segundos = $8, timeout_timbrado_segundos = $9
        WHERE id = $1
        RETURNING id`,
       [
@@ -70,6 +77,8 @@ export async function empresaRoutes(app: FastifyInstance) {
         voz_agente || null,
         JSON.stringify(campos_personalizados ?? []),
         JSON.stringify(etiquetas_disponibles ?? []),
+        duracion_maxima_llamada_segundos ?? 600,
+        timeout_timbrado_segundos ?? 30,
       ]
     );
 

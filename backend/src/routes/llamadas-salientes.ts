@@ -38,6 +38,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
           statusCallbackMethod: "POST",
           statusCallbackEvent: ["completed"],
+          timeout: twilioEmpresa.timeoutTimbrado,
         });
 
         app.log.info({ callSid: call.sid, numero }, "Llamada saliente originada");

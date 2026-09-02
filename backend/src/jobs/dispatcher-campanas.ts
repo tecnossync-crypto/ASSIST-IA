@@ -61,6 +61,7 @@ async function originarLlamadaContacto(
       statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status?campanaContactoId=${contacto.id}`,
       statusCallbackMethod: "POST",
       statusCallbackEvent: ["completed"],
+      timeout: twilioEmpresa.timeoutTimbrado,
     });
   } catch (err) {
     console.error(`[campaña] error originando llamada a ${contacto.numero}:`, err);

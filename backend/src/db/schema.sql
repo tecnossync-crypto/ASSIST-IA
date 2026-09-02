@@ -15,6 +15,8 @@ CREATE TABLE empresas (
     voz_agente          TEXT, -- id de voz TTS de ConversationRelay (ej. "en-US-Neural2-A"); null = voz por defecto de Twilio
     campos_personalizados JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{nombre, descripcion}] que el agente debe recolectar y guardar en datos_llamada
     etiquetas_disponibles JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{nombre, color}] catálogo de etiquetas para contactos
+    duracion_maxima_llamada_segundos INTEGER NOT NULL DEFAULT 600, -- el voice-server corta la llamada al llegar acá
+    timeout_timbrado_segundos INTEGER NOT NULL DEFAULT 30, -- cuánto espera Twilio antes de "no contesta" en salientes
     activa              BOOLEAN NOT NULL DEFAULT true,
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );

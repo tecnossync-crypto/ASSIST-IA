@@ -28,6 +28,11 @@ export class ConversationSession {
     this.systemPrompt = construirSystemPrompt(this.empresa);
   }
 
+  /** Segundos antes de que el gestor de llamadas corte la llamada por límite de duración. */
+  duracionMaximaSegundos(): number {
+    return this.empresa?.duracion_maxima_llamada_segundos ?? 600;
+  }
+
   saludoInicial(): string {
     return this.empresa?.guion_agente?.saludo || `Gracias por llamar a ${this.empresa?.nombre ?? "nuestra empresa"}, ¿en qué le puedo ayudar?`;
   }
