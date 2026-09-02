@@ -47,6 +47,7 @@ export interface EmpresaConfig {
   };
   horario_atencion?: Record<string, unknown>;
   numeros_transferencia: string[];
+  campos_personalizados?: { nombre: string; descripcion?: string }[];
 }
 
 export interface TurnoConversacion {

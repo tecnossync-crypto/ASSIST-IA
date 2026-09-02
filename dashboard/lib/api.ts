@@ -51,6 +51,7 @@ export interface LlamadaDetalle {
     hash_integridad: string;
     audioUrl: string | null;
   } | null;
+  datos: { campo: string; valor: string }[];
 }
 
 export async function listarLlamadas(params: {
@@ -87,11 +88,18 @@ export interface GuionAgente {
   instrucciones_extra?: string;
 }
 
+export interface CampoPersonalizado {
+  nombre: string;
+  descripcion?: string;
+}
+
 export interface EmpresaConfig {
   id: string;
   nombre: string;
   guion_agente: GuionAgente;
   numeros_transferencia: string[];
+  voz_agente: string | null;
+  campos_personalizados: CampoPersonalizado[];
 }
 
 export async function obtenerEmpresa(): Promise<EmpresaConfig> {
@@ -106,6 +114,8 @@ export async function actualizarEmpresa(data: {
   nombre: string;
   guion_agente: GuionAgente;
   numeros_transferencia: string[];
+  voz_agente: string | null;
+  campos_personalizados: CampoPersonalizado[];
 }): Promise<void> {
   const res = await fetch(new URL("/api/empresa", BACKEND_URL), {
     method: "PUT",

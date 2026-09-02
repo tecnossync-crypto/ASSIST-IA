@@ -19,8 +19,8 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     app.log.info({ callSid, from, to }, "Llamada entrante recibida");
 
     // TODO: resolver empresa_id real a partir de `to` (número Twilio del cliente).
-    const empresa = await pool.query<{ id: string }>(
-      "SELECT id FROM empresas WHERE twilio_phone_number = $1 LIMIT 1",
+    const empresa = await pool.query<{ id: string; voz_agente: string | null }>(
+      "SELECT id, voz_agente FROM empresas WHERE twilio_phone_number = $1 LIMIT 1",
       [to]
     );
 
@@ -32,7 +32,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       return;
     }
 
-    const empresaId = empresa.rows[0].id;
+    const { id: empresaId, voz_agente: voz } = empresa.rows[0];
 
     await pool.query(
       `INSERT INTO llamadas (empresa_id, call_sid, direccion, numero_origen, numero_destino, estado)
@@ -46,7 +46,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       throw new Error("VOICE_WS_URL no está configurado");
     }
 
-    const twiml = twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid });
+    const twiml = twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid, voz });
     reply.type("text/xml").send(twiml);
   });
 
@@ -79,7 +79,14 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       const voiceWsUrl = process.env.VOICE_WS_URL;
       if (!voiceWsUrl) throw new Error("VOICE_WS_URL no está configurado");
 
-      reply.type("text/xml").send(twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid }));
+      const voz = await pool.query<{ voz_agente: string | null }>(
+        "SELECT voz_agente FROM empresas WHERE id = $1",
+        [empresaId]
+      );
+
+      reply.type("text/xml").send(
+        twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid, voz: voz.rows[0]?.voz_agente ?? null })
+      );
     }
   );
 

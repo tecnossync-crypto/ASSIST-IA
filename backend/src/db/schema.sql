@@ -12,6 +12,8 @@ CREATE TABLE empresas (
     guion_agente        JSONB NOT NULL DEFAULT '{}'::jsonb, -- saludo, qué resuelve, cuándo transfiere
     horario_atencion    JSONB NOT NULL DEFAULT '{}'::jsonb,
     numeros_transferencia JSONB NOT NULL DEFAULT '[]'::jsonb,
+    voz_agente          TEXT, -- id de voz TTS de ConversationRelay (ej. "en-US-Neural2-A"); null = voz por defecto de Twilio
+    campos_personalizados JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{nombre, descripcion}] que el agente debe recolectar y guardar en datos_llamada
     activa              BOOLEAN NOT NULL DEFAULT true,
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -92,3 +94,16 @@ CREATE TABLE solicitudes (
 );
 
 CREATE INDEX idx_solicitudes_empresa_estado ON solicitudes(empresa_id, estado);
+
+-- Valores capturados de los campos personalizados que cada empresa configura
+-- en `empresas.campos_personalizados` (ej. "número de póliza", "placa").
+CREATE TABLE datos_llamada (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id  UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    llamada_id  UUID NOT NULL REFERENCES llamadas(id) ON DELETE CASCADE,
+    campo       TEXT NOT NULL,
+    valor       TEXT NOT NULL,
+    creado_en   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_datos_llamada_llamada ON datos_llamada(llamada_id);

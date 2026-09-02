@@ -8,8 +8,14 @@ export function twimlConnectVoiceAgent(opts: {
   voiceWsUrl: string;
   empresaId: string;
   callSid: string;
+  voz?: string | null;
 }): string {
-  const { voiceWsUrl, empresaId, callSid } = opts;
+  const { voiceWsUrl, empresaId, callSid, voz } = opts;
+
+  // El atributo voice de ConversationRelay elige la voz TTS (ej. un id de
+  // Google/Amazon Polly). Si la empresa no eligió ninguna, se omite y
+  // Twilio usa su voz por defecto.
+  const vozAttr = voz ? ` voice="${voz}"` : "";
 
   // <Record> deja constancia de la llamada completa; <Connect><ConversationRelay>
   // entrega el audio como texto por WebSocket a nuestro servidor de voz IA.
@@ -22,7 +28,7 @@ export function twimlConnectVoiceAgent(opts: {
     <Recording recordingStatusCallback="/webhooks/twilio/recording-status" />
   </Start>
   <Connect>
-    <ConversationRelay url="${voiceWsUrl}">
+    <ConversationRelay url="${voiceWsUrl}"${vozAttr}>
       <Parameter name="empresaId" value="${empresaId}" />
       <Parameter name="callSid" value="${callSid}" />
     </ConversationRelay>

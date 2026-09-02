@@ -33,9 +33,18 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
         .filter(Boolean)
         .join("\n");
 
+  const campos = empresa.campos_personalizados ?? [];
+  const listaCampos = campos.length
+    ? campos.map((c) => (c.descripcion ? `${c.nombre} (${c.descripcion})` : c.nombre)).join(", ")
+    : null;
+
   return [
     base,
     `Números de transferencia disponibles: ${numeros}.`,
+    listaCampos
+      ? `Campos que esta empresa necesita que recolectes del cliente, además de lo demás: ${listaCampos}. ` +
+        "Usa la herramienta registrar_dato una vez por cada uno en cuanto el cliente te lo dé."
+      : "",
     "Usa la herramienta registrar_solicitud en cuanto identifiques qué necesita el cliente.",
     "Usa la herramienta transferir_a_humano solo cuando corresponda según las reglas de arriba.",
     "Nunca inventes información que no tengas; si no sabes algo, dilo y ofrece transferir.",

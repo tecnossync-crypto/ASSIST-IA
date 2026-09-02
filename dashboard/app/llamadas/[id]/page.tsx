@@ -13,7 +13,7 @@ export default async function LlamadaDetallePage({
   const data = await obtenerLlamada(id).catch(() => null);
   if (!data) notFound();
 
-  const { llamada, transcripcion, grabacion } = data;
+  const { llamada, transcripcion, grabacion, datos } = data;
 
   return (
     <div className="flex flex-col gap-6">
@@ -54,6 +54,20 @@ export default async function LlamadaDetallePage({
           </p>
         )}
       </section>
+
+      {datos.length > 0 && (
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">Datos recolectados</h2>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+            {datos.map((d, i) => (
+              <div key={i}>
+                <dt className="text-slate-500">{d.campo}</dt>
+                <dd className="font-medium">{d.valor}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-white p-4">

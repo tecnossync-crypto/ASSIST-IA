@@ -1,5 +1,5 @@
 import type OpenAI from "openai";
-import { marcarTransferencia, registrarSolicitud } from "./backend-client.js";
+import { marcarTransferencia, registrarSolicitud, registrarDato } from "./backend-client.js";
 
 /**
  * Herramientas que el LLM puede invocar durante la llamada. Mantenerlas
@@ -54,6 +54,29 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "registrar_dato",
+      description:
+        "Guarda un dato específico que la empresa configuró recolectar (ver la lista de campos en tus instrucciones). " +
+        "Llámala una vez por cada campo en cuanto el cliente te lo dé, no esperes a tener todos.",
+      parameters: {
+        type: "object",
+        properties: {
+          campo: {
+            type: "string",
+            description: "Nombre exacto del campo, tal como aparece en la lista de campos a recolectar.",
+          },
+          valor: {
+            type: "string",
+            description: "Lo que dijo el cliente para ese campo.",
+          },
+        },
+        required: ["campo", "valor"],
+      },
+    },
+  },
 ];
 
 export interface ToolExecutionResult {
@@ -85,6 +108,16 @@ export async function ejecutarTool(
       const descripcion = input.descripcion ? String(input.descripcion) : undefined;
       await registrarSolicitud(callSid, { tipo, descripcion });
       return { resultText: "Solicitud registrada." };
+    }
+
+    case "registrar_dato": {
+      const campo = String(input.campo ?? "");
+      const valor = String(input.valor ?? "");
+      if (!campo || !valor) {
+        return { resultText: "Error: faltan campo o valor." };
+      }
+      await registrarDato(callSid, campo, valor);
+      return { resultText: `Dato "${campo}" registrado.` };
     }
 
     default:

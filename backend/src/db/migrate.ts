@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { config } from "dotenv";
@@ -20,10 +20,29 @@ async function main() {
   await client.connect();
 
   try {
-    const sql = readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
-    console.log("Aplicando schema.sql ...");
-    await client.query(sql);
-    console.log("Listo: schema aplicado.");
+    const existe = await client.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_name = 'empresas'"
+    );
+
+    if (existe.rows.length === 0) {
+      const sql = readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
+      console.log("Base vacía: aplicando schema.sql ...");
+      await client.query(sql);
+      console.log("Schema base aplicado.");
+    } else {
+      console.log("Base ya inicializada, se omite schema.sql (solo migraciones incrementales).");
+    }
+
+    const migracionesDir = path.join(__dirname, "migrations");
+    const archivos = readdirSync(migracionesDir).filter((f) => f.endsWith(".sql")).sort();
+
+    for (const archivo of archivos) {
+      console.log(`Aplicando migración ${archivo} ...`);
+      const sql = readFileSync(path.join(migracionesDir, archivo), "utf-8");
+      await client.query(sql);
+    }
+
+    console.log(`Listo: schema + ${archivos.length} migración(es) incremental(es) aplicadas.`);
   } finally {
     await client.end();
   }

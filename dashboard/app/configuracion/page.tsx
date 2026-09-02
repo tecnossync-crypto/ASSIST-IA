@@ -42,6 +42,43 @@ export default async function ConfiguracionPage() {
           <p className="text-xs text-slate-400">Separados por coma si son varios.</p>
         </div>
 
+        <div className="flex flex-col gap-1">
+          <label htmlFor="voz_agente" className="text-sm font-medium text-slate-700">
+            Voz del agente
+          </label>
+          <input
+            id="voz_agente"
+            name="voz_agente"
+            defaultValue={empresa.voz_agente ?? ""}
+            placeholder="Ej: es-US-Neural2-A (dejar vacío usa la voz por defecto)"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <p className="text-xs text-slate-400">
+            Id de voz de Twilio ConversationRelay (Google/Amazon Polly). Consulta la lista completa en la
+            documentación de Twilio antes de poner un valor — uno inválido hace fallar la llamada.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="campos_personalizados" className="text-sm font-medium text-slate-700">
+            Campos personalizados a recolectar
+          </label>
+          <textarea
+            id="campos_personalizados"
+            name="campos_personalizados"
+            defaultValue={empresa.campos_personalizados
+              ?.map((c) => (c.descripcion ? `${c.nombre}: ${c.descripcion}` : c.nombre))
+              .join("\n")}
+            rows={4}
+            placeholder={"número de póliza: el número que aparece en su tarjeta de seguro\nplaca del vehículo"}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          />
+          <p className="text-xs text-slate-400">
+            Un campo por línea. Formato: <code>nombre</code> o <code>nombre: descripción</code>. El agente los pedirá
+            y quedarán guardados en el detalle de cada llamada.
+          </p>
+        </div>
+
         <hr className="border-slate-100" />
 
         <div className="flex flex-col gap-1">

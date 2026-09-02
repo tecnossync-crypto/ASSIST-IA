@@ -71,7 +71,7 @@ export async function llamadasRoutes(app: FastifyInstance) {
       return;
     }
 
-    const [transcripcion, grabacion] = await Promise.all([
+    const [transcripcion, grabacion, datos] = await Promise.all([
       pool.query(
         `SELECT texto_completo, resumen_motivo, resumen_solicitud, resumen_resultado, accion_pendiente
          FROM transcripciones WHERE llamada_id = $1 ORDER BY creado_en DESC LIMIT 1`,
@@ -82,6 +82,7 @@ export async function llamadasRoutes(app: FastifyInstance) {
          FROM grabaciones WHERE llamada_id = $1 ORDER BY creado_en DESC LIMIT 1`,
         [id]
       ),
+      pool.query(`SELECT campo, valor FROM datos_llamada WHERE llamada_id = $1 ORDER BY creado_en`, [id]),
     ]);
 
     let audioUrl: string | null = null;
@@ -97,6 +98,7 @@ export async function llamadasRoutes(app: FastifyInstance) {
       llamada: llamada.rows[0],
       transcripcion: transcripcion.rows[0] ?? null,
       grabacion: grabacionRow ? { ...grabacionRow, audioUrl } : null,
+      datos: datos.rows,
     });
   });
 }

@@ -65,3 +65,10 @@ export async function registrarSolicitud(
     body: JSON.stringify(data),
   });
 }
+
+export async function registrarDato(callSid: string, campo: string, valor: string) {
+  await internalFetch(`/internal/llamadas/${callSid}/dato`, {
+    method: "POST",
+    body: JSON.stringify({ campo, valor }),
+  });
+}

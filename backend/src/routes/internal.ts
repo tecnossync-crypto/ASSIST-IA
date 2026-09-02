@@ -90,6 +90,40 @@ export async function internalRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Guarda un campo personalizado que la empresa configuró recolectar
+  // (ej. número de póliza, placa) y que el agente extrajo durante la llamada.
+  app.post<{
+    Params: { callSid: string };
+    Body: { campo: string; valor: string };
+  }>("/internal/llamadas/:callSid/dato", async (req, reply) => {
+    const { callSid } = req.params;
+    const { campo, valor } = req.body;
+
+    if (!campo || !valor) {
+      reply.code(400).send({ error: "campo y valor son requeridos" });
+      return;
+    }
+
+    const llamada = await pool.query<{ id: string; empresa_id: string }>(
+      "SELECT id, empresa_id FROM llamadas WHERE call_sid = $1",
+      [callSid]
+    );
+
+    if (llamada.rows.length === 0) {
+      reply.code(404).send({ error: "llamada no encontrada" });
+      return;
+    }
+
+    const { id: llamadaId, empresa_id: empresaId } = llamada.rows[0];
+
+    await pool.query(
+      `INSERT INTO datos_llamada (empresa_id, llamada_id, campo, valor) VALUES ($1, $2, $3, $4)`,
+      [empresaId, llamadaId, campo, valor]
+    );
+
+    reply.send({ ok: true });
+  });
+
   // Registra lo que el cliente pidió (cotización, reclamo, cita...) según
   // lo extraiga el agente durante la llamada.
   app.post<{
@@ -128,7 +162,7 @@ export async function internalRoutes(app: FastifyInstance) {
       const { empresaId } = req.params;
 
       const result = await pool.query(
-        `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia
+        `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados
          FROM empresas WHERE id = $1`,
         [empresaId]
       );
