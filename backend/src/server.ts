@@ -13,6 +13,7 @@ import { webhooksTwilioRoutes } from "./routes/webhooks-twilio.js";
 import { internalRoutes } from "./routes/internal.js";
 import { llamadasRoutes } from "./routes/llamadas.js";
 import { empresaRoutes } from "./routes/empresa.js";
+import { llamadasSalientesRoutes } from "./routes/llamadas-salientes.js";
 
 const app = Fastify({ logger: true });
 
@@ -25,6 +26,7 @@ await app.register(webhooksTwilioRoutes);
 await app.register(internalRoutes);
 await app.register(llamadasRoutes);
 await app.register(empresaRoutes);
+await app.register(llamadasSalientesRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 

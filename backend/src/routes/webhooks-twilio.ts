@@ -50,6 +50,39 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     reply.type("text/xml").send(twiml);
   });
 
+  // Twilio llega acá cuando contestan una llamada saliente que nosotros
+  // originamos (ver POST /api/llamadas/salientes). empresaId viaja en la
+  // query string porque nosotros armamos esta URL al crear la llamada.
+  app.post<{ Querystring: { empresaId?: string } }>(
+    "/webhooks/twilio/voice-outbound",
+    async (req, reply) => {
+      const body = req.body as Record<string, string>;
+      const callSid = body.CallSid;
+      const from = body.From;
+      const to = body.To;
+      const empresaId = req.query.empresaId;
+
+      app.log.info({ callSid, from, to, empresaId }, "Llamada saliente contestada");
+
+      if (!empresaId) {
+        reply.type("text/xml").send(twimlColgar());
+        return;
+      }
+
+      await pool.query(
+        `INSERT INTO llamadas (empresa_id, call_sid, direccion, numero_origen, numero_destino, estado)
+         VALUES ($1, $2, 'saliente', $3, $4, 'en_curso')
+         ON CONFLICT (call_sid) DO NOTHING`,
+        [empresaId, callSid, from, to]
+      );
+
+      const voiceWsUrl = process.env.VOICE_WS_URL;
+      if (!voiceWsUrl) throw new Error("VOICE_WS_URL no está configurado");
+
+      reply.type("text/xml").send(twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid }));
+    }
+  );
+
   // Se ejecuta cuando ConversationRelay termina (el agente mandó "end" o la
   // llamada se cayó) y TwiML cae al <Redirect> puesto después de <Connect>.
   // Si el agente marcó transferencia, aquí sale el <Dial> real; si no, cuelga.

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listarLlamadas } from "@/lib/api";
 import { formatFechaHora, formatDuracion, etiquetaEstado } from "@/lib/format";
 import { BuscadorLlamadas } from "@/components/BuscadorLlamadas";
+import { LlamarAhora } from "@/components/LlamarAhora";
 
 export default async function LlamadasPage({
   searchParams,
@@ -17,6 +18,8 @@ export default async function LlamadasPage({
         <h1 className="text-xl font-semibold">Llamadas</h1>
         <span className="text-sm text-slate-500">{llamadas.length} resultado(s)</span>
       </div>
+
+      <LlamarAhora />
 
       <BuscadorLlamadas />
 

@@ -114,3 +114,16 @@ export async function actualizarEmpresa(data: {
   });
   if (!res.ok) throw new Error(`Error actualizando empresa: HTTP ${res.status}`);
 }
+
+export async function iniciarLlamadaSaliente(numero: string): Promise<{ callSid: string }> {
+  const res = await fetch(new URL("/api/llamadas/salientes", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, numero }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error originando llamada: HTTP ${res.status}`);
+  }
+  return res.json();
+}
