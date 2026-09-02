@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { actualizarEmpresa, type GuionAgente, type CampoPersonalizado } from "@/lib/api";
+import { actualizarEmpresa, obtenerEmpresa, type GuionAgente } from "@/lib/api";
 
 export async function guardarConfiguracion(formData: FormData) {
   const nombre = String(formData.get("nombre") ?? "").trim();
@@ -11,20 +11,12 @@ export async function guardarConfiguracion(formData: FormData) {
   const cuandoTransferir = String(formData.get("cuando_transferir") ?? "").trim();
   const numeros = String(formData.get("numeros_transferencia") ?? "").trim();
   const vozAgente = String(formData.get("voz_agente") ?? "").trim();
-  const camposJson = String(formData.get("campos_personalizados_json") ?? "[]");
-
-  let campos_personalizados: CampoPersonalizado[] = [];
-  try {
-    campos_personalizados = (JSON.parse(camposJson) as CampoPersonalizado[]).filter((c) => c.nombre?.trim());
-  } catch {
-    campos_personalizados = [];
-  }
 
   const guion_agente: GuionAgente = {
     prompt_personalizado: promptPersonalizado || undefined,
     saludo: saludo || undefined,
     que_resuelve: queResuelve || undefined,
-    // Estos tres siempre se piden, además de lo que la empresa agregue en campos_personalizados.
+    // Estos tres siempre se piden, además de lo que la empresa agregue en Campos y etiquetas.
     datos_a_tomar: ["nombre", "apellido", "telefono"],
     cuando_transferir: cuandoTransferir || undefined,
   };
@@ -33,12 +25,17 @@ export async function guardarConfiguracion(formData: FormData) {
     ? numeros.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
 
+  // Esta pantalla no toca campos_personalizados/etiquetas_disponibles — se
+  // conservan tal cual estaban (viven en su propia sección).
+  const actual = await obtenerEmpresa();
+
   await actualizarEmpresa({
     nombre,
     guion_agente,
     numeros_transferencia,
     voz_agente: vozAgente || null,
-    campos_personalizados,
+    campos_personalizados: actual.campos_personalizados,
+    etiquetas_disponibles: actual.etiquetas_disponibles,
   });
   revalidatePath("/configuracion");
 }

@@ -2,42 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
-
-/**
- * Parser CSV simple y seguro (sin librerías externas — el paquete xlsx de
- * npm tiene vulnerabilidades sin parche, así que evitamos parsear .xlsx
- * binario). Excel exporta/abre CSV nativamente, así que cubre el caso real.
- * Detecta columnas por nombre de encabezado: numero/telefono/phone y
- * nombre/name. Si no hay encabezados reconocibles, asume que la primera
- * columna es el número y la segunda el nombre.
- */
-function parseCSV(texto: string): { numero: string; nombre?: string }[] {
-  const lineas = texto
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (lineas.length === 0) return [];
-
-  const parseLinea = (linea: string) => linea.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-
-  const primera = parseLinea(lineas[0]).map((c) => c.toLowerCase());
-  const idxNumero = primera.findIndex((c) => ["numero", "número", "telefono", "teléfono", "phone"].includes(c));
-  const idxNombre = primera.findIndex((c) => ["nombre", "name"].includes(c));
-
-  const tieneEncabezado = idxNumero !== -1;
-  const filas = tieneEncabezado ? lineas.slice(1) : lineas;
-  const colNumero = tieneEncabezado ? idxNumero : 0;
-  const colNombre = tieneEncabezado ? idxNombre : 1;
-
-  const resultado: { numero: string; nombre?: string }[] = [];
-  for (const linea of filas) {
-    const cols = parseLinea(linea);
-    const numero = cols[colNumero]?.trim();
-    const nombre = colNombre >= 0 ? cols[colNombre]?.trim() : undefined;
-    if (numero) resultado.push({ numero, nombre: nombre || undefined });
-  }
-  return resultado;
-}
+import { parseCSV } from "@/lib/csv";
 
 export function ImportarContactosCSV({ onImportar }: { onImportar: (texto: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);

@@ -14,6 +14,7 @@ CREATE TABLE empresas (
     numeros_transferencia JSONB NOT NULL DEFAULT '[]'::jsonb,
     voz_agente          TEXT, -- id de voz TTS de ConversationRelay (ej. "en-US-Neural2-A"); null = voz por defecto de Twilio
     campos_personalizados JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{nombre, descripcion}] que el agente debe recolectar y guardar en datos_llamada
+    etiquetas_disponibles JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{nombre, color}] catálogo de etiquetas para contactos
     activa              BOOLEAN NOT NULL DEFAULT true,
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -38,6 +39,7 @@ CREATE TABLE contactos (
     apellido        TEXT,
     notas           TEXT,
     datos           JSONB NOT NULL DEFAULT '{}'::jsonb, -- campos personalizados capturados por el agente
+    etiquetas       TEXT[] NOT NULL DEFAULT '{}',
     creado_en       TIMESTAMPTZ NOT NULL DEFAULT now(),
     actualizado_en  TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (empresa_id, numero)
@@ -142,3 +144,17 @@ CREATE INDEX idx_campana_contactos_dispatch ON campana_contactos(campana_id, est
 
 -- Para poder ver, desde una llamada, si vino de una campaña.
 ALTER TABLE llamadas ADD COLUMN campana_contacto_id UUID REFERENCES campana_contactos(id);
+
+-- Flujos de trabajo: reglas simples "cuando termina una llamada así, hacer esto".
+CREATE TABLE flujos_trabajo (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id      UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    nombre          TEXT NOT NULL,
+    disparador      TEXT NOT NULL, -- llamada_completada | llamada_no_contesta | llamada_transferida
+    accion          TEXT NOT NULL, -- agregar_etiqueta | crear_solicitud
+    accion_datos    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    activo          BOOLEAN NOT NULL DEFAULT true,
+    creado_en       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_flujos_trabajo_empresa ON flujos_trabajo(empresa_id, disparador, activo);

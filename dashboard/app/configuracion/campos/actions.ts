@@ -1,0 +1,37 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { actualizarEmpresa, obtenerEmpresa, type CampoPersonalizado, type EtiquetaDisponible } from "@/lib/api";
+
+export async function guardarCamposYEtiquetas(formData: FormData) {
+  const camposJson = String(formData.get("campos_personalizados_json") ?? "[]");
+  const etiquetasJson = String(formData.get("etiquetas_disponibles_json") ?? "[]");
+
+  let campos_personalizados: CampoPersonalizado[] = [];
+  try {
+    campos_personalizados = (JSON.parse(camposJson) as CampoPersonalizado[]).filter((c) => c.nombre?.trim());
+  } catch {
+    campos_personalizados = [];
+  }
+
+  let etiquetas_disponibles: EtiquetaDisponible[] = [];
+  try {
+    etiquetas_disponibles = (JSON.parse(etiquetasJson) as EtiquetaDisponible[]).filter((e) => e.nombre?.trim());
+  } catch {
+    etiquetas_disponibles = [];
+  }
+
+  // Esta pantalla no toca nombre/guion/voz/números — se conservan tal cual.
+  const actual = await obtenerEmpresa();
+
+  await actualizarEmpresa({
+    nombre: actual.nombre,
+    guion_agente: actual.guion_agente,
+    numeros_transferencia: actual.numeros_transferencia,
+    voz_agente: actual.voz_agente,
+    campos_personalizados,
+    etiquetas_disponibles,
+  });
+
+  revalidatePath("/configuracion/campos");
+}

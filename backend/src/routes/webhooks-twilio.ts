@@ -4,6 +4,7 @@ import { twimlConnectVoiceAgent, twimlDialHumano, twimlColgar } from "../lib/twi
 import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
 import { reprogramarOFallar } from "../jobs/dispatcher-campanas.js";
 import { asegurarContacto } from "../lib/contactos.js";
+import { ejecutarFlujosTrabajo } from "../lib/flujos-trabajo.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -149,6 +150,32 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
            WHERE call_sid = $1`,
           [callSid, duration ? parseInt(duration, 10) : null]
         );
+      }
+
+      // Flujos de trabajo: reglas "cuando termina así, hacer esto" (etiquetar,
+      // crear solicitud de seguimiento). Se evalúan para cualquier llamada,
+      // no solo las de campaña.
+      if (["completed", "busy", "no-answer", "failed", "canceled"].includes(status)) {
+        const llamada = await pool.query<{
+          id: string;
+          empresa_id: string;
+          direccion: "entrante" | "saliente";
+          numero_origen: string;
+          numero_destino: string;
+          transferida: boolean;
+        }>(
+          "SELECT id, empresa_id, direccion, numero_origen, numero_destino, transferida FROM llamadas WHERE call_sid = $1",
+          [callSid]
+        );
+        const l = llamada.rows[0];
+        if (l) {
+          const disparador =
+            status === "completed" ? (l.transferida ? "llamada_transferida" : "llamada_completada") : "llamada_no_contesta";
+          const numeroCliente = l.direccion === "entrante" ? l.numero_origen : l.numero_destino;
+          await ejecutarFlujosTrabajo({ empresaId: l.empresa_id, disparador, numeroCliente, llamadaId: l.id }).catch(
+            (err) => app.log.error({ err, callSid }, "Error ejecutando flujos de trabajo")
+          );
+        }
       }
 
       // Si esta llamada es de una campaña, actualiza el contacto: completada

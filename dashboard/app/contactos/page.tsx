@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { listarContactos } from "@/lib/api";
+import { listarContactos, obtenerEmpresa } from "@/lib/api";
 import { formatFechaHora } from "@/lib/format";
+import { ImportarContactos } from "@/components/ImportarContactos";
+import { EtiquetaChip } from "@/components/EtiquetaChip";
 
 export default async function ContactosPage({
   searchParams,
@@ -9,7 +11,10 @@ export default async function ContactosPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const contactos = await listarContactos(q);
+  const [contactos, empresa] = await Promise.all([listarContactos(q), obtenerEmpresa()]);
+  const colorPorEtiqueta = new Map(
+    (empresa.etiquetas_disponibles ?? []).map((e) => [e.nombre, e.color])
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -20,6 +25,8 @@ export default async function ContactosPage({
         </div>
         <span className="text-sm text-slate-500">{contactos.length} resultado(s)</span>
       </div>
+
+      <ImportarContactos />
 
       <form className="flex gap-2">
         <div className="relative flex-1">
@@ -46,6 +53,7 @@ export default async function ContactosPage({
             <tr>
               <th className="px-4 py-2 font-medium">Nombre</th>
               <th className="px-4 py-2 font-medium">Número</th>
+              <th className="px-4 py-2 font-medium">Etiquetas</th>
               <th className="px-4 py-2 font-medium">Otros datos</th>
               <th className="px-4 py-2 font-medium">Última actividad</th>
             </tr>
@@ -62,6 +70,13 @@ export default async function ContactosPage({
                     </Link>
                   </td>
                   <td className="px-4 py-3">{c.numero}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {(c.etiquetas ?? []).map((et) => (
+                        <EtiquetaChip key={et} nombre={et} color={colorPorEtiqueta.get(et)} />
+                      ))}
+                    </div>
+                  </td>
                   <td className="max-w-xs truncate px-4 py-3 text-slate-600">
                     {otrosDatos.length > 0
                       ? otrosDatos.map(([k, v]) => `${k}: ${v}`).join(" · ")
@@ -73,7 +88,7 @@ export default async function ContactosPage({
             })}
             {contactos.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
                   No hay contactos todavía.
                 </td>
               </tr>

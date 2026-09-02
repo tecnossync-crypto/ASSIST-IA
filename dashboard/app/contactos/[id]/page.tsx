@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { obtenerContacto } from "@/lib/api";
+import { obtenerContacto, obtenerEmpresa } from "@/lib/api";
 import { formatFechaHora, formatDuracion, etiquetaEstado } from "@/lib/format";
+import { EditorEtiquetasContacto } from "@/components/EditorEtiquetasContacto";
 
 export default async function ContactoDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = await obtenerContacto(id).catch(() => null);
+  const [data, empresa] = await Promise.all([obtenerContacto(id).catch(() => null), obtenerEmpresa()]);
   if (!data) notFound();
 
   const { contacto, llamadas } = data;
@@ -26,6 +27,15 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
           {contacto.numero} · última actividad {formatFechaHora(contacto.actualizado_en)}
         </p>
       </div>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-700">Etiquetas</h2>
+        <EditorEtiquetasContacto
+          contactoId={contacto.id}
+          catalogo={empresa.etiquetas_disponibles ?? []}
+          valorInicial={contacto.etiquetas ?? []}
+        />
+      </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-700">Datos recolectados</h2>

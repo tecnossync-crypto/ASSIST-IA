@@ -1,8 +1,8 @@
-import { Building2, Database, MessageSquareText, Sparkles } from "lucide-react";
+import { Building2, MessageSquareText, Sparkles } from "lucide-react";
 import { obtenerEmpresa } from "@/lib/api";
 import { guardarConfiguracion } from "./actions";
 import { SelectorVoz } from "@/components/SelectorVoz";
-import { EditorCamposPersonalizados } from "@/components/EditorCamposPersonalizados";
+import { ConfiguracionTabs } from "@/components/ConfiguracionTabs";
 
 export default async function ConfiguracionPage() {
   const empresa = await obtenerEmpresa();
@@ -11,11 +11,13 @@ export default async function ConfiguracionPage() {
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold">Configuración del agente</h1>
+        <h1 className="text-xl font-semibold">Configuración</h1>
         <p className="text-sm text-slate-500">
           Así habla y actúa la IA cuando contesta tus llamadas. Guarda para aplicar los cambios en la próxima llamada.
         </p>
       </div>
+
+      <ConfiguracionTabs activo="/configuracion" />
 
       <form action={guardarConfiguracion} className="flex flex-col gap-6">
         <section className="rounded-lg border border-slate-200 bg-white p-5">
@@ -56,18 +58,6 @@ export default async function ConfiguracionPage() {
               <SelectorVoz defaultValue={empresa.voz_agente} />
             </div>
           </div>
-        </section>
-
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
-            <Database size={16} className="text-indigo-600" />
-            Campos a recolectar
-          </div>
-          <p className="mb-3 text-xs text-slate-500">
-            Nombre, apellido y teléfono se guardan siempre. Agrega aquí lo que además necesites por este negocio
-            (número de póliza, placa, dirección…). Se guardan en el perfil de cada contacto.
-          </p>
-          <EditorCamposPersonalizados valorInicial={empresa.campos_personalizados ?? []} />
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-5">

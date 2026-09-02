@@ -93,6 +93,11 @@ export interface CampoPersonalizado {
   descripcion?: string;
 }
 
+export interface EtiquetaDisponible {
+  nombre: string;
+  color?: string;
+}
+
 export interface EmpresaConfig {
   id: string;
   nombre: string;
@@ -100,6 +105,7 @@ export interface EmpresaConfig {
   numeros_transferencia: string[];
   voz_agente: string | null;
   campos_personalizados: CampoPersonalizado[];
+  etiquetas_disponibles: EtiquetaDisponible[];
 }
 
 export async function obtenerEmpresa(): Promise<EmpresaConfig> {
@@ -116,6 +122,7 @@ export async function actualizarEmpresa(data: {
   numeros_transferencia: string[];
   voz_agente: string | null;
   campos_personalizados: CampoPersonalizado[];
+  etiquetas_disponibles: EtiquetaDisponible[];
 }): Promise<void> {
   const res = await fetch(new URL("/api/empresa", BACKEND_URL), {
     method: "PUT",
@@ -244,6 +251,7 @@ export interface ContactoResumen {
   nombre: string | null;
   apellido: string | null;
   datos: Record<string, string>;
+  etiquetas: string[];
   creado_en: string;
   actualizado_en: string;
 }
@@ -273,4 +281,79 @@ export async function obtenerContacto(id: string): Promise<ContactoDetalle> {
   const res = await fetch(new URL(`/api/contactos/${id}`, BACKEND_URL), { cache: "no-store" });
   if (!res.ok) throw new Error(`Error obteniendo contacto: HTTP ${res.status}`);
   return res.json();
+}
+
+export async function actualizarEtiquetasContacto(id: string, etiquetas: string[]): Promise<void> {
+  const res = await fetch(new URL(`/api/contactos/${id}/etiquetas`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ etiquetas }),
+  });
+  if (!res.ok) throw new Error(`Error actualizando etiquetas: HTTP ${res.status}`);
+}
+
+export async function importarContactos(
+  contactos: { numero: string; nombre?: string; apellido?: string }[]
+): Promise<{ insertados: number; actualizados: number }> {
+  const res = await fetch(new URL("/api/contactos/importar", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, contactos }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error importando contactos: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export type DisparadorFlujo = "llamada_completada" | "llamada_no_contesta" | "llamada_transferida";
+export type AccionFlujo = "agregar_etiqueta" | "crear_solicitud";
+
+export interface FlujoTrabajo {
+  id: string;
+  nombre: string;
+  disparador: DisparadorFlujo;
+  accion: AccionFlujo;
+  accion_datos: { etiqueta?: string; tipo?: string; descripcion?: string };
+  activo: boolean;
+  creado_en: string;
+}
+
+export async function listarFlujosTrabajo(): Promise<FlujoTrabajo[]> {
+  const url = new URL("/api/flujos-trabajo", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando flujos: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.flujos;
+}
+
+export async function crearFlujoTrabajo(data: {
+  nombre: string;
+  disparador: DisparadorFlujo;
+  accion: AccionFlujo;
+  accionDatos: Record<string, string>;
+}): Promise<void> {
+  const res = await fetch(new URL("/api/flujos-trabajo", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, ...data }),
+  });
+  if (!res.ok) throw new Error(`Error creando flujo: HTTP ${res.status}`);
+}
+
+export async function activarFlujoTrabajo(id: string): Promise<void> {
+  const res = await fetch(new URL(`/api/flujos-trabajo/${id}/activar`, BACKEND_URL), { method: "POST" });
+  if (!res.ok) throw new Error(`Error activando flujo: HTTP ${res.status}`);
+}
+
+export async function desactivarFlujoTrabajo(id: string): Promise<void> {
+  const res = await fetch(new URL(`/api/flujos-trabajo/${id}/desactivar`, BACKEND_URL), { method: "POST" });
+  if (!res.ok) throw new Error(`Error desactivando flujo: HTTP ${res.status}`);
+}
+
+export async function eliminarFlujoTrabajo(id: string): Promise<void> {
+  const res = await fetch(new URL(`/api/flujos-trabajo/${id}`, BACKEND_URL), { method: "DELETE" });
+  if (!res.ok) throw new Error(`Error eliminando flujo: HTTP ${res.status}`);
 }
