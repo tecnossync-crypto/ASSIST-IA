@@ -1,6 +1,12 @@
-import "dotenv/config";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { config } from "dotenv";
 import pg from "pg";
 import { encriptar } from "../lib/crypto.js";
+import { buildConnectionConfig } from "./connection-config.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+config({ path: path.join(__dirname, "../../../.env") });
 
 /**
  * Inserta (o actualiza) la primera empresa a partir de variables de entorno.
@@ -42,7 +48,7 @@ async function main() {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const client = new pg.Client({ connectionString });
+  const client = new pg.Client(buildConnectionConfig(connectionString));
   await client.connect();
 
   try {

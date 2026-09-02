@@ -1,4 +1,10 @@
-import "dotenv/config";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { config } from "dotenv";
+
+// El .env vive en la raíz del monorepo, no en backend/.
+config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), "../../.env") });
+
 import Fastify from "fastify";
 import formbody from "@fastify/formbody";
 import cors from "@fastify/cors";

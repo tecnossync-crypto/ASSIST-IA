@@ -1,4 +1,10 @@
-import "dotenv/config";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { config } from "dotenv";
+
+// El .env vive en la raíz del monorepo, no en voice-server/.
+config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), "../../.env") });
+
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { ConversationSession } from "./session.js";

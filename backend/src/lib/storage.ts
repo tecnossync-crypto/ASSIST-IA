@@ -2,9 +2,9 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
- * Storage propio para grabaciones (Cloudflare R2 o S3 — ambos hablan la
- * misma API). R2 no cobra egress, por eso es la opción recomendada en el
- * plan, pero cualquier endpoint S3-compatible funciona.
+ * Storage propio para grabaciones. Funciona con S3 real de AWS (dejar
+ * STORAGE_ENDPOINT vacío, usar STORAGE_REGION) o con cualquier servicio
+ * S3-compatible como Cloudflare R2 (sí requiere STORAGE_ENDPOINT).
  */
 
 let client: S3Client | null = null;
@@ -12,17 +12,18 @@ let client: S3Client | null = null;
 function getClient(): S3Client {
   if (client) return client;
 
-  const endpoint = process.env.STORAGE_ENDPOINT;
+  const endpoint = process.env.STORAGE_ENDPOINT || undefined;
+  const region = process.env.STORAGE_REGION || "us-east-1";
   const accessKeyId = process.env.STORAGE_ACCESS_KEY_ID;
   const secretAccessKey = process.env.STORAGE_SECRET_ACCESS_KEY;
 
-  if (!endpoint || !accessKeyId || !secretAccessKey) {
+  if (!accessKeyId || !secretAccessKey) {
     throw new Error("Variables de STORAGE_* no configuradas");
   }
 
   client = new S3Client({
     endpoint,
-    region: "auto",
+    region,
     credentials: { accessKeyId, secretAccessKey },
   });
 
