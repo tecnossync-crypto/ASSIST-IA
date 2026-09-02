@@ -15,14 +15,14 @@ export default async function LlamadasPage({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Llamadas</h1>
-        <span className="text-sm text-neutral-500">{llamadas.length} resultado(s)</span>
+        <span className="text-sm text-slate-500">{llamadas.length} resultado(s)</span>
       </div>
 
       <BuscadorLlamadas />
 
-      <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">
-          <thead className="bg-neutral-50 text-left text-neutral-500">
+          <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               <th className="px-4 py-2 font-medium">Fecha</th>
               <th className="px-4 py-2 font-medium">Dirección</th>
@@ -32,9 +32,9 @@ export default async function LlamadasPage({
               <th className="px-4 py-2 font-medium">Motivo</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100">
+          <tbody className="divide-y divide-slate-100">
             {llamadas.map((l) => (
-              <tr key={l.id} className="hover:bg-neutral-50">
+              <tr key={l.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
                   <Link href={`/llamadas/${l.id}`} className="block">
                     {formatFechaHora(l.iniciada_en)}
@@ -55,20 +55,20 @@ export default async function LlamadasPage({
                           ? "bg-amber-100 text-amber-800"
                           : l.estado === "fallida"
                             ? "bg-red-100 text-red-800"
-                            : "bg-neutral-100 text-neutral-700")
+                            : "bg-indigo-100 text-indigo-800")
                     }
                   >
                     {etiquetaEstado(l.estado)}
                   </span>
                 </td>
-                <td className="max-w-xs truncate px-4 py-3 text-neutral-600">
+                <td className="max-w-xs truncate px-4 py-3 text-slate-600">
                   {l.resumen_motivo ?? "—"}
                 </td>
               </tr>
             ))}
             {llamadas.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-neutral-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                   No hay llamadas todavía.
                 </td>
               </tr>

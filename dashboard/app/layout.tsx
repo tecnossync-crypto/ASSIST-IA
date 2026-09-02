@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Panel de llamadas — Plataforma de Voz IA",
-  description: "Historial de llamadas atendidas por el agente de voz IA",
+  title: "Tecnossync — Voz IA",
+  description: "Historial de llamadas atendidas por el agente de voz IA de Tecnossync",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -23,12 +23,31 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-neutral-50 text-neutral-900">
-        <header className="border-b border-neutral-200 bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-3">
-            <a href="/llamadas" className="font-semibold text-neutral-800">
-              Plataforma de Voz IA
+      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+        <header className="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+            <a href="/llamadas" className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-black text-white shadow shadow-indigo-500/30">
+                V
+              </span>
+              <span className="text-lg font-black tracking-tight text-white">
+                Tecnossync <span className="font-medium text-slate-400">· Voz IA</span>
+              </span>
             </a>
+            <nav className="flex gap-1 text-sm">
+              <a
+                href="/llamadas"
+                className="rounded-lg px-3 py-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                Llamadas
+              </a>
+              <a
+                href="/configuracion"
+                className="rounded-lg px-3 py-1.5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                Configuración
+              </a>
+            </nav>
           </div>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>

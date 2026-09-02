@@ -38,12 +38,12 @@ export function BuscadorLlamadas() {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Buscar por número o motivo…"
-        className="flex-1 min-w-[220px] rounded-md border border-neutral-300 px-3 py-2 text-sm"
+        className="flex-1 min-w-[220px] rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
       />
       <select
         defaultValue={searchParams.get("estado") ?? ""}
         onChange={(e) => actualizar({ estado: e.target.value })}
-        className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+        className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
       >
         {ESTADOS.map((e) => (
           <option key={e.value} value={e.value}>
@@ -53,7 +53,7 @@ export function BuscadorLlamadas() {
       </select>
       <button
         type="submit"
-        className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+        className="ts-brand-button rounded-md px-4 py-2 text-sm font-medium text-white shadow shadow-indigo-500/30 transition-colors"
       >
         Buscar
       </button>

@@ -2,5 +2,10 @@ node_modules/
 dist/
 .env
 .env.local
+.env.production
+.env.compose
+deploy/.env.production
+deploy/.env.compose
+*.pem
 *.log
 .DS_Store

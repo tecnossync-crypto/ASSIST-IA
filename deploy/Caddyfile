@@ -1,0 +1,11 @@
+{$PUBLIC_DOMAIN} {
+	# ConversationRelay conecta acá por WebSocket.
+	handle /voice-stream* {
+		reverse_proxy voice-server:3002
+	}
+
+	# Todo lo demás (webhooks de Twilio, /internal, /api, /health) va al backend.
+	handle {
+		reverse_proxy backend:3001
+	}
+}

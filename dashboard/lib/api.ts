@@ -77,3 +77,40 @@ export async function obtenerLlamada(id: string): Promise<LlamadaDetalle> {
   if (!res.ok) throw new Error(`Error obteniendo llamada: HTTP ${res.status}`);
   return res.json();
 }
+
+export interface GuionAgente {
+  prompt_personalizado?: string;
+  saludo?: string;
+  que_resuelve?: string;
+  datos_a_tomar?: string[];
+  cuando_transferir?: string;
+  instrucciones_extra?: string;
+}
+
+export interface EmpresaConfig {
+  id: string;
+  nombre: string;
+  guion_agente: GuionAgente;
+  numeros_transferencia: string[];
+}
+
+export async function obtenerEmpresa(): Promise<EmpresaConfig> {
+  const url = new URL("/api/empresa", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo empresa: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function actualizarEmpresa(data: {
+  nombre: string;
+  guion_agente: GuionAgente;
+  numeros_transferencia: string[];
+}): Promise<void> {
+  const res = await fetch(new URL("/api/empresa", BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, ...data }),
+  });
+  if (!res.ok) throw new Error(`Error actualizando empresa: HTTP ${res.status}`);
+}
