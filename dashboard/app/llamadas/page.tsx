@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PlayCircle } from "lucide-react";
 import { listarLlamadas } from "@/lib/api";
 import { formatFechaHora, formatDuracion, etiquetaEstado } from "@/lib/format";
 import { BuscadorLlamadas } from "@/components/BuscadorLlamadas";
@@ -33,6 +34,7 @@ export default async function LlamadasPage({
               <th className="px-4 py-2 font-medium">Duración</th>
               <th className="px-4 py-2 font-medium">Estado</th>
               <th className="px-4 py-2 font-medium">Motivo</th>
+              <th className="px-4 py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -67,11 +69,20 @@ export default async function LlamadasPage({
                 <td className="max-w-xs truncate px-4 py-3 text-slate-600">
                   {l.resumen_motivo ?? "—"}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href={`/llamadas/${l.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                  >
+                    <PlayCircle size={13} />
+                    Ver grabación
+                  </Link>
+                </td>
               </tr>
             ))}
             {llamadas.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                   No hay llamadas todavía.
                 </td>
               </tr>
