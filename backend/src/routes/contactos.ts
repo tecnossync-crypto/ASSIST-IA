@@ -8,10 +8,10 @@ import { pool } from "../db/pool.js";
  * auth todavía, mismo TODO que el resto de /api.
  */
 export async function contactosRoutes(app: FastifyInstance) {
-  app.get<{ Querystring: { empresaId?: string; q?: string; limite?: string; offset?: string } }>(
-    "/api/contactos",
-    async (req, reply) => {
-      const { empresaId, q, limite, offset } = req.query;
+  app.get<{
+    Querystring: { empresaId?: string; q?: string; etiqueta?: string; limite?: string; offset?: string };
+  }>("/api/contactos", async (req, reply) => {
+      const { empresaId, q, etiqueta, limite, offset } = req.query;
       if (!empresaId) {
         reply.code(400).send({ error: "empresaId es requerido" });
         return;
@@ -24,6 +24,11 @@ export async function contactosRoutes(app: FastifyInstance) {
         valores.push(`%${q}%`);
         const idx = valores.length;
         condiciones.push(`(numero ILIKE $${idx} OR nombre ILIKE $${idx} OR apellido ILIKE $${idx})`);
+      }
+
+      if (etiqueta) {
+        valores.push(etiqueta);
+        condiciones.push(`$${valores.length} = ANY(etiquetas)`);
       }
 
       const lim = Math.min(parseInt(limite ?? "50", 10) || 50, 200);

@@ -13,6 +13,12 @@ const LOTE_POR_TICK = Number(process.env.CAMPANAS_LOTE_POR_TICK ?? 3);
  * mismo backend para no complicar el despliegue en esta fase.
  */
 export async function procesarTickCampanas(publicBaseUrl: string) {
+  // Promueve a "en_curso" las campañas programadas cuya hora ya llegó.
+  await pool.query(
+    `UPDATE campanas SET estado = 'en_curso'
+     WHERE estado = 'borrador' AND programada_para IS NOT NULL AND programada_para <= now()`
+  );
+
   const pendientes = await pool.query<{
     id: string;
     campana_id: string;

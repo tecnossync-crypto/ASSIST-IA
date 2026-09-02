@@ -17,7 +17,7 @@ export async function campanasRoutes(app: FastifyInstance) {
 
     const result = await pool.query(
       `SELECT
-         c.id, c.nombre, c.estado, c.reintentos_max, c.horas_entre_reintentos, c.creado_en,
+         c.id, c.nombre, c.estado, c.reintentos_max, c.horas_entre_reintentos, c.creado_en, c.programada_para,
          COUNT(cc.*) AS total_contactos,
          COUNT(cc.*) FILTER (WHERE cc.estado = 'completada') AS completados,
          COUNT(cc.*) FILTER (WHERE cc.estado = 'fallida') AS fallidos,
@@ -42,9 +42,11 @@ export async function campanasRoutes(app: FastifyInstance) {
       reintentosMax?: number;
       horasEntreReintentos?: number;
       guionOverride?: Record<string, unknown> | null;
+      programadaPara?: string | null;
     };
   }>("/api/campanas", async (req, reply) => {
-    const { empresaId, nombre, contactos, reintentosMax, horasEntreReintentos, guionOverride } = req.body;
+    const { empresaId, nombre, contactos, reintentosMax, horasEntreReintentos, guionOverride, programadaPara } =
+      req.body;
 
     if (!empresaId || !nombre || !contactos?.length) {
       reply.code(400).send({ error: "empresaId, nombre y al menos un contacto son requeridos" });
@@ -56,8 +58,8 @@ export async function campanasRoutes(app: FastifyInstance) {
       await client.query("BEGIN");
 
       const campana = await client.query<{ id: string }>(
-        `INSERT INTO campanas (empresa_id, nombre, reintentos_max, horas_entre_reintentos, guion_override)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO campanas (empresa_id, nombre, reintentos_max, horas_entre_reintentos, guion_override, programada_para)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
         [
           empresaId,
@@ -65,6 +67,7 @@ export async function campanasRoutes(app: FastifyInstance) {
           reintentosMax ?? 2,
           horasEntreReintentos ?? 4,
           guionOverride ? JSON.stringify(guionOverride) : null,
+          programadaPara || null,
         ]
       );
       const campanaId = campana.rows[0].id;
@@ -92,7 +95,7 @@ export async function campanasRoutes(app: FastifyInstance) {
     const { id } = req.params;
 
     const campana = await pool.query(
-      `SELECT id, empresa_id, nombre, estado, reintentos_max, horas_entre_reintentos, guion_override, creado_en
+      `SELECT id, empresa_id, nombre, estado, reintentos_max, horas_entre_reintentos, guion_override, creado_en, programada_para
        FROM campanas WHERE id = $1`,
       [id]
     );

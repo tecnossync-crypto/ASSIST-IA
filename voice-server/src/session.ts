@@ -1,5 +1,5 @@
 import type OpenAI from "openai";
-import { construirSystemPrompt, correrTurno, generarResumen } from "./llm.js";
+import { construirSystemPrompt, correrTurno, generarResumen, generarSaludoInicial } from "./llm.js";
 import { getEmpresaConfig, getEmpresaConfigDeCampana, guardarTranscripcion } from "./backend-client.js";
 import type { EmpresaConfig, TurnoConversacion } from "./types.js";
 
@@ -14,6 +14,7 @@ export class ConversationSession {
   private turnos: TurnoConversacion[] = [];
   private systemPrompt = "";
   private empresa: EmpresaConfig | null = null;
+  private saludo = "";
 
   constructor(
     public readonly callSid: string,
@@ -26,6 +27,13 @@ export class ConversationSession {
       ? await getEmpresaConfigDeCampana(this.campanaContactoId)
       : await getEmpresaConfig(this.empresaId);
     this.systemPrompt = construirSystemPrompt(this.empresa);
+
+    // El saludo lo genera el mismo modelo con el mismo system prompt, para
+    // que nunca quede desincronizado del guion/prompt real de la empresa.
+    // Se guarda también en el historial: si no, el modelo no "recuerda"
+    // haberlo dicho y el siguiente turno pierde contexto.
+    this.saludo = await generarSaludoInicial(this.systemPrompt);
+    this.historial.push({ role: "assistant", content: this.saludo });
   }
 
   /** Segundos antes de que el gestor de llamadas corte la llamada por límite de duración. */
@@ -39,7 +47,7 @@ export class ConversationSession {
   }
 
   saludoInicial(): string {
-    return this.empresa?.guion_agente?.saludo || `Gracias por llamar a ${this.empresa?.nombre ?? "nuestra empresa"}, ¿en qué le puedo ayudar?`;
+    return this.saludo || `Gracias por llamar a ${this.empresa?.nombre ?? "nuestra empresa"}, ¿en qué le puedo ayudar?`;
   }
 
   registrarTurnoAgente(texto: string) {
@@ -76,7 +84,7 @@ export class ConversationSession {
   async finalizar() {
     if (this.turnos.length === 0) return;
 
-    const resumen = await generarResumen(this.turnos);
+    const resumen = await generarResumen(this.turnos, this.empresa?.nombre ?? "la empresa");
 
     await guardarTranscripcion(this.callSid, {
       textoCompleto: this.turnos,

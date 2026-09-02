@@ -125,6 +125,7 @@ CREATE TABLE campanas (
     guion_override          JSONB, -- mismo shape que empresas.guion_agente; null = usa el guion normal de la empresa
     reintentos_max          INTEGER NOT NULL DEFAULT 2,
     horas_entre_reintentos  NUMERIC NOT NULL DEFAULT 4,
+    programada_para         TIMESTAMPTZ, -- si se define, arranca sola a esta hora en vez de esperar "Iniciar"
     creado_en               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

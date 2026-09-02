@@ -163,6 +163,7 @@ export interface CampanaResumen {
   fallidos: string;
   pendientes: string;
   llamando: string;
+  programada_para: string | null;
 }
 
 export interface CampanaContacto {
@@ -186,6 +187,7 @@ export interface CampanaDetalle {
     horas_entre_reintentos: number;
     guion_override: GuionAgente | null;
     creado_en: string;
+    programada_para: string | null;
   };
   contactos: CampanaContacto[];
 }
@@ -205,6 +207,7 @@ export async function crearCampana(data: {
   reintentosMax: number;
   horasEntreReintentos: number;
   guionOverride?: GuionAgente | null;
+  programadaPara?: string | null;
 }): Promise<{ campanaId: string }> {
   const res = await fetch(new URL("/api/campanas", BACKEND_URL), {
     method: "POST",

@@ -55,6 +55,33 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
     .join("\n");
 }
 
+/**
+ * Genera el saludo inicial CON el modelo, usando el mismo system prompt que
+ * el resto de la conversación — así el saludo siempre coincide con el
+ * prompt personalizado o guiado que la empresa configuró, en vez de un
+ * texto fijo aparte que se podía desincronizar del guion real.
+ */
+export async function generarSaludoInicial(systemPrompt: string): Promise<string> {
+  try {
+    const respuesta = await openai.chat.completions.create({
+      model: MODEL,
+      max_tokens: 150,
+      messages: [
+        {
+          role: "system",
+          content:
+            systemPrompt +
+            "\n\nAcabas de contestar el teléfono. Saluda al cliente ahora mismo, breve y natural, siguiendo tus instrucciones. No uses markdown.",
+        },
+      ],
+    });
+    return respuesta.choices[0].message.content?.trim() || "Gracias por llamar, ¿en qué le puedo ayudar?";
+  } catch (err) {
+    console.error("Error generando saludo inicial:", err);
+    return "Gracias por llamar, ¿en qué le puedo ayudar?";
+  }
+}
+
 export interface TurnoResultado {
   textoRespuesta: string;
   transferSolicitada?: { numero: string; motivo: string };
@@ -130,7 +157,10 @@ export interface ResumenLlamada {
  * el historial de la conversación) para no arrastrar el contexto de
  * herramientas y mantener la salida estrictamente JSON.
  */
-export async function generarResumen(turnos: { hablante: string; texto: string }[]): Promise<ResumenLlamada | null> {
+export async function generarResumen(
+  turnos: { hablante: string; texto: string }[],
+  nombreEmpresa: string
+): Promise<ResumenLlamada | null> {
   const transcripcionPlano = turnos.map((t) => `${t.hablante}: ${t.texto}`).join("\n");
 
   try {
@@ -142,9 +172,13 @@ export async function generarResumen(turnos: { hablante: string; texto: string }
         {
           role: "system",
           content:
-            "Resumes llamadas telefónicas de atención al cliente. Responde ÚNICAMENTE con un objeto JSON " +
-            'con las claves "motivo", "solicitud", "resultado" y "accionPendiente" (string cada una, en español, ' +
-            'una frase corta). Si no aplica algo, usa "" (string vacío).',
+            `Resumes llamadas telefónicas de atención al cliente de "${nombreEmpresa}". Responde ÚNICAMENTE con un ` +
+            'objeto JSON con las claves "motivo", "solicitud", "resultado" y "accionPendiente" (string cada una, ' +
+            "en español, una frase corta).\n\n" +
+            "REGLA ESTRICTA: básate solo en lo que literalmente dice la transcripción. Si la llamada es muy corta, " +
+            "ambigua, o no queda claro el motivo real, usa \"\" (string vacío) en ese campo — NUNCA inventes un " +
+            "tema, industria o necesidad que no esté explícitamente en el texto. Una sola palabra ambigua del " +
+            'cliente (ej. un saludo, una interjección) no es motivo suficiente para inferir un tema completo.',
         },
         { role: "user", content: `Transcripción:\n${transcripcionPlano}` },
       ],
