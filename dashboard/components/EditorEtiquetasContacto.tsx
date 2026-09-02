@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { guardarEtiquetasAction } from "@/app/contactos/[id]/actions";
 import { EtiquetaChip } from "./EtiquetaChip";
 import type { EtiquetaDisponible } from "@/lib/api";
@@ -16,9 +17,11 @@ export function EditorEtiquetasContacto({
 }) {
   const [seleccionadas, setSeleccionadas] = useState<string[]>(valorInicial);
   const [guardando, setGuardando] = useState(false);
+  const [guardado, setGuardado] = useState(false);
 
   function toggle(nombre: string) {
     setSeleccionadas((prev) => (prev.includes(nombre) ? prev.filter((n) => n !== nombre) : [...prev, nombre]));
+    setGuardado(false);
   }
 
   async function guardar() {
@@ -28,6 +31,8 @@ export function EditorEtiquetasContacto({
     formData.set("etiquetas_json", JSON.stringify(seleccionadas));
     await guardarEtiquetasAction(formData);
     setGuardando(false);
+    setGuardado(true);
+    setTimeout(() => setGuardado(false), 3000);
   }
 
   if (catalogo.length === 0) {
@@ -55,14 +60,26 @@ export function EditorEtiquetasContacto({
           );
         })}
       </div>
-      <button
-        type="button"
-        onClick={guardar}
-        disabled={guardando}
-        className="ts-brand-button w-fit rounded-md px-3 py-1.5 text-xs font-medium text-white shadow shadow-indigo-500/30 disabled:opacity-60"
-      >
-        {guardando ? "Guardando…" : "Guardar etiquetas"}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={guardando}
+          className="ts-brand-button w-fit rounded-md px-3 py-1.5 text-xs font-medium text-white shadow shadow-indigo-500/30 disabled:opacity-60"
+        >
+          {guardando ? "Guardando…" : "Guardar etiquetas"}
+        </button>
+        {guardando && (
+          <span className="flex items-center gap-1 text-xs text-indigo-600">
+            <Loader2 size={12} className="animate-spin" /> Aplicando…
+          </span>
+        )}
+        {!guardando && guardado && (
+          <span className="flex items-center gap-1 text-xs text-green-600">
+            <CheckCircle2 size={12} /> Guardado correctamente.
+          </span>
+        )}
+      </div>
     </div>
   );
 }

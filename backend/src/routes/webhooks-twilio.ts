@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
-import { twimlConnectVoiceAgent, twimlDialHumano, twimlColgar } from "../lib/twiml.js";
+import { twimlConnectVoiceAgent, twimlDialHumano, twimlColgar, twimlLlamadaNormal } from "../lib/twiml.js";
 import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
 import { reprogramarOFallar } from "../jobs/dispatcher-campanas.js";
 import { asegurarContacto } from "../lib/contactos.js";
@@ -110,6 +110,21 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       );
     }
   );
+
+  // "Llamada normal": el cliente contesta y se conecta directo con un
+  // humano, sin pasar por la IA. destino viaja en la query string porque
+  // nosotros armamos esta URL al crear la llamada.
+  app.post<{ Querystring: { destino?: string } }>("/webhooks/twilio/voice-normal", async (req, reply) => {
+    const { destino } = req.query;
+    const publicBaseUrl = process.env.PUBLIC_BASE_URL;
+
+    if (!destino || !publicBaseUrl) {
+      reply.type("text/xml").send(twimlColgar());
+      return;
+    }
+
+    reply.type("text/xml").send(twimlLlamadaNormal({ numeroTransferencia: destino, publicBaseUrl }));
+  });
 
   // Se ejecuta cuando ConversationRelay termina (el agente mandó "end" o la
   // llamada se cayó) y TwiML cae al <Redirect> puesto después de <Connect>.

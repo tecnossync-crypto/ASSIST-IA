@@ -52,6 +52,20 @@ export function twimlDialHumano(numeroTransferencia: string): string {
 </Response>`;
 }
 
+// "Llamada normal": el cliente contesta y se conecta directo con un humano
+// (el número de transferencia), sin que la IA participe en la conversación.
+// Se graba igual, por la misma constancia que cualquier otra llamada.
+export function twimlLlamadaNormal(opts: { numeroTransferencia: string; publicBaseUrl: string }): string {
+  const { numeroTransferencia, publicBaseUrl } = opts;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Start>
+    <Recording recordingStatusCallback="${publicBaseUrl}/webhooks/twilio/recording-status" />
+  </Start>
+  <Dial>${numeroTransferencia}</Dial>
+</Response>`;
+}
+
 export function twimlColgar(mensaje?: string): string {
   const say = mensaje ? `<Say language="es-MX">${mensaje}</Say>` : "";
   return `<?xml version="1.0" encoding="UTF-8"?>

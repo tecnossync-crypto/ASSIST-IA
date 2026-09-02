@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { PlayCircle } from "lucide-react";
-import { listarLlamadas } from "@/lib/api";
+import { listarLlamadas, listarContactos } from "@/lib/api";
 import { formatFechaHoraCorta, formatDuracion, etiquetaEstado } from "@/lib/format";
 import { BuscadorLlamadas } from "@/components/BuscadorLlamadas";
-import { LlamarAhora } from "@/components/LlamarAhora";
+import { PanelTelefono } from "@/components/PanelTelefono";
 
 export default async function LlamadasPage({
   searchParams,
@@ -11,21 +11,27 @@ export default async function LlamadasPage({
   searchParams: Promise<{ q?: string; estado?: string }>;
 }) {
   const { q, estado } = await searchParams;
-  const llamadas = await listarLlamadas({ q, estado });
+  const [llamadas, contactos, recientes] = await Promise.all([
+    listarLlamadas({ q, estado }),
+    listarContactos(),
+    listarLlamadas({ limite: 15 }),
+  ]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="relative flex flex-col gap-4">
+      <div className="fixed right-6 top-24 z-40 sm:right-8 md:right-10">
+        <PanelTelefono contactos={contactos} recientes={recientes} />
+      </div>
+
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Llamadas</h1>
         <span className="text-sm text-slate-500">{llamadas.length} resultado(s)</span>
       </div>
 
-      <LlamarAhora />
-
       <BuscadorLlamadas />
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="overflow-x-auto">
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-slate-500">
               <tr>

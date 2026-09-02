@@ -151,6 +151,19 @@ export async function iniciarLlamadaSaliente(numero: string): Promise<{ callSid:
   return res.json();
 }
 
+export async function iniciarLlamadaNormal(numero: string): Promise<{ callSid: string }> {
+  const res = await fetch(new URL("/api/llamadas/normal", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, numero }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error originando llamada: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
 export interface CampanaResumen {
   id: string;
   nombre: string;

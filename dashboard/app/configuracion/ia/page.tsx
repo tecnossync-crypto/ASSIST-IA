@@ -2,6 +2,7 @@ import { Bot, PhoneCall, Terminal, MessageSquareText } from "lucide-react";
 import { obtenerEmpresa } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { SelectorVoz } from "@/components/SelectorVoz";
+import { FormConFeedback } from "@/components/FormConFeedback";
 import { guardarIaAction } from "./actions";
 
 export default async function IaConfigPage() {
@@ -16,7 +17,7 @@ export default async function IaConfigPage() {
         descripcion="Cómo habla y actúa el agente que contesta tus llamadas."
       />
 
-      <form action={guardarIaAction} className="flex flex-col gap-6">
+      <FormConFeedback action={guardarIaAction} className="flex flex-col gap-6">
         {/* Panel de selección — gestor de llamadas, franja horizontal arriba de todo */}
         <section className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-5">
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
@@ -165,14 +166,7 @@ export default async function IaConfigPage() {
             </div>
           </section>
         </div>
-
-        <button
-          type="submit"
-          className="ts-brand-button self-start rounded-md px-5 py-2 text-sm font-medium text-white shadow shadow-indigo-500/30 transition-colors"
-        >
-          Guardar
-        </button>
-      </form>
+      </FormConFeedback>
     </div>
   );
 }

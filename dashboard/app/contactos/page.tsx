@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 import { listarContactos, obtenerEmpresa } from "@/lib/api";
 import { formatFechaHora } from "@/lib/format";
 import { ImportarContactos } from "@/components/ImportarContactos";
+import { AgregarContactoModal } from "@/components/AgregarContactoModal";
 import { EtiquetaChip } from "@/components/EtiquetaChip";
 
 export default async function ContactosPage({
@@ -26,7 +27,10 @@ export default async function ContactosPage({
         <span className="text-sm text-slate-500">{contactos.length} resultado(s)</span>
       </div>
 
-      <ImportarContactos />
+      <div className="flex flex-wrap gap-2">
+        <AgregarContactoModal />
+        <ImportarContactos />
+      </div>
 
       <form className="flex gap-2">
         <div className="relative flex-1">
