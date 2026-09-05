@@ -61,7 +61,7 @@ export default async function FlujosTrabajoPage() {
             <div className="flex items-center gap-3">
               {f.activo ? (
                 <BotonAccion
-                  accion={() => desactivarFlujoAction(f.id)}
+                  accion={desactivarFlujoAction.bind(null, f.id)}
                   mensajeExito="Desactivada."
                   className="text-xs text-amber-700 hover:underline"
                 >
@@ -69,7 +69,7 @@ export default async function FlujosTrabajoPage() {
                 </BotonAccion>
               ) : (
                 <BotonAccion
-                  accion={() => activarFlujoAction(f.id)}
+                  accion={activarFlujoAction.bind(null, f.id)}
                   mensajeExito="Activada."
                   className="text-xs text-indigo-700 hover:underline"
                 >
@@ -77,7 +77,7 @@ export default async function FlujosTrabajoPage() {
                 </BotonAccion>
               )}
               <BotonAccion
-                accion={() => eliminarFlujoAction(f.id)}
+                accion={eliminarFlujoAction.bind(null, f.id)}
                 mensajeExito="Eliminada."
                 mensajeConfirmar={`¿Eliminar la regla "${f.nombre}"?`}
               >

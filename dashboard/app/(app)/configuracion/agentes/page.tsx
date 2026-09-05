@@ -53,7 +53,7 @@ export default async function AgentesPage() {
               <div className="flex items-center gap-3">
                 <ColaEnrutamientoSelect colaId={c.id} modoActual={c.enrutamiento?.modo ?? "todos"} />
                 <BotonAccion
-                  accion={() => eliminarColaAction(c.id)}
+                  accion={eliminarColaAction.bind(null, c.id)}
                   mensajeExito="Eliminada."
                   mensajeConfirmar={`¿Eliminar la cola "${c.nombre}"? Sus agentes quedarán sin cola.`}
                 >
@@ -152,7 +152,7 @@ export default async function AgentesPage() {
               </div>
             </div>
             <BotonAccion
-              accion={() => eliminarAgenteAction(a.id)}
+              accion={eliminarAgenteAction.bind(null, a.id)}
               mensajeExito="Eliminado."
               mensajeConfirmar={`¿Eliminar al agente "${a.nombre}"?`}
             >

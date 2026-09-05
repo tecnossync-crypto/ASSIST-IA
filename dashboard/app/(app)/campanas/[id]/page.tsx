@@ -38,7 +38,7 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
 
         {campana.estado === "en_curso" ? (
           <BotonAccion
-            accion={() => pausarCampanaAction(campana.id)}
+            accion={pausarCampanaAction.bind(null, campana.id)}
             mensajeExito="Campaña pausada."
             className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
           >
@@ -46,7 +46,7 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
           </BotonAccion>
         ) : campana.estado !== "completada" ? (
           <BotonAccion
-            accion={() => iniciarCampanaAction(campana.id)}
+            accion={iniciarCampanaAction.bind(null, campana.id)}
             mensajeExito="Campaña iniciada."
             className="ts-brand-button rounded-md px-4 py-2 text-sm font-medium text-white shadow shadow-indigo-500/30"
           >

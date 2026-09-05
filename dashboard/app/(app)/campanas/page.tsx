@@ -131,7 +131,7 @@ export default async function CampanasPage() {
                 <td className="px-4 py-3 text-right">
                   {c.estado === "en_curso" ? (
                     <BotonAccion
-                      accion={() => pausarCampanaAction(c.id)}
+                      accion={pausarCampanaAction.bind(null, c.id)}
                       mensajeExito="Pausada."
                       className="text-sm text-amber-700 hover:underline"
                     >
@@ -139,7 +139,7 @@ export default async function CampanasPage() {
                     </BotonAccion>
                   ) : c.estado !== "completada" ? (
                     <BotonAccion
-                      accion={() => iniciarCampanaAction(c.id)}
+                      accion={iniciarCampanaAction.bind(null, c.id)}
                       mensajeExito="Iniciada."
                       className="text-sm text-indigo-700 hover:underline"
                     >
