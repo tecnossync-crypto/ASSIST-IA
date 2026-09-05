@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import type { CampoPersonalizado, TipoCampoPersonalizado } from "@/lib/api";
+import { generarApiName, type CampoPersonalizado, type TipoCampoPersonalizado } from "@/lib/api";
 
 const TIPOS: { valor: TipoCampoPersonalizado; label: string }[] = [
   { valor: "texto", label: "Texto" },
@@ -30,7 +30,20 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
   }
 
   function actualizar(i: number, campo: Partial<CampoPersonalizado>) {
-    setCampos(campos.map((c, idx) => (idx === i ? { ...c, ...campo } : c)));
+    setCampos(
+      campos.map((c, idx) => {
+        if (idx !== i) return c;
+        const actualizado = { ...c, ...campo };
+        // Autogenera el api_name a partir del nombre mientras no se haya
+        // escrito uno a mano — así siempre queda una clave técnica lista
+        // para integraciones (Zoho, etc.) sin que el usuario tenga que
+        // pensar en eso.
+        if ("nombre" in campo && !c.api_name) {
+          actualizado.api_name = generarApiName(actualizado.nombre);
+        }
+        return actualizado;
+      })
+    );
   }
 
   return (
@@ -78,6 +91,16 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
 
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">api_name:</span>
+                  <input
+                    value={c.api_name ?? ""}
+                    onChange={(e) => actualizar(i, { api_name: generarApiName(e.target.value) })}
+                    placeholder={generarApiName(c.nombre) || "se genera solo"}
+                    className="flex-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs text-slate-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
                 {tipo === "dropdown" && (
                   <div className="flex flex-col gap-1">
                     <input
@@ -112,7 +135,9 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
       </button>
 
       <p className="text-xs text-slate-400">
-        El agente pedirá estos datos durante la llamada y quedarán guardados en el perfil de cada contacto.
+        El agente pedirá estos datos durante la llamada y quedarán guardados en el perfil de cada contacto. El
+        "api_name" es la clave técnica y estable que usan las integraciones (Zoho, etc.) para mapear este campo —
+        no cambia aunque edites el nombre visible.
       </p>
     </div>
   );

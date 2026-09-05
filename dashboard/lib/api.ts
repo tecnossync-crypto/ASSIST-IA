@@ -136,6 +136,18 @@ export interface CampoPersonalizado {
   descripcion?: string;
   tipo?: TipoCampoPersonalizado; // sin valor = "texto" (compatibilidad con campos creados antes de esto)
   opciones?: string[]; // solo aplica si tipo === "dropdown"
+  api_name?: string; // clave técnica estable para integraciones (Zoho, etc.) — no cambia aunque se traduzca/edite el nombre visible
+}
+
+/** ej. "Número de póliza" -> "numero_de_poliza". Usado como valor por defecto
+ * de api_name cuando no se define uno manual. */
+export function generarApiName(nombre: string): string {
+  return nombre
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // quita acentos (tildes descompuestas por normalize)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 export interface EtiquetaDisponible {

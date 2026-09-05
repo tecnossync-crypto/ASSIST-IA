@@ -2,7 +2,12 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { empresaPorApiKey } from "../lib/api-keys.js";
 import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
-import { asegurarContacto } from "../lib/contactos.js";
+import { asegurarContacto, upsertContacto } from "../lib/contactos.js";
+
+interface CampoPersonalizado {
+  nombre: string;
+  api_name?: string;
+}
 
 /**
  * Webhook público para que plataformas externas (un CRM, un e-commerce, un
@@ -79,6 +84,68 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         app.log.error({ err, numero }, "Error originando llamada vía webhook externo");
         reply.code(502).send({ error: "No se pudo originar la llamada", detalle: String(err) });
       }
+    }
+  );
+
+  // Para que una plataforma externa (Zoho u otra) empuje datos de un
+  // contacto hacia acá — ej. cuando algo cambia del lado de ellos. Las
+  // claves de "datos" son los api_name configurados en Configuración →
+  // Contactos (no el nombre visible), así el mapeo no se rompe si alguien
+  // traduce o edita el nombre del campo después.
+  app.post<{
+    Body: { numero: string; datos: Record<string, string> };
+    Headers: { "x-api-key"?: string };
+  }>(
+    "/api/webhooks/contactos",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
+    async (req, reply) => {
+      const apiKey = req.headers["x-api-key"];
+      if (!apiKey) {
+        reply.code(401).send({ error: "Falta el header x-api-key" });
+        return;
+      }
+
+      const empresa = await empresaPorApiKey(apiKey);
+      if (!empresa) {
+        reply.code(401).send({ error: "API key inválido" });
+        return;
+      }
+      const empresaId = empresa.id;
+
+      const { numero, datos } = req.body ?? {};
+      if (!numero || typeof numero !== "string") {
+        reply.code(400).send({ error: "numero es requerido" });
+        return;
+      }
+      if (!datos || typeof datos !== "object") {
+        reply.code(400).send({ error: "datos es requerido (objeto con claves = api_name)" });
+        return;
+      }
+
+      const empresaRow = await pool.query<{ campos_personalizados: CampoPersonalizado[] }>(
+        "SELECT campos_personalizados FROM empresas WHERE id = $1",
+        [empresaId]
+      );
+      const campos = empresaRow.rows[0]?.campos_personalizados ?? [];
+      const nombrePorApiName = new Map(
+        campos.filter((c) => c.api_name).map((c) => [c.api_name as string, c.nombre])
+      );
+
+      await asegurarContacto(empresaId, numero);
+
+      const aplicados: string[] = [];
+      const ignorados: string[] = [];
+      for (const [apiName, valor] of Object.entries(datos)) {
+        const nombreCampo = nombrePorApiName.get(apiName) ?? (apiName === "nombre" || apiName === "apellido" ? apiName : null);
+        if (!nombreCampo || typeof valor !== "string" || !valor.trim()) {
+          ignorados.push(apiName);
+          continue;
+        }
+        await upsertContacto(empresaId, numero, nombreCampo, valor);
+        aplicados.push(apiName);
+      }
+
+      reply.send({ ok: true, aplicados, ignorados });
     }
   );
 }

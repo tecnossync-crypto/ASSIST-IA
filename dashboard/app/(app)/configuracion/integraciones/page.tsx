@@ -1,4 +1,4 @@
-import { Plug, Webhook, Sparkles } from "lucide-react";
+import { Plug, Webhook, Database, Sparkles } from "lucide-react";
 import { obtenerEmpresa } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { ApiKeyManager } from "@/components/ApiKeyManager";
@@ -63,6 +63,70 @@ export default async function IntegracionesPage() {
             dónde vino la solicitud.
           </li>
         </ul>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <Webhook size={16} className="text-indigo-600" />
+          API para actualizar datos de un contacto
+        </div>
+        <p className="mb-4 text-xs text-slate-500">
+          Para cuando algo cambia del lado de tu CRM (Zoho u otro) y quieres que se refleje acá — manda el número
+          y los campos que cambiaron, usando el <span className="font-mono">api_name</span> de cada uno (ver
+          tabla abajo), no el nombre visible.
+        </p>
+
+        <div className="overflow-x-auto rounded-md bg-slate-900 p-3">
+          <pre className="text-xs text-slate-100">
+            <code>{`curl -X POST ${backendPublicUrl}/api/webhooks/contactos \\
+  -H "content-type: application/json" \\
+  -H "x-api-key: TU_API_KEY" \\
+  -d '{
+    "numero": "+18095551234",
+    "datos": {
+${(empresa.campos_personalizados ?? []).slice(0, 2).map((c) => `      "${c.api_name ?? "campo"}": "valor"`).join(",\n") || '      "numero_de_poliza": "valor"'}
+    }
+  }'`}</code>
+          </pre>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <Database size={16} className="text-indigo-600" />
+          Campos disponibles (api_name)
+        </div>
+        <p className="mb-4 text-xs text-slate-500">
+          Estas son las claves técnicas de los campos personalizados configurados en Configuración → Contactos —
+          úsalas al mapear en Zoho o cualquier otra integración.
+        </p>
+
+        {(empresa.campos_personalizados ?? []).length === 0 ? (
+          <p className="text-sm text-slate-400">
+            No hay campos personalizados configurados todavía — agrégalos en Configuración → Contactos.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-md border border-slate-200">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Nombre visible</th>
+                  <th className="px-3 py-2 font-medium">api_name</th>
+                  <th className="px-3 py-2 font-medium">Tipo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {(empresa.campos_personalizados ?? []).map((c) => (
+                  <tr key={c.nombre}>
+                    <td className="px-3 py-2 text-slate-700">{c.nombre}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-indigo-700">{c.api_name || "—"}</td>
+                    <td className="px-3 py-2 capitalize text-slate-500">{c.tipo ?? "texto"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section>
