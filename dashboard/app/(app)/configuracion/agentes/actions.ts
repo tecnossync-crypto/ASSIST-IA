@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import {
   crearAgente,
@@ -12,16 +13,58 @@ import {
 } from "@/lib/api";
 import { auditar } from "@/lib/session";
 
-export async function crearAgenteAction(formData: FormData) {
+export interface EstadoCrearAgente {
+  error?: string;
+  passwordGenerada?: string;
+  nombreCreado?: string;
+  emailCreado?: string;
+}
+
+// Contraseña temporal legible (evita caracteres ambiguos como 0/O, 1/l/I).
+function generarPasswordTemporal(): string {
+  const alfabeto = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = randomBytes(10);
+  let out = "";
+  for (const b of bytes) out += alfabeto[b % alfabeto.length];
+  return out;
+}
+
+export async function crearAgenteAction(
+  _prevState: EstadoCrearAgente | null,
+  formData: FormData
+): Promise<EstadoCrearAgente> {
   const nombre = String(formData.get("nombre") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const pin = String(formData.get("pin") ?? "").trim();
+  const rol = String(formData.get("rol") ?? "operador").trim();
   const colaId = String(formData.get("colaId") ?? "").trim();
-  if (!nombre || !email || !pin) return;
+  // Admin y supervisor siempre necesitan entrar al dashboard completo; para
+  // un agente (operador) es opcional que además tenga acceso al dashboard.
+  const conAcceso = rol !== "operador" || formData.get("conAcceso") === "on";
 
-  await crearAgente({ nombre, email, pin, colaId: colaId || null });
+  if (!nombre || !email) return { error: "Nombre y email son requeridos." };
+  if (!conAcceso && !pin) {
+    return { error: "Un agente necesita un PIN (softphone) o acceso al dashboard." };
+  }
+
+  const passwordGenerada = conAcceso ? generarPasswordTemporal() : undefined;
+
+  try {
+    await crearAgente({
+      nombre,
+      email,
+      pin: pin || undefined,
+      password: passwordGenerada,
+      rol,
+      colaId: colaId || null,
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error creando el usuario." };
+  }
+
   revalidatePath("/configuracion/agentes");
-  await auditar("crear", "agente", { nombre, email });
+  await auditar("crear", "agente", { nombre, email, rol });
+  return { passwordGenerada, nombreCreado: nombre, emailCreado: email };
 }
 
 export async function eliminarAgenteAction(id: string) {

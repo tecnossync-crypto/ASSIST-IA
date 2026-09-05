@@ -39,7 +39,7 @@ CREATE TABLE usuarios (
     email           TEXT NOT NULL,
     password_hash   TEXT, -- login completo pendiente; por ahora los agentes entran con `pin` desde el ejecutable
     pin             TEXT, -- código corto de acceso al ejecutable de call center
-    rol             TEXT NOT NULL DEFAULT 'operador', -- admin | operador
+    rol             TEXT NOT NULL DEFAULT 'operador', -- admin | supervisor | operador
     telefono_transferencia TEXT,
     disponible      BOOLEAN NOT NULL DEFAULT false, -- lo marca el ejecutable al conectarse/desconectarse
     ultima_conexion TIMESTAMPTZ,

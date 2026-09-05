@@ -527,11 +527,12 @@ export interface Agente {
   nombre: string;
   email: string;
   rol: string;
-  pin: string;
+  pin: string | null;
   disponible: boolean;
   ultima_conexion: string | null;
   cola_id: string | null;
   cola_nombre: string | null;
+  tiene_acceso_dashboard: boolean;
 }
 
 export interface Cola {
@@ -553,7 +554,9 @@ export async function listarAgentes(): Promise<Agente[]> {
 export async function crearAgente(data: {
   nombre: string;
   email: string;
-  pin: string;
+  pin?: string;
+  password?: string;
+  rol?: string;
   colaId?: string | null;
 }): Promise<void> {
   const res = await fetch(new URL("/api/agentes", BACKEND_URL), {

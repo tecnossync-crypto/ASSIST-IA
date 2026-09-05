@@ -13,8 +13,8 @@ const ITEMS = [
   { href: "/configuracion", label: "Configuración", Icon: Settings },
 ];
 
-// Solo admin — mismo criterio que Configuración.
-const ITEMS_SOLO_ADMIN = [{ href: "/supervision", label: "Supervisión", Icon: Radio }];
+// Admin y supervisor — no operador.
+const ITEMS_SUPERVISION = [{ href: "/supervision", label: "Supervisión", Icon: Radio }];
 
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/);
@@ -24,9 +24,10 @@ function iniciales(nombre: string): string {
 export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | null }) {
   const pathname = usePathname();
   const esAdmin = sesion?.rol === "admin";
-  const items = esAdmin
-    ? [...ITEMS.slice(0, 2), ...ITEMS_SOLO_ADMIN, ...ITEMS.slice(2)]
-    : ITEMS.filter((i) => i.href !== "/configuracion");
+  const veSupervision = sesion?.rol === "admin" || sesion?.rol === "supervisor";
+  const items = (
+    veSupervision ? [...ITEMS.slice(0, 2), ...ITEMS_SUPERVISION, ...ITEMS.slice(2)] : ITEMS
+  ).filter((i) => i.href !== "/configuracion" || esAdmin);
 
   return (
     <aside className="flex h-full w-60 flex-shrink-0 flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950">

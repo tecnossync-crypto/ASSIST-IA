@@ -4,7 +4,14 @@ import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { EnrutamientoForm } from "@/components/EnrutamientoForm";
 import { ColaEnrutamientoSelect } from "@/components/ColaEnrutamientoSelect";
 import { BotonAccion } from "@/components/BotonAccion";
-import { crearAgenteAction, eliminarAgenteAction, crearColaAction, eliminarColaAction } from "./actions";
+import { NuevoAgenteForm } from "@/components/NuevoAgenteForm";
+import { eliminarAgenteAction, crearColaAction, eliminarColaAction } from "./actions";
+
+const ETIQUETAS_ROL: Record<string, string> = {
+  admin: "Administrador",
+  supervisor: "Supervisor",
+  operador: "Agente",
+};
 
 export default async function AgentesPage() {
   const [agentes, colas, empresa] = await Promise.all([listarAgentes(), listarColas(), obtenerEmpresa()]);
@@ -77,60 +84,20 @@ export default async function AgentesPage() {
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
           <KeyRound size={16} className="text-indigo-600" />
-          Nuevo agente
+          Nuevo usuario
         </div>
-        <form action={crearAgenteAction} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <input
-            name="nombre"
-            required
-            placeholder="Nombre"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <input
-            name="email"
-            type="email"
-            required
-            placeholder="Email"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <input
-            name="pin"
-            required
-            inputMode="numeric"
-            pattern="\d{4,6}"
-            title="4 a 6 dígitos"
-            placeholder="PIN (4-6 dígitos)"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <select
-            name="colaId"
-            defaultValue=""
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="">Sin cola</option>
-            {colas.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="ts-brand-button col-span-full self-start rounded-md px-4 py-2 text-sm font-medium text-white shadow shadow-indigo-500/30"
-          >
-            Agregar agente
-          </button>
-        </form>
+        <NuevoAgenteForm colas={colas} />
         <p className="mt-3 text-xs text-slate-400">
-          El agente usa este PIN para entrar al softphone del dashboard (no necesita contraseña por ahora).
+          Agente: entra al softphone con PIN. Supervisor: ve todo excepto Configuración (incluye Supervisión en
+          vivo). Administrador: acceso total.
         </p>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-slate-700">Agentes registrados</h2>
+        <h2 className="text-sm font-semibold text-slate-700">Usuarios registrados</h2>
         {agentes.length === 0 && (
           <p className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-400">
-            No hay agentes todavía.
+            No hay usuarios todavía.
           </p>
         )}
         {agentes.map((a) => (
@@ -144,10 +111,16 @@ export default async function AgentesPage() {
                 className={a.disponible ? "fill-emerald-500 text-emerald-500" : "fill-slate-300 text-slate-300"}
               />
               <div>
-                <p className="text-sm font-medium text-slate-800">{a.nombre}</p>
+                <p className="text-sm font-medium text-slate-800">
+                  {a.nombre}{" "}
+                  <span className="ml-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+                    {ETIQUETAS_ROL[a.rol] ?? a.rol}
+                  </span>
+                </p>
                 <p className="text-xs text-slate-500">
-                  {a.email} · PIN {a.pin} · {a.cola_nombre ?? "Sin cola"} ·{" "}
-                  {a.disponible ? "Disponible ahora" : "Desconectado"}
+                  {a.email} · {a.pin ? `PIN ${a.pin}` : "sin PIN"} ·{" "}
+                  {a.tiene_acceso_dashboard ? "acceso dashboard" : "sin acceso dashboard"} ·{" "}
+                  {a.cola_nombre ?? "Sin cola"} · {a.disponible ? "Disponible ahora" : "Desconectado"}
                 </p>
               </div>
             </div>

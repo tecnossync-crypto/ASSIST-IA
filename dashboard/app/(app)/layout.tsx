@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const sesion = await obtenerSesion();
   // Un agente (rol operador) solo ve, en "Recientes" del panel de teléfono,
   // las llamadas de su propia cola.
-  const colaId = sesion?.rol !== "admin" ? sesion?.colaId : undefined;
+  const colaId = sesion?.rol === "operador" ? sesion?.colaId : undefined;
 
   const [contactos, recientes, colas] = await Promise.all([
     listarContactos().catch(() => []),

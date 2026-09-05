@@ -9,15 +9,12 @@ const PUBLICAS = ["/login", "/_next", "/favicon.ico", "/api/webhooks"];
 // Solo el admin debería poder tocar esto — la Sidebar ya oculta el link de
 // Configuración a los operadores, pero eso es solo cosmético: sin esto,
 // cualquiera con sesión (incluso un operador) podía entrar directo por URL
-// y, por ejemplo, generar el API key o escuchar llamadas en vivo.
-const SOLO_ADMIN = [
-  "/configuracion",
-  "/supervision",
-  "/api/monitoreo",
-  "/api/grabaciones",
-  "/api/clonar-voz",
-  "/api/supervision",
-];
+// y, por ejemplo, generar el API key o exportar grabaciones.
+const SOLO_ADMIN = ["/configuracion", "/api/grabaciones", "/api/clonar-voz"];
+
+// El supervisor ve todo lo operativo (incluida Supervisión en vivo) pero
+// nunca Configuración — por eso esta lista es aparte de SOLO_ADMIN.
+const ADMIN_O_SUPERVISOR = ["/supervision", "/api/monitoreo", "/api/supervision"];
 
 // Protege todo el dashboard (páginas Y rutas /api propias): sin sesión
 // válida, redirige a /login o responde 401/403 si es una API. Corre en
@@ -49,6 +46,19 @@ export async function middleware(req: NextRequest) {
   }
 
   if (SOLO_ADMIN.some((p) => pathname.startsWith(p)) && sesion.rol !== "admin") {
+    if (esApi) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  if (
+    ADMIN_O_SUPERVISOR.some((p) => pathname.startsWith(p)) &&
+    sesion.rol !== "admin" &&
+    sesion.rol !== "supervisor"
+  ) {
     if (esApi) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }

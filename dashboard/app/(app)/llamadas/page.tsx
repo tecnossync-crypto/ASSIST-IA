@@ -14,8 +14,8 @@ export default async function LlamadasPage({
   const sesion = await obtenerSesion();
   // Un agente (rol operador) solo ve las llamadas de su propia cola. Si no
   // tiene cola asignada, no ve ninguna (en vez de, por accidente, todas).
-  const esOperadorSinCola = sesion?.rol !== "admin" && !sesion?.colaId;
-  const colaId = sesion?.rol !== "admin" ? sesion?.colaId : undefined;
+  const esOperadorSinCola = sesion?.rol === "operador" && !sesion?.colaId;
+  const colaId = sesion?.rol === "operador" ? sesion?.colaId : undefined;
   const llamadas = esOperadorSinCola ? [] : await listarLlamadas({ q, estado, colaId });
 
   return (

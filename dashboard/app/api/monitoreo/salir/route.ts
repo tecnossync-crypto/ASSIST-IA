@@ -4,7 +4,7 @@ import { obtenerSesion } from "@/lib/session";
 
 export async function POST(req: Request) {
   const sesion = await obtenerSesion();
-  if (!sesion || sesion.rol !== "admin") {
+  if (!sesion || (sesion.rol !== "admin" && sesion.rol !== "supervisor")) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 

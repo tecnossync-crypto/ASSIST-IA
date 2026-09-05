@@ -1,13 +1,17 @@
 import type { FastifyInstance } from "fastify";
+import bcrypt from "bcryptjs";
 import { pool } from "../db/pool.js";
 import { loginConPin, marcarDisponibilidad } from "../lib/agentes.js";
 
+/** Roles válidos de un usuario: admin (todo), supervisor (todo excepto
+ *  Configuración) y operador (agente, solo su cola + softphone). */
+const ROLES_VALIDOS = ["admin", "supervisor", "operador"];
+
 /**
- * Agentes del softphone web (dashboard): alta/gestión desde Configuración →
+ * Agentes/usuarios del dashboard: alta/gestión desde Configuración →
  * Agentes, asignación a una cola, y login liviano + presencia desde el
- * propio softphone del navegador. Fase 1: PIN corto en vez de
- * usuario/contraseña — login completo llega después, junto con auth real
- * del resto de /api.
+ * propio softphone del navegador. Un usuario puede tener PIN (softphone),
+ * contraseña (login completo al dashboard), o ambos.
  */
 export async function agentesRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { empresaId?: string } }>("/api/agentes", async (req, reply) => {
@@ -19,7 +23,7 @@ export async function agentesRoutes(app: FastifyInstance) {
 
     const result = await pool.query(
       `SELECT u.id, u.nombre, u.email, u.rol, u.pin, u.disponible, u.ultima_conexion,
-              u.cola_id, c.nombre AS cola_nombre
+              u.cola_id, c.nombre AS cola_nombre, (u.password_hash IS NOT NULL) AS tiene_acceso_dashboard
        FROM usuarios u
        LEFT JOIN colas c ON c.id = u.cola_id
        WHERE u.empresa_id = $1 ORDER BY u.creado_en`,
@@ -29,24 +33,38 @@ export async function agentesRoutes(app: FastifyInstance) {
   });
 
   app.post<{
-    Body: { empresaId: string; nombre: string; email: string; pin: string; rol?: string; colaId?: string | null };
+    Body: {
+      empresaId: string;
+      nombre: string;
+      email: string;
+      pin?: string;
+      password?: string;
+      rol?: string;
+      colaId?: string | null;
+    };
   }>("/api/agentes", async (req, reply) => {
-    const { empresaId, nombre, email, pin, rol, colaId } = req.body;
-    if (!empresaId || !nombre || !email || !pin) {
-      reply.code(400).send({ error: "empresaId, nombre, email y pin son requeridos" });
+    const { empresaId, nombre, email, pin, password, rol, colaId } = req.body;
+    if (!empresaId || !nombre || !email) {
+      reply.code(400).send({ error: "empresaId, nombre y email son requeridos" });
       return;
     }
-    if (!/^\d{4,6}$/.test(pin)) {
+    if (!pin && !password) {
+      reply.code(400).send({ error: "El usuario necesita un PIN (softphone), una contraseña (dashboard), o ambos" });
+      return;
+    }
+    if (pin && !/^\d{4,6}$/.test(pin)) {
       reply.code(400).send({ error: "El PIN debe ser numérico, de 4 a 6 dígitos" });
       return;
     }
+    const rolFinal = rol && ROLES_VALIDOS.includes(rol) ? rol : "operador";
 
     try {
+      const passwordHash = password ? await bcrypt.hash(password, 10) : null;
       const result = await pool.query(
-        `INSERT INTO usuarios (empresa_id, nombre, email, pin, rol, cola_id)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO usuarios (empresa_id, nombre, email, pin, password_hash, rol, cola_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING id, nombre, email, rol, pin, cola_id`,
-        [empresaId, nombre, email, pin, rol ?? "operador", colaId || null]
+        [empresaId, nombre, email.trim().toLowerCase(), pin || null, passwordHash, rolFinal, colaId || null]
       );
       reply.send({ ok: true, agente: result.rows[0] });
     } catch (err) {
@@ -61,6 +79,10 @@ export async function agentesRoutes(app: FastifyInstance) {
       const { nombre, pin, rol, colaId } = req.body;
       if (pin && !/^\d{4,6}$/.test(pin)) {
         reply.code(400).send({ error: "El PIN debe ser numérico, de 4 a 6 dígitos" });
+        return;
+      }
+      if (rol && !ROLES_VALIDOS.includes(rol)) {
+        reply.code(400).send({ error: "Rol inválido" });
         return;
       }
 

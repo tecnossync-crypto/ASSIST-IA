@@ -19,8 +19,8 @@ export default async function ResumenPage() {
   const sesion = await obtenerSesion();
   // Un agente (rol operador) solo ve los números y últimas llamadas de su
   // propia cola.
-  const colaId = sesion?.rol !== "admin" ? sesion?.colaId : undefined;
-  const esOperadorSinCola = sesion?.rol !== "admin" && !sesion?.colaId;
+  const colaId = sesion?.rol === "operador" ? sesion?.colaId : undefined;
+  const esOperadorSinCola = sesion?.rol === "operador" && !sesion?.colaId;
 
   const [resumen, ultimas] = await Promise.all([
     obtenerResumen(colaId),

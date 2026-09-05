@@ -19,11 +19,14 @@ export default async function LlamadaDetallePage({
 
   // Un agente (rol operador) solo puede ver llamadas de su propia cola —
   // aunque adivine el id por la URL, si no es de su cola no existe para él.
-  if (sesion?.rol !== "admin" && llamada.cola_id !== sesion?.colaId) {
+  if (sesion?.rol === "operador" && llamada.cola_id !== sesion?.colaId) {
     notFound();
   }
 
-  const puedeMonitorear = sesion?.rol === "admin" && llamada.estado === "en_curso" && llamada.agente_call_sid;
+  const puedeMonitorear =
+    (sesion?.rol === "admin" || sesion?.rol === "supervisor") &&
+    llamada.estado === "en_curso" &&
+    llamada.agente_call_sid;
 
   return (
     <div className="flex flex-col gap-6">
