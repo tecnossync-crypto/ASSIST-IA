@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PhoneIncoming, Phone, PhoneOff, Headset, LogOut } from "lucide-react";
+import { EstadoAgenteBoton } from "@/components/EstadoAgenteBoton";
+import type { EstadoPresencia } from "@/lib/api";
 
 interface SesionAgente {
   usuarioId: string;
@@ -28,6 +30,10 @@ export function Softphone() {
   const [loginAbierto, setLoginAbierto] = useState(false);
   const [errorLogin, setErrorLogin] = useState("");
   const [cargandoLogin, setCargandoLogin] = useState(false);
+  // Estado de presencia del agente identificado por PIN (distinto del que
+  // pueda tener, arriba a la derecha, quien esté logueado al dashboard con
+  // su propia cuenta — acá puede ser una identidad totalmente distinta).
+  const [estadoPresencia, setEstadoPresencia] = useState<EstadoPresencia | null>(null);
 
   // Recuerda la sesión de agente entre visitas (por navegador).
   useEffect(() => {
@@ -40,6 +46,25 @@ export function Softphone() {
       }
     }
   }, []);
+
+  // Al identificarse (o recuperar la sesión guardada), lee el estado de
+  // presencia real de ESE agente para que el botón no arranque en blanco.
+  useEffect(() => {
+    if (!sesion) {
+      setEstadoPresencia(null);
+      return;
+    }
+    let cancelado = false;
+    fetch(`/api/agentes/${sesion.usuarioId}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelado && data?.agente) setEstadoPresencia(data.agente.estado_presencia);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [sesion]);
 
   // (Re)registra el Device cada vez que cambia la sesión (identidad
   // compartida si no hay agente identificado, o la del agente si sí).
@@ -177,18 +202,21 @@ export function Softphone() {
       {!enLlamada && (
         <div className="fixed bottom-28 right-6 z-[55] sm:right-8">
           {sesion ? (
-            <div className="flex items-center gap-2 rounded-full border border-edge bg-surface px-3 py-1.5 text-xs text-ink-2 shadow-md">
-              <Headset size={12} className="text-emerald-600" />
-              {sesion.nombre}
-              <button
-                type="button"
-                onClick={cerrarSesionAgente}
-                className="text-muted hover:text-red-600"
-                aria-label="Salir"
-                title="Salir de la sesión de agente"
-              >
-                <LogOut size={12} />
-              </button>
+            <div className="flex items-center gap-2">
+              {estadoPresencia && <EstadoAgenteBoton usuarioId={sesion.usuarioId} estadoInicial={estadoPresencia} />}
+              <div className="flex items-center gap-2 rounded-full border border-edge bg-surface px-3 py-1.5 text-xs text-ink-2 shadow-md">
+                <Headset size={12} className="text-emerald-600" />
+                {sesion.nombre}
+                <button
+                  type="button"
+                  onClick={cerrarSesionAgente}
+                  className="text-muted hover:text-red-600"
+                  aria-label="Salir"
+                  title="Salir de la sesión de agente"
+                >
+                  <LogOut size={12} />
+                </button>
+              </div>
             </div>
           ) : loginAbierto ? (
             <div className="w-56 rounded-xl border border-edge bg-surface p-3 shadow-lg">
