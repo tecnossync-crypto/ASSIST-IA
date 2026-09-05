@@ -88,21 +88,26 @@ export async function agentesRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  app.post<{ Body: { empresaId: string; pin: string } }>("/api/agentes/login", async (req, reply) => {
-    const { empresaId, pin } = req.body;
-    if (!empresaId || !pin) {
-      reply.code(400).send({ error: "empresaId y pin son requeridos" });
-      return;
-    }
+  app.post<{ Body: { empresaId: string; pin: string } }>(
+    "/api/agentes/login",
+    // PIN corto (4-6 dígitos) es fácil de fuerza-bruta sin esto.
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
+    async (req, reply) => {
+      const { empresaId, pin } = req.body;
+      if (!empresaId || !pin) {
+        reply.code(400).send({ error: "empresaId y pin son requeridos" });
+        return;
+      }
 
-    const agente = await loginConPin(empresaId, pin);
-    if (!agente) {
-      reply.code(401).send({ error: "PIN inválido" });
-      return;
-    }
+      const agente = await loginConPin(empresaId, pin);
+      if (!agente) {
+        reply.code(401).send({ error: "PIN inválido" });
+        return;
+      }
 
-    reply.send({ usuarioId: agente.id, nombre: agente.nombre, rol: agente.rol });
-  });
+      reply.send({ usuarioId: agente.id, nombre: agente.nombre, rol: agente.rol });
+    }
+  );
 
   // El ejecutable llama esto al conectarse (disponible=true), al desconectarse
   // o cuando el agente cambia su switch de disponibilidad manualmente.

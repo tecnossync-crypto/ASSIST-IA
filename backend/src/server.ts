@@ -9,6 +9,7 @@ import Fastify from "fastify";
 import formbody from "@fastify/formbody";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
+import rateLimit from "@fastify/rate-limit";
 import { healthRoutes } from "./routes/health.js";
 import { webhooksTwilioRoutes } from "./routes/webhooks-twilio.js";
 import { internalRoutes } from "./routes/internal.js";
@@ -33,7 +34,24 @@ const app = Fastify({ logger: true });
 
 // Twilio manda webhooks como application/x-www-form-urlencoded.
 await app.register(formbody);
-await app.register(cors, { origin: true });
+
+// Nada legítimo llama a este backend desde JS de navegador (el dashboard le
+// pega desde su propio servidor, no desde el cliente) — así que no hay
+// ningún origin que deba permitirse. Con origin:false el navegador bloquea
+// solo cualquier fetch() cross-origin que alguien intente disparar contra
+// esta API desde un sitio ajeno; los webhooks de Twilio y las llamadas
+// servidor-a-servidor (voice-server, plataformas externas) no pasan por
+// CORS (es una restricción de navegador, no de servidor) así que siguen
+// funcionando igual.
+await app.register(cors, { origin: false });
+
+// Límite general contra abuso/fuerza bruta — generoso para no estorbar el
+// tráfico normal del dashboard (todos los usuarios comparten la IP del
+// contenedor al llamar desde el servidor). Los endpoints sensibles
+// (login, PIN de agente, webhook externo) tienen además su propio límite
+// más estricto, ver esas rutas.
+await app.register(rateLimit, { max: 600, timeWindow: "1 minute" });
+
 // Límite generoso: 5 min de audio a buena calidad no debería pasar de ~30MB.
 await app.register(multipart, { limits: { fileSize: 30 * 1024 * 1024 } });
 

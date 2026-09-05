@@ -10,6 +10,8 @@ import { pool } from "../db/pool.js";
 export async function authRoutes(app: FastifyInstance) {
   app.post<{ Body: { empresaId: string; email: string; password: string } }>(
     "/api/auth/login",
+    // Límite estricto contra fuerza bruta de contraseña.
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
     async (req, reply) => {
       const { empresaId, email, password } = req.body;
       if (!empresaId || !email || !password) {
