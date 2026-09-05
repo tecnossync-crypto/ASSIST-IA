@@ -18,7 +18,6 @@ const MODEL = process.env.LLM_MODEL ?? "gpt-4o-mini";
  */
 export function construirSystemPrompt(empresa: EmpresaConfig): string {
   const g = empresa.guion_agente ?? {};
-  const numeros = empresa.numeros_transferencia?.join(", ") || "(ninguno configurado)";
 
   const base = g.prompt_personalizado?.trim()
     ? g.prompt_personalizado.trim()
@@ -40,7 +39,6 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
 
   return [
     base,
-    `Números de transferencia disponibles: ${numeros}.`,
     "En cuanto el cliente te dé su nombre y apellido, guárdalos con registrar_dato (campo \"nombre\" y campo " +
       '"apellido", por separado). Esto siempre aplica, para todo cliente.',
     listaCampos
@@ -84,7 +82,7 @@ export async function generarSaludoInicial(systemPrompt: string): Promise<string
 
 export interface TurnoResultado {
   textoRespuesta: string;
-  transferSolicitada?: { numero: string; motivo: string };
+  transferSolicitada?: { motivo: string };
 }
 
 /**

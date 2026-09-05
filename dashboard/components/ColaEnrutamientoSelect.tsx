@@ -6,6 +6,8 @@ const MODOS = [
   { valor: "todos", label: "Todos a la vez" },
   { valor: "round_robin", label: "Por turnos" },
   { valor: "disponibilidad", label: "Por disponibilidad" },
+  { valor: "menos_llamadas", label: "Menos llamadas atendidas" },
+  { valor: "ultimo_operador", label: "Al último operador" },
 ] as const;
 
 export function ColaEnrutamientoSelect({ colaId, modoActual }: { colaId: string; modoActual: string }) {

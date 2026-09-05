@@ -12,22 +12,18 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "transferir_a_humano",
       description:
-        "Transfiere la llamada a un agente humano. Úsala solo cuando el cliente lo pida explícitamente, " +
-        "esté molesto/insatisfecho, o el caso esté fuera de lo que el guion cubre. " +
+        "Transfiere la llamada a un agente humano disponible. Úsala solo cuando el cliente lo pida " +
+        "explícitamente, esté molesto/insatisfecho, o el caso esté fuera de lo que el guion cubre. " +
         "Después de llamarla, despídete brevemente porque la llamada va a transferirse.",
       parameters: {
         type: "object",
         properties: {
-          numero_transferencia: {
-            type: "string",
-            description: "Número al que transferir, tomado de la lista de números de transferencia de la empresa.",
-          },
           motivo: {
             type: "string",
             description: "Motivo breve de la transferencia, para que el humano tenga contexto.",
           },
         },
-        required: ["numero_transferencia", "motivo"],
+        required: ["motivo"],
       },
     },
   },
@@ -81,7 +77,7 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
 
 export interface ToolExecutionResult {
   resultText: string;
-  transferSolicitada?: { numero: string; motivo: string };
+  transferSolicitada?: { motivo: string };
 }
 
 export async function ejecutarTool(
@@ -91,15 +87,14 @@ export async function ejecutarTool(
 ): Promise<ToolExecutionResult> {
   switch (toolName) {
     case "transferir_a_humano": {
-      const numero = String(input.numero_transferencia ?? "");
       const motivo = String(input.motivo ?? "");
-      if (!numero) {
-        return { resultText: "Error: falta numero_transferencia." };
-      }
-      await marcarTransferencia(callSid, numero);
+      // Ya no se le pide un número al bot: a qué agente cae la llamada lo
+      // decide el enrutamiento de la cola/empresa (round_robin, por
+      // disponibilidad, etc.) en el momento — ver post-relay en el backend.
+      await marcarTransferencia(callSid);
       return {
-        resultText: `Transferencia marcada hacia ${numero}.`,
-        transferSolicitada: { numero, motivo },
+        resultText: "Transferencia marcada.",
+        transferSolicitada: { motivo },
       };
     }
 

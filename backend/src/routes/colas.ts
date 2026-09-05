@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
+import { MODOS_ENRUTAMIENTO, type ModoEnrutamiento } from "../lib/agentes.js";
 
 /**
  * Colas de atención (ej. "Ventas", "Soporte"): grupos de agentes con su
@@ -36,12 +37,12 @@ export async function colasRoutes(app: FastifyInstance) {
     reply.send({ ok: true, cola: result.rows[0] });
   });
 
-  app.put<{ Params: { id: string }; Body: { modo: "todos" | "round_robin" | "disponibilidad" } }>(
+  app.put<{ Params: { id: string }; Body: { modo: ModoEnrutamiento } }>(
     "/api/colas/:id/enrutamiento",
     async (req, reply) => {
       const { id } = req.params;
       const { modo } = req.body;
-      if (!["todos", "round_robin", "disponibilidad"].includes(modo)) {
+      if (!MODOS_ENRUTAMIENTO.includes(modo)) {
         reply.code(400).send({ error: "modo inválido" });
         return;
       }

@@ -18,6 +18,16 @@ const MODOS = [
     label: "Por disponibilidad",
     descripcion: "Se asigna al agente que lleva más tiempo esperando disponible.",
   },
+  {
+    valor: "menos_llamadas",
+    label: "Por menos llamadas atendidas",
+    descripcion: "Se asigna a quien menos llamadas ha atendido hoy — reparte la carga de forma pareja.",
+  },
+  {
+    valor: "ultimo_operador",
+    label: "Al último operador",
+    descripcion: "Se asigna al mismo agente que atendió la última llamada, si sigue disponible.",
+  },
 ] as const;
 
 export function EnrutamientoForm({ modoActual }: { modoActual: string }) {

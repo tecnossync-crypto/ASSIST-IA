@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { clonarVoz } from "../lib/elevenlabs.js";
 import { generarApiKey } from "../lib/api-keys.js";
+import { MODOS_ENRUTAMIENTO, type ModoEnrutamiento } from "../lib/agentes.js";
 
 /**
  * Configuración editable por la propia empresa desde el dashboard: nombre,
@@ -105,13 +106,14 @@ export async function empresaRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Cómo repartir las "llamadas normales" entre los agentes del ejecutable
-  // de call center: todos a la vez | round_robin | por disponibilidad.
-  app.put<{ Body: { empresaId: string; modo: "todos" | "round_robin" | "disponibilidad" } }>(
+  // Cómo repartir las llamadas (llamadas normales y transferencias del bot)
+  // entre los agentes: todos a la vez | round_robin | por disponibilidad |
+  // por menos llamadas atendidas hoy | al último operador que atendió.
+  app.put<{ Body: { empresaId: string; modo: ModoEnrutamiento } }>(
     "/api/empresa/enrutamiento",
     async (req, reply) => {
       const { empresaId, modo } = req.body;
-      if (!empresaId || !["todos", "round_robin", "disponibilidad"].includes(modo)) {
+      if (!empresaId || !MODOS_ENRUTAMIENTO.includes(modo)) {
         reply.code(400).send({ error: "empresaId y un modo válido son requeridos" });
         return;
       }

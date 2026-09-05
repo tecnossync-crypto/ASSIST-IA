@@ -33,8 +33,17 @@ export async function marcarDisponibilidad(usuarioId: string, disponible: boolea
   );
 }
 
+export type ModoEnrutamiento = "todos" | "round_robin" | "disponibilidad" | "menos_llamadas" | "ultimo_operador";
+export const MODOS_ENRUTAMIENTO: ModoEnrutamiento[] = [
+  "todos",
+  "round_robin",
+  "disponibilidad",
+  "menos_llamadas",
+  "ultimo_operador",
+];
+
 interface Enrutamiento {
-  modo: "todos" | "round_robin" | "disponibilidad";
+  modo: ModoEnrutamiento;
   turno_actual?: number;
 }
 
@@ -74,6 +83,38 @@ export async function elegirAgentesParaLlamada(empresaId: string, colaId?: strin
     const idx = turno % disponibles.rows.length;
     await avanzarTurno(empresaId, colaId, idx + 1);
     return [identidadAgente(disponibles.rows[idx].id)];
+  }
+
+  if (enrutamiento.modo === "menos_llamadas") {
+    const idsDisponibles = disponibles.rows.map((r) => r.id);
+    const conteo = await pool.query<{ agente_usuario_id: string; total: string }>(
+      `SELECT agente_usuario_id, COUNT(*) AS total
+       FROM llamadas
+       WHERE agente_usuario_id = ANY($1) AND iniciada_en >= date_trunc('day', now())
+       GROUP BY agente_usuario_id`,
+      [idsDisponibles]
+    );
+    const llamadasPorAgente = new Map(conteo.rows.map((r) => [r.agente_usuario_id, Number(r.total)]));
+    const menosOcupado = idsDisponibles.reduce((menor, actual) =>
+      (llamadasPorAgente.get(actual) ?? 0) < (llamadasPorAgente.get(menor) ?? 0) ? actual : menor
+    );
+    return [identidadAgente(menosOcupado)];
+  }
+
+  if (enrutamiento.modo === "ultimo_operador") {
+    const idsDisponibles = disponibles.rows.map((r) => r.id);
+    const ultimo = await pool.query<{ agente_usuario_id: string }>(
+      `SELECT agente_usuario_id
+       FROM llamadas
+       WHERE agente_usuario_id = ANY($1)
+       ORDER BY iniciada_en DESC
+       LIMIT 1`,
+      [idsDisponibles]
+    );
+    // Si nadie de los disponibles ha atendido una llamada todavía, se cae al
+    // primero disponible (mismo criterio que "disponibilidad").
+    const elegido = ultimo.rows[0]?.agente_usuario_id ?? idsDisponibles[0];
+    return [identidadAgente(elegido)];
   }
 
   // "todos" (default)

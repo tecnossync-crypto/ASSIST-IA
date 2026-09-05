@@ -48,7 +48,7 @@ export async function getEmpresaConfigDeWebhook(llamadaWebhookId: string): Promi
   return (await res.json()) as EmpresaConfig;
 }
 
-export async function marcarTransferencia(callSid: string, numeroTransferencia: string) {
+export async function marcarTransferencia(callSid: string, numeroTransferencia?: string) {
   await internalFetch(`/internal/llamadas/${callSid}/transferir`, {
     method: "POST",
     body: JSON.stringify({ numeroTransferencia }),

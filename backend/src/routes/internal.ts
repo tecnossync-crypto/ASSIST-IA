@@ -15,27 +15,25 @@ export async function internalRoutes(app: FastifyInstance) {
     done();
   });
 
-  // El agente decidió que hace falta un humano. Marca la llamada con el
-  // destino de transferencia; el webhook post-relay hará el <Dial> real
-  // cuando ConversationRelay termine y TwiML caiga al <Redirect>.
+  // El bot decidió que hace falta un humano. Marca la llamada como
+  // "transferida"; el webhook post-relay la mete a la conferencia de
+  // agentes disponibles (mismo enrutamiento que "llamada normal") cuando
+  // ConversationRelay termine y TwiML caiga al <Redirect>.
+  // `numeroTransferencia` es opcional: solo se usa como número externo de
+  // RESPALDO si en ese momento no hay ningún agente disponible.
   app.post<{
     Params: { callSid: string };
-    Body: { numeroTransferencia: string };
+    Body: { numeroTransferencia?: string };
   }>("/internal/llamadas/:callSid/transferir", async (req, reply) => {
     const { callSid } = req.params;
     const { numeroTransferencia } = req.body;
-
-    if (!numeroTransferencia) {
-      reply.code(400).send({ error: "numeroTransferencia es requerido" });
-      return;
-    }
 
     const result = await pool.query(
       `UPDATE llamadas
        SET transferida = true, transferencia_destino = $2, estado = 'transferida'
        WHERE call_sid = $1
        RETURNING id`,
-      [callSid, numeroTransferencia]
+      [callSid, numeroTransferencia ?? null]
     );
 
     if (result.rows.length === 0) {
