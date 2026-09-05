@@ -1,6 +1,6 @@
 import { pool } from "../db/pool.js";
 import { desencriptar } from "./crypto.js";
-import { subirArchivoWorkDrive } from "./zoho-workdrive.js";
+import { subirArchivoWorkDrive, ZohoTokenInvalidoError } from "./zoho-workdrive.js";
 
 /**
  * Si la empresa conectó una cuenta de nube (hoy: Zoho WorkDrive), sube una
@@ -26,10 +26,23 @@ export async function sincronizarGrabacionANube(opts: {
   const row = empresa.rows[0];
   if (!row?.zoho_workdrive_refresh_token_enc || !row.zoho_workdrive_carpeta_id) return; // no conectado, nada que hacer
 
-  await subirArchivoWorkDrive({
-    refreshToken: desencriptar(row.zoho_workdrive_refresh_token_enc),
-    carpetaId: row.zoho_workdrive_carpeta_id,
-    nombreArchivo,
-    contenido,
-  });
+  try {
+    await subirArchivoWorkDrive({
+      refreshToken: desencriptar(row.zoho_workdrive_refresh_token_enc),
+      carpetaId: row.zoho_workdrive_carpeta_id,
+      nombreArchivo,
+      contenido,
+    });
+  } catch (err) {
+    if (err instanceof ZohoTokenInvalidoError) {
+      // El cliente revocó el acceso (o Zoho invalidó el token) — borrar la
+      // conexión guardada para que el dashboard muestre "Conectar" de
+      // nuevo, en vez de seguir fallando en silencio en cada grabación.
+      await pool.query(
+        `UPDATE empresas SET zoho_workdrive_refresh_token_enc = NULL, zoho_workdrive_api_domain = NULL WHERE id = $1`,
+        [empresaId]
+      );
+    }
+    throw err;
+  }
 }

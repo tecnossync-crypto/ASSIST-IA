@@ -67,6 +67,13 @@ export async function intercambiarCodigo(code: string, redirectUri: string): Pro
   return data;
 }
 
+// Distingue "el refresh token ya no sirve" (el cliente revocó el acceso
+// desde su cuenta de Zoho, o Zoho lo invalidó) de un error transitorio de
+// red — solo en el primer caso tiene sentido borrar la conexión guardada y
+// pedirle al cliente que vuelva a conectar. Un timeout de red no debería
+// desconectar a nadie.
+export class ZohoTokenInvalidoError extends Error {}
+
 async function renovarAccessToken(refreshToken: string): Promise<{ access_token: string; api_domain: string }> {
   if (!CLIENT_ID || !CLIENT_SECRET) throw new Error("Zoho no está configurado (falta client id/secret)");
 
@@ -83,7 +90,14 @@ async function renovarAccessToken(refreshToken: string): Promise<{ access_token:
     body: params,
   });
   const data = await res.json();
+
   if (!res.ok || !data.access_token) {
+    // Zoho responde con un cuerpo {"error": "..."} cuando el refresh token
+    // en sí es inválido/revocado (a diferencia de un problema de red, que
+    // ni siquiera llega a darnos un JSON con "error").
+    if (data?.error) {
+      throw new ZohoTokenInvalidoError(`Refresh token de Zoho inválido o revocado: ${data.error}`);
+    }
     throw new Error(`Error renovando token de Zoho: ${JSON.stringify(data)}`);
   }
   return data;
