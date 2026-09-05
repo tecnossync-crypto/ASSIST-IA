@@ -21,7 +21,7 @@ export async function empresaRoutes(app: FastifyInstance) {
     }
 
     const result = await pool.query(
-      `SELECT id, nombre, guion_agente, numeros_transferencia, voz_agente, tts_provider, campos_personalizados,
+      `SELECT id, nombre, guion_agente, voz_agente, tts_provider, campos_personalizados,
               etiquetas_disponibles, duracion_maxima_llamada_segundos, timeout_timbrado_segundos,
               tiempo_respuesta_segundos, enrutamiento_llamadas, retencion_grabaciones_dias, api_key
        FROM empresas WHERE id = $1`,
@@ -41,7 +41,6 @@ export async function empresaRoutes(app: FastifyInstance) {
       empresaId: string;
       nombre: string;
       guion_agente: Record<string, unknown>;
-      numeros_transferencia: string[];
       voz_agente?: string | null;
       tts_provider?: string | null;
       campos_personalizados?: {
@@ -60,7 +59,6 @@ export async function empresaRoutes(app: FastifyInstance) {
       empresaId,
       nombre,
       guion_agente,
-      numeros_transferencia,
       voz_agente,
       tts_provider,
       campos_personalizados,
@@ -77,17 +75,16 @@ export async function empresaRoutes(app: FastifyInstance) {
 
     const result = await pool.query(
       `UPDATE empresas
-       SET nombre = $2, guion_agente = $3, numeros_transferencia = $4,
-           voz_agente = $5, campos_personalizados = $6, etiquetas_disponibles = $7,
-           duracion_maxima_llamada_segundos = $8, timeout_timbrado_segundos = $9,
-           tiempo_respuesta_segundos = $10, tts_provider = $11
+       SET nombre = $2, guion_agente = $3,
+           voz_agente = $4, campos_personalizados = $5, etiquetas_disponibles = $6,
+           duracion_maxima_llamada_segundos = $7, timeout_timbrado_segundos = $8,
+           tiempo_respuesta_segundos = $9, tts_provider = $10
        WHERE id = $1
        RETURNING id`,
       [
         empresaId,
         nombre,
         JSON.stringify(guion_agente ?? {}),
-        JSON.stringify(numeros_transferencia ?? []),
         voz_agente || null,
         JSON.stringify(campos_personalizados ?? []),
         JSON.stringify(etiquetas_disponibles ?? []),

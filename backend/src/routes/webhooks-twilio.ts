@@ -2,7 +2,6 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import {
   twimlConnectVoiceAgent,
-  twimlDialHumano,
   twimlColgar,
   twimlEsperarConferencia,
   twimlUnirseConferenciaComoAgente,
@@ -259,11 +258,9 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   // llamada se cayó) y TwiML cae al <Redirect> puesto después de <Connect>.
   // Si el bot marcó transferencia, la llamada entra a la MISMA conferencia
   // y se marcan agentes por el mismo enrutamiento (colas/round_robin/etc.)
-  // que "llamada normal" — así el bot no depende de un número fijo y el
-  // admin puede monitorear la transferencia igual que cualquier otra
-  // llamada en Supervisión. `transferencia_destino`, si el bot lo dio, solo
-  // se usa como número externo de RESPALDO si no hay ningún agente
-  // disponible en este momento.
+  // que "llamada normal" — todo se maneja dentro de la plataforma, no hay
+  // número externo de respaldo (si algún día se conecta una central
+  // telefónica, es otro tema aparte).
   app.post("/webhooks/twilio/post-relay", async (req, reply) => {
     const body = req.body as Record<string, string>;
     const callSid = body.CallSid;
@@ -274,11 +271,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       empresa_id: string;
       cola_id: string | null;
       transferida: boolean;
-      transferencia_destino: string | null;
-    }>(
-      "SELECT id, empresa_id, cola_id, transferida, transferencia_destino FROM llamadas WHERE call_sid = $1",
-      [callSid]
-    );
+    }>("SELECT id, empresa_id, cola_id, transferida FROM llamadas WHERE call_sid = $1", [callSid]);
     const row = llamada.rows[0];
 
     if (!row?.transferida || !publicBaseUrl) {
@@ -301,15 +294,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       return;
     }
 
-    // Sin agentes disponibles: si el bot (o la empresa) dio un número
-    // externo de respaldo, se usa; si no, no queda más remedio que colgar.
-    if (row.transferencia_destino) {
-      app.log.info({ callSid, destino: row.transferencia_destino }, "Sin agentes — transfiriendo a número externo de respaldo");
-      reply.type("text/xml").send(twimlDialHumano(row.transferencia_destino));
-      return;
-    }
-
-    app.log.warn({ callSid }, "Transferencia sin agentes disponibles ni número de respaldo");
+    app.log.warn({ callSid }, "Transferencia sin agentes disponibles");
     reply
       .type("text/xml")
       .send(twimlColgar("En este momento no hay agentes disponibles. Por favor intente más tarde."));

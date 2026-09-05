@@ -22,13 +22,12 @@ export async function guardarContactosConfigAction(formData: FormData) {
     etiquetas_disponibles = [];
   }
 
-  // Esta pantalla no toca nombre/guion/voz/números — se conservan tal cual.
+  // Esta pantalla no toca nombre/guion/voz — se conservan tal cual.
   const actual = await obtenerEmpresa();
 
   await actualizarEmpresa({
     nombre: actual.nombre,
     guion_agente: actual.guion_agente,
-    numeros_transferencia: actual.numeros_transferencia,
     voz_agente: actual.voz_agente,
     tts_provider: actual.tts_provider,
     duracion_maxima_llamada_segundos: actual.duracion_maxima_llamada_segundos,

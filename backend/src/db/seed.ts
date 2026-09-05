@@ -43,11 +43,6 @@ async function main() {
     cuando_transferir: process.env.SEED_GUION_CUANDO_TRANSFERIR ?? "",
   };
 
-  const numerosTransferencia = (process.env.SEED_NUMEROS_TRANSFERENCIA ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
   const client = new pg.Client(buildConnectionConfig(connectionString));
   await client.connect();
 
@@ -55,11 +50,11 @@ async function main() {
     const authTokenEnc = encriptar(authToken);
 
     const result = await client.query(
-      `INSERT INTO empresas (nombre, twilio_account_sid, twilio_auth_token_enc, twilio_phone_number, guion_agente, numeros_transferencia)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO empresas (nombre, twilio_account_sid, twilio_auth_token_enc, twilio_phone_number, guion_agente)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (twilio_phone_number) DO NOTHING
        RETURNING id`,
-      [nombre, accountSid, authTokenEnc, phoneNumber, JSON.stringify(guionAgente), JSON.stringify(numerosTransferencia)]
+      [nombre, accountSid, authTokenEnc, phoneNumber, JSON.stringify(guionAgente)]
     );
 
     if (result.rows.length > 0) {

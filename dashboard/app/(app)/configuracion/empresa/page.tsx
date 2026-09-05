@@ -27,20 +27,6 @@ export default async function EmpresaConfigPage() {
             className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="numeros_transferencia" className="text-sm font-medium text-slate-700">
-            Número(s) de transferencia
-          </label>
-          <input
-            id="numeros_transferencia"
-            name="numeros_transferencia"
-            defaultValue={empresa.numeros_transferencia?.join(", ")}
-            placeholder="+18095551234, +18095555678"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-          <p className="text-xs text-slate-400">Separados por coma si son varios.</p>
-        </div>
       </FormConFeedback>
     </div>
   );

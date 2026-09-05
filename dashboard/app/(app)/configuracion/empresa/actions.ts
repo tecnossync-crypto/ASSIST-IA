@@ -6,18 +6,12 @@ import { auditar } from "@/lib/session";
 
 export async function guardarEmpresaAction(formData: FormData) {
   const nombre = String(formData.get("nombre") ?? "").trim();
-  const numeros = String(formData.get("numeros_transferencia") ?? "").trim();
-
-  const numeros_transferencia = numeros
-    ? numeros.split(",").map((s) => s.trim()).filter(Boolean)
-    : [];
 
   // Esta pantalla no toca guion/voz/campos/etiquetas — se conservan tal cual.
   const actual = await obtenerEmpresa();
 
   await actualizarEmpresa({
     nombre,
-    numeros_transferencia,
     guion_agente: actual.guion_agente,
     voz_agente: actual.voz_agente,
     tts_provider: actual.tts_provider,
@@ -29,5 +23,5 @@ export async function guardarEmpresaAction(formData: FormData) {
   });
 
   revalidatePath("/configuracion/empresa");
-  await auditar("actualizar", "empresa", { nombre, numeros_transferencia });
+  await auditar("actualizar", "empresa", { nombre });
 }

@@ -159,7 +159,6 @@ export interface EmpresaConfig {
   id: string;
   nombre: string;
   guion_agente: GuionAgente;
-  numeros_transferencia: string[];
   voz_agente: string | null;
   tts_provider: string | null;
   campos_personalizados: CampoPersonalizado[];
@@ -167,7 +166,7 @@ export interface EmpresaConfig {
   duracion_maxima_llamada_segundos: number;
   timeout_timbrado_segundos: number;
   tiempo_respuesta_segundos: number;
-  enrutamiento_llamadas: { modo: "todos" | "round_robin" | "disponibilidad"; turno_actual?: number };
+  enrutamiento_llamadas: { modo: ModoEnrutamiento; turno_actual?: number };
   retencion_grabaciones_dias: number;
   api_key: string | null;
 }
@@ -183,7 +182,6 @@ export async function obtenerEmpresa(): Promise<EmpresaConfig> {
 export async function actualizarEmpresa(data: {
   nombre: string;
   guion_agente: GuionAgente;
-  numeros_transferencia: string[];
   voz_agente: string | null;
   tts_provider: string | null;
   campos_personalizados: CampoPersonalizado[];

@@ -70,13 +70,6 @@ export function twimlConnectVoiceAgent(opts: {
 </Response>`;
 }
 
-export function twimlDialHumano(numeroTransferencia: string): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Dial>${numeroTransferencia}</Dial>
-</Response>`;
-}
-
 // "Llamada normal": el cliente contesta y se conecta directo con un humano
 // SIN salir de la plataforma. En vez de <Dial><Client> directo (que bridgea
 // las dos piernas sin dejar forma de meter a un tercero), el cliente entra a

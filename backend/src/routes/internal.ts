@@ -18,22 +18,14 @@ export async function internalRoutes(app: FastifyInstance) {
   // El bot decidió que hace falta un humano. Marca la llamada como
   // "transferida"; el webhook post-relay la mete a la conferencia de
   // agentes disponibles (mismo enrutamiento que "llamada normal") cuando
-  // ConversationRelay termine y TwiML caiga al <Redirect>.
-  // `numeroTransferencia` es opcional: solo se usa como número externo de
-  // RESPALDO si en ese momento no hay ningún agente disponible.
-  app.post<{
-    Params: { callSid: string };
-    Body: { numeroTransferencia?: string };
-  }>("/internal/llamadas/:callSid/transferir", async (req, reply) => {
+  // ConversationRelay termine y TwiML caiga al <Redirect>. Todo se maneja
+  // dentro de la plataforma — ya no hay número externo de respaldo.
+  app.post<{ Params: { callSid: string } }>("/internal/llamadas/:callSid/transferir", async (req, reply) => {
     const { callSid } = req.params;
-    const { numeroTransferencia } = req.body;
 
     const result = await pool.query(
-      `UPDATE llamadas
-       SET transferida = true, transferencia_destino = $2, estado = 'transferida'
-       WHERE call_sid = $1
-       RETURNING id`,
-      [callSid, numeroTransferencia ?? null]
+      `UPDATE llamadas SET transferida = true, estado = 'transferida' WHERE call_sid = $1 RETURNING id`,
+      [callSid]
     );
 
     if (result.rows.length === 0) {
@@ -167,8 +159,8 @@ export async function internalRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // El voice-server necesita el guion y los números de transferencia de la
-  // empresa al arrancar cada sesión de ConversationRelay. `numero` (el
+  // El voice-server necesita el guion de la empresa al arrancar cada sesión
+  // de ConversationRelay. `numero` (el
   // teléfono del cliente en ESTA llamada) es opcional — si viene y ya
   // tenemos ese contacto guardado, se sustituyen las {{variables}} del
   // guion con sus datos reales.
@@ -179,7 +171,7 @@ export async function internalRoutes(app: FastifyInstance) {
       const { numero } = req.query;
 
       const result = await pool.query(
-        `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados,
+        `SELECT nombre, guion_agente, horario_atencion, voz_agente, campos_personalizados,
                 duracion_maxima_llamada_segundos, tiempo_respuesta_segundos
          FROM empresas WHERE id = $1`,
         [empresaId]
@@ -204,7 +196,7 @@ export async function internalRoutes(app: FastifyInstance) {
 
   // Igual que config-agente, pero para una llamada que sale de una campaña:
   // el guion_override de la campaña pisa (shallow merge) los campos del
-  // guion_agente normal de la empresa. numeros_transferencia/voz/campos
+  // guion_agente normal de la empresa. voz/campos
   // personalizados siguen siendo los de la empresa — las campañas no los tocan.
   app.get<{ Params: { campanaContactoId: string } }>(
     "/internal/campana-contactos/:campanaContactoId/config-agente",
@@ -223,7 +215,7 @@ export async function internalRoutes(app: FastifyInstance) {
 
       const [empresa, campana] = await Promise.all([
         pool.query(
-          `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados,
+          `SELECT nombre, guion_agente, horario_atencion, voz_agente, campos_personalizados,
                   duracion_maxima_llamada_segundos, tiempo_respuesta_segundos
            FROM empresas WHERE id = $1`,
           [empresaId]
@@ -274,7 +266,7 @@ export async function internalRoutes(app: FastifyInstance) {
       const { empresa_id: empresaId, prompt, numero } = solicitud.rows[0];
 
       const empresa = await pool.query(
-        `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados,
+        `SELECT nombre, guion_agente, horario_atencion, voz_agente, campos_personalizados,
                 duracion_maxima_llamada_segundos, tiempo_respuesta_segundos
          FROM empresas WHERE id = $1`,
         [empresaId]

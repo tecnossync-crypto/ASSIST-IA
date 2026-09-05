@@ -46,7 +46,6 @@ export interface EmpresaConfig {
     instrucciones_extra?: string;
   };
   horario_atencion?: Record<string, unknown>;
-  numeros_transferencia: string[];
   campos_personalizados?: { nombre: string; descripcion?: string }[];
   duracion_maxima_llamada_segundos?: number;
   tiempo_respuesta_segundos?: number;

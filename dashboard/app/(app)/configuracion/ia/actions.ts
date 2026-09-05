@@ -24,12 +24,11 @@ export async function guardarIaAction(formData: FormData) {
     cuando_transferir: cuandoTransferir || undefined,
   };
 
-  // Esta pantalla no toca nombre/números/campos/etiquetas — se conservan tal cual.
+  // Esta pantalla no toca nombre/campos/etiquetas — se conservan tal cual.
   const actual = await obtenerEmpresa();
 
   await actualizarEmpresa({
     nombre: actual.nombre,
-    numeros_transferencia: actual.numeros_transferencia,
     campos_personalizados: actual.campos_personalizados,
     etiquetas_disponibles: actual.etiquetas_disponibles,
     guion_agente,
