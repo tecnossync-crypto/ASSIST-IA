@@ -89,6 +89,11 @@ export function AgenteSoftphoneProvider({ children }: { children: ReactNode }) {
       setSesion(nueva);
       setLoginAbierto(false);
       setPin("");
+      // Al poner el PIN correcto queda disponible de una vez — no depende de
+      // que el Device de Twilio del softphone termine de registrarse (eso
+      // también lo marca, pero puede tardar o fallar si algo del softphone
+      // no está bien configurado, y aun así el agente ya se identificó).
+      marcarDisponibilidad(nueva.usuarioId, true);
     } catch (err) {
       setErrorLogin(err instanceof Error ? err.message : "Error desconocido");
     } finally {

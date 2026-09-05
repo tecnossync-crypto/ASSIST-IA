@@ -79,6 +79,10 @@ export function twimlConnectVoiceAgent(opts: {
 // /webhooks/twilio/conferencia-agente, que lo mete a la misma conferencia.
 // startConferenceOnEnter=false: el cliente espera en silencio hasta que un
 // agente entre y la arranque de verdad.
+// endConferenceOnExit=true: si el CLIENTE cuelga (se sale de la
+// conferencia), la conferencia termina para todos — así el lado del agente
+// también cuelga solo, en vez de quedar "en llamada" con nadie del otro
+// lado. Antes estaba en false y esa era justo la falla.
 export function twimlEsperarConferencia(opts: { conferenciaNombre: string; publicBaseUrl: string }): string {
   const { conferenciaNombre, publicBaseUrl } = opts;
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -89,7 +93,7 @@ export function twimlEsperarConferencia(opts: { conferenciaNombre: string; publi
   <Dial>
     <Conference
       startConferenceOnEnter="false"
-      endConferenceOnExit="false"
+      endConferenceOnExit="true"
       statusCallbackEvent="start end join leave"
       statusCallback="${publicBaseUrl}/webhooks/twilio/conferencia-evento"
     >${conferenciaNombre}</Conference>
