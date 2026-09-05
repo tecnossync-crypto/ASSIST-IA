@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { clonarVoz } from "../lib/elevenlabs.js";
+import { generarApiKey } from "../lib/api-keys.js";
 
 /**
  * Configuración editable por la propia empresa desde el dashboard: nombre,
@@ -21,7 +22,7 @@ export async function empresaRoutes(app: FastifyInstance) {
     const result = await pool.query(
       `SELECT id, nombre, guion_agente, numeros_transferencia, voz_agente, tts_provider, campos_personalizados,
               etiquetas_disponibles, duracion_maxima_llamada_segundos, timeout_timbrado_segundos,
-              tiempo_respuesta_segundos, enrutamiento_llamadas, retencion_grabaciones_dias
+              tiempo_respuesta_segundos, enrutamiento_llamadas, retencion_grabaciones_dias, api_key
        FROM empresas WHERE id = $1`,
       [empresaId]
     );
@@ -152,6 +153,28 @@ export async function empresaRoutes(app: FastifyInstance) {
       reply.send({ ok: true });
     }
   );
+
+  // Genera (o rota) el API key con el que plataformas externas autentican
+  // sus solicitudes a POST /api/webhooks/llamadas.
+  app.post<{ Body: { empresaId: string } }>("/api/empresa/regenerar-api-key", async (req, reply) => {
+    const { empresaId } = req.body;
+    if (!empresaId) {
+      reply.code(400).send({ error: "empresaId es requerido" });
+      return;
+    }
+
+    const apiKey = generarApiKey();
+    const result = await pool.query(
+      `UPDATE empresas SET api_key = $2 WHERE id = $1 RETURNING api_key`,
+      [empresaId, apiKey]
+    );
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: "no encontrada" });
+      return;
+    }
+
+    reply.send({ ok: true, apiKey });
+  });
 
   // Clonación de voz: la empresa sube un audio (1-5 min recomendado por
   // ElevenLabs) y se crea una voz clonada lista para usarse en las

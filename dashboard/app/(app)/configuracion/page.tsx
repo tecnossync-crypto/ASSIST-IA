@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Bot, Users, Workflow, Headset, History, ChevronRight } from "lucide-react";
+import { Building2, Bot, Users, Workflow, Headset, History, Plug, ChevronRight } from "lucide-react";
 
 const SECCIONES = [
   {
@@ -37,6 +37,12 @@ const SECCIONES = [
     Icon: History,
     titulo: "Auditoría",
     descripcion: "Quién cambió qué en Configuración, y cuándo.",
+  },
+  {
+    href: "/configuracion/integraciones",
+    Icon: Plug,
+    titulo: "Integraciones",
+    descripcion: "API para pedir llamadas por webhook, y conexiones con otras plataformas.",
   },
 ];
 

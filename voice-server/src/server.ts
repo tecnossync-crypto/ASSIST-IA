@@ -54,7 +54,8 @@ wss.on("connection", (ws) => {
           }
 
           const campanaContactoId = msg.customParameters?.campanaContactoId;
-          session = new ConversationSession(msg.callSid, empresaId, campanaContactoId);
+          const webhookLlamadaId = msg.customParameters?.webhookLlamadaId;
+          session = new ConversationSession(msg.callSid, empresaId, campanaContactoId, webhookLlamadaId);
           await session.inicializar();
 
           const saludo = session.saludoInicial();

@@ -65,16 +65,16 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   // Twilio llega acá cuando contestan una llamada saliente que nosotros
   // originamos (ver POST /api/llamadas/salientes). empresaId viaja en la
   // query string porque nosotros armamos esta URL al crear la llamada.
-  app.post<{ Querystring: { empresaId?: string; campanaContactoId?: string } }>(
+  app.post<{ Querystring: { empresaId?: string; campanaContactoId?: string; webhookLlamadaId?: string } }>(
     "/webhooks/twilio/voice-outbound",
     async (req, reply) => {
       const body = req.body as Record<string, string>;
       const callSid = body.CallSid;
       const from = body.From;
       const to = body.To;
-      const { empresaId, campanaContactoId } = req.query;
+      const { empresaId, campanaContactoId, webhookLlamadaId } = req.query;
 
-      app.log.info({ callSid, from, to, empresaId, campanaContactoId }, "Llamada saliente contestada");
+      app.log.info({ callSid, from, to, empresaId, campanaContactoId, webhookLlamadaId }, "Llamada saliente contestada");
 
       if (!empresaId) {
         reply.type("text/xml").send(twimlColgar());
@@ -96,6 +96,10 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         );
       }
 
+      if (webhookLlamadaId) {
+        await pool.query(`UPDATE llamadas_webhook SET call_sid = $2 WHERE id = $1`, [webhookLlamadaId, callSid]);
+      }
+
       const voiceWsUrl = process.env.VOICE_WS_URL;
       const publicBaseUrl = process.env.PUBLIC_BASE_URL;
       if (!voiceWsUrl) throw new Error("VOICE_WS_URL no está configurado");
@@ -111,6 +115,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           voiceWsUrl,
           empresaId,
           callSid,
+          webhookLlamadaId,
           voz: voz.rows[0]?.voz_agente ?? null,
           ttsProvider: voz.rows[0]?.tts_provider ?? null,
           campanaContactoId,

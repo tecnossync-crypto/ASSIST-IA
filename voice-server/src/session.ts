@@ -1,6 +1,11 @@
 import type OpenAI from "openai";
 import { construirSystemPrompt, correrTurno, generarResumen, generarSaludoInicial } from "./llm.js";
-import { getEmpresaConfig, getEmpresaConfigDeCampana, guardarTranscripcion } from "./backend-client.js";
+import {
+  getEmpresaConfig,
+  getEmpresaConfigDeCampana,
+  getEmpresaConfigDeWebhook,
+  guardarTranscripcion,
+} from "./backend-client.js";
 import type { EmpresaConfig, TurnoConversacion } from "./types.js";
 
 /**
@@ -19,13 +24,16 @@ export class ConversationSession {
   constructor(
     public readonly callSid: string,
     public readonly empresaId: string,
-    public readonly campanaContactoId?: string
+    public readonly campanaContactoId?: string,
+    public readonly webhookLlamadaId?: string
   ) {}
 
   async inicializar() {
     this.empresa = this.campanaContactoId
       ? await getEmpresaConfigDeCampana(this.campanaContactoId)
-      : await getEmpresaConfig(this.empresaId);
+      : this.webhookLlamadaId
+        ? await getEmpresaConfigDeWebhook(this.webhookLlamadaId)
+        : await getEmpresaConfig(this.empresaId);
     this.systemPrompt = construirSystemPrompt(this.empresa);
 
     // El saludo lo genera el mismo modelo con el mismo system prompt, para

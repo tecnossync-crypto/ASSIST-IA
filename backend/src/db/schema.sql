@@ -24,6 +24,7 @@ CREATE TABLE empresas (
     tiempo_respuesta_segundos NUMERIC NOT NULL DEFAULT 0, -- pausa artificial antes de que el bot responda
     enrutamiento_llamadas JSONB NOT NULL DEFAULT '{"modo":"todos","turno_actual":0}'::jsonb, -- cómo repartir llamadas entre agentes del ejecutable de call center: todos | round_robin | disponibilidad
     retencion_grabaciones_dias INTEGER NOT NULL DEFAULT 30, -- días que se conserva el audio antes de borrarse solo
+    api_key             TEXT UNIQUE, -- para que plataformas externas pidan llamadas vía POST /api/webhooks/llamadas
     activa              BOOLEAN NOT NULL DEFAULT true,
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -206,3 +207,18 @@ CREATE TABLE flujos_trabajo (
 );
 
 CREATE INDEX idx_flujos_trabajo_empresa ON flujos_trabajo(empresa_id, disparador, activo);
+
+-- Llamadas pedidas por plataformas externas vía webhook (Configuración →
+-- Integraciones). Queda registro del número, el prompt que mandó la
+-- plataforma (si mandó uno) y a qué llamada real de Twilio terminó dando.
+CREATE TABLE llamadas_webhook (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id  UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    numero      TEXT NOT NULL,
+    prompt      TEXT,
+    origen      TEXT,
+    call_sid    TEXT,
+    creado_en   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_llamadas_webhook_empresa ON llamadas_webhook(empresa_id, creado_en DESC);

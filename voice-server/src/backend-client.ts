@@ -40,6 +40,13 @@ export async function getEmpresaConfigDeCampana(campanaContactoId: string): Prom
   return (await res.json()) as EmpresaConfig;
 }
 
+// Cuando la llamada la pidió una plataforma externa vía webhook, su prompt
+// (si mandó uno) pisa el prompt_personalizado normal de la empresa.
+export async function getEmpresaConfigDeWebhook(llamadaWebhookId: string): Promise<EmpresaConfig> {
+  const res = await internalFetch(`/internal/llamadas-webhook/${llamadaWebhookId}/config-agente`);
+  return (await res.json()) as EmpresaConfig;
+}
+
 export async function marcarTransferencia(callSid: string, numeroTransferencia: string) {
   await internalFetch(`/internal/llamadas/${callSid}/transferir`, {
     method: "POST",

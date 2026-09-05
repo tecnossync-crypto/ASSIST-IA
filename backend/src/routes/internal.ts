@@ -237,4 +237,45 @@ export async function internalRoutes(app: FastifyInstance) {
       });
     }
   );
+
+  // Igual que config-agente, pero para una llamada pedida por una
+  // plataforma externa vía webhook (Configuración → Integraciones → API):
+  // si esa plataforma mandó un prompt para esta llamada puntual, reemplaza
+  // el prompt_personalizado normal de la empresa (el resto del guion no
+  // cambia — solo qué debe decir/hacer el agente en ESTA llamada).
+  app.get<{ Params: { llamadaWebhookId: string } }>(
+    "/internal/llamadas-webhook/:llamadaWebhookId/config-agente",
+    async (req, reply) => {
+      const { llamadaWebhookId } = req.params;
+
+      const solicitud = await pool.query<{ empresa_id: string; prompt: string | null }>(
+        "SELECT empresa_id, prompt FROM llamadas_webhook WHERE id = $1",
+        [llamadaWebhookId]
+      );
+      if (solicitud.rows.length === 0) {
+        reply.code(404).send({ error: "solicitud de llamada no encontrada" });
+        return;
+      }
+      const { empresa_id: empresaId, prompt } = solicitud.rows[0];
+
+      const empresa = await pool.query(
+        `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados,
+                duracion_maxima_llamada_segundos, tiempo_respuesta_segundos
+         FROM empresas WHERE id = $1`,
+        [empresaId]
+      );
+      if (empresa.rows.length === 0) {
+        reply.code(404).send({ error: "empresa no encontrada" });
+        return;
+      }
+
+      const empresaRow = empresa.rows[0];
+      reply.send({
+        ...empresaRow,
+        guion_agente: prompt
+          ? { ...empresaRow.guion_agente, prompt_personalizado: prompt }
+          : empresaRow.guion_agente,
+      });
+    }
+  );
 }

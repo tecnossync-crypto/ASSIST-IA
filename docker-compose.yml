@@ -19,6 +19,7 @@ services:
       args:
         NEXT_PUBLIC_EMPRESA_ID: ${NEXT_PUBLIC_EMPRESA_ID}
         BACKEND_URL: http://backend:3001
+        NEXT_PUBLIC_BACKEND_PUBLIC_URL: https://${PUBLIC_DOMAIN}
     restart: unless-stopped
     environment:
       - BACKEND_URL=http://backend:3001

@@ -135,6 +135,7 @@ export interface EmpresaConfig {
   tiempo_respuesta_segundos: number;
   enrutamiento_llamadas: { modo: "todos" | "round_robin" | "disponibilidad"; turno_actual?: number };
   retencion_grabaciones_dias: number;
+  api_key: string | null;
 }
 
 export async function obtenerEmpresa(): Promise<EmpresaConfig> {
@@ -647,6 +648,18 @@ export async function actualizarRetencionGrabaciones(dias: number): Promise<void
     body: JSON.stringify({ empresaId: EMPRESA_ID, dias }),
   });
   if (!res.ok) throw new Error(`Error actualizando retención de grabaciones: HTTP ${res.status}`);
+}
+
+// API key para que plataformas externas pidan llamadas vía webhook
+// (POST /api/webhooks/llamadas) — Configuración → Integraciones.
+export async function regenerarApiKey(): Promise<{ apiKey: string }> {
+  const res = await fetch(new URL("/api/empresa/regenerar-api-key", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID }),
+  });
+  if (!res.ok) throw new Error(`Error generando API key: HTTP ${res.status}`);
+  return res.json();
 }
 
 export async function listarColas(): Promise<Cola[]> {

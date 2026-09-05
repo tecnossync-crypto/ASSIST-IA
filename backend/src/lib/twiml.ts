@@ -11,9 +11,11 @@ export function twimlConnectVoiceAgent(opts: {
   voz?: string | null;
   ttsProvider?: string | null;
   campanaContactoId?: string | null;
+  webhookLlamadaId?: string | null;
   publicBaseUrl: string;
 }): string {
-  const { voiceWsUrl, empresaId, callSid, voz, ttsProvider, campanaContactoId, publicBaseUrl } = opts;
+  const { voiceWsUrl, empresaId, callSid, voz, ttsProvider, campanaContactoId, webhookLlamadaId, publicBaseUrl } =
+    opts;
 
   // ConversationRelay necesita "ttsProvider" y "voice" como atributos
   // SEPARADOS (ej. ttsProvider="amazon" voice="Pedro-Neural") — un solo
@@ -22,9 +24,14 @@ export function twimlConnectVoiceAgent(opts: {
   const vozAttr = voz && ttsProvider ? ` ttsProvider="${ttsProvider}" voice="${voz}"` : "";
 
   // Si la llamada viene de una campaña, el voice-server la usa para pedir
-  // el guion combinado (empresa + guion_override de la campaña).
+  // el guion combinado (empresa + guion_override de la campaña). Si viene
+  // de un webhook externo (Configuración → Integraciones → API), pide el
+  // guion con el prompt que mandó esa plataforma.
   const parametroCampana = campanaContactoId
     ? `\n      <Parameter name="campanaContactoId" value="${campanaContactoId}" />`
+    : "";
+  const parametroWebhook = webhookLlamadaId
+    ? `\n      <Parameter name="webhookLlamadaId" value="${webhookLlamadaId}" />`
     : "";
 
   // <Record> deja constancia de la llamada completa; <Connect><ConversationRelay>
@@ -40,7 +47,7 @@ export function twimlConnectVoiceAgent(opts: {
   <Connect>
     <ConversationRelay url="${voiceWsUrl}"${vozAttr}>
       <Parameter name="empresaId" value="${empresaId}" />
-      <Parameter name="callSid" value="${callSid}" />${parametroCampana}
+      <Parameter name="callSid" value="${callSid}" />${parametroCampana}${parametroWebhook}
     </ConversationRelay>
   </Connect>
   <Redirect method="POST">${publicBaseUrl}/webhooks/twilio/post-relay</Redirect>
