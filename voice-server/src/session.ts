@@ -25,15 +25,20 @@ export class ConversationSession {
     public readonly callSid: string,
     public readonly empresaId: string,
     public readonly campanaContactoId?: string,
-    public readonly webhookLlamadaId?: string
+    public readonly webhookLlamadaId?: string,
+    public readonly numeroCliente?: string
   ) {}
 
   async inicializar() {
+    // Campaña y webhook ya resuelven el número del cliente por su cuenta
+    // (viene de su propia fila); solo la llamada "normal" necesita que se
+    // lo pasemos, para poder mapear {{variables}} con el contacto si ya lo
+    // conocemos.
     this.empresa = this.campanaContactoId
       ? await getEmpresaConfigDeCampana(this.campanaContactoId)
       : this.webhookLlamadaId
         ? await getEmpresaConfigDeWebhook(this.webhookLlamadaId)
-        : await getEmpresaConfig(this.empresaId);
+        : await getEmpresaConfig(this.empresaId, this.numeroCliente);
     this.systemPrompt = construirSystemPrompt(this.empresa);
 
     // El saludo lo genera el mismo modelo con el mismo system prompt, para

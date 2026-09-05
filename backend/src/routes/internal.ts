@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { requireInternalKey } from "../lib/internal-auth.js";
 import { upsertContacto } from "../lib/contactos.js";
+import { aplicarVariablesContacto } from "../lib/variables-prompt.js";
 
 /**
  * Endpoints que solo llama el voice-server (nunca Twilio, nunca el dashboard).
@@ -169,11 +170,15 @@ export async function internalRoutes(app: FastifyInstance) {
   });
 
   // El voice-server necesita el guion y los números de transferencia de la
-  // empresa al arrancar cada sesión de ConversationRelay.
-  app.get<{ Params: { empresaId: string } }>(
+  // empresa al arrancar cada sesión de ConversationRelay. `numero` (el
+  // teléfono del cliente en ESTA llamada) es opcional — si viene y ya
+  // tenemos ese contacto guardado, se sustituyen las {{variables}} del
+  // guion con sus datos reales.
+  app.get<{ Params: { empresaId: string }; Querystring: { numero?: string } }>(
     "/internal/empresas/:empresaId/config-agente",
     async (req, reply) => {
       const { empresaId } = req.params;
+      const { numero } = req.query;
 
       const result = await pool.query(
         `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados,
@@ -187,7 +192,15 @@ export async function internalRoutes(app: FastifyInstance) {
         return;
       }
 
-      reply.send(result.rows[0]);
+      const empresaRow = result.rows[0];
+      const guionConVariables = await aplicarVariablesContacto(
+        empresaRow.guion_agente,
+        empresaRow.campos_personalizados ?? [],
+        empresaId,
+        numero
+      );
+
+      reply.send({ ...empresaRow, guion_agente: guionConVariables });
     }
   );
 
@@ -200,15 +213,15 @@ export async function internalRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { campanaContactoId } = req.params;
 
-      const contacto = await pool.query<{ campana_id: string; empresa_id: string }>(
-        "SELECT campana_id, empresa_id FROM campana_contactos WHERE id = $1",
+      const contacto = await pool.query<{ campana_id: string; empresa_id: string; numero: string }>(
+        "SELECT campana_id, empresa_id, numero FROM campana_contactos WHERE id = $1",
         [campanaContactoId]
       );
       if (contacto.rows.length === 0) {
         reply.code(404).send({ error: "contacto de campaña no encontrado" });
         return;
       }
-      const { campana_id: campanaId, empresa_id: empresaId } = contacto.rows[0];
+      const { campana_id: campanaId, empresa_id: empresaId, numero } = contacto.rows[0];
 
       const [empresa, campana] = await Promise.all([
         pool.query(
@@ -230,11 +243,15 @@ export async function internalRoutes(app: FastifyInstance) {
 
       const empresaRow = empresa.rows[0];
       const override = campana.rows[0]?.guion_override ?? {};
+      const guionCombinado = { ...empresaRow.guion_agente, ...override };
+      const guionConVariables = await aplicarVariablesContacto(
+        guionCombinado,
+        empresaRow.campos_personalizados ?? [],
+        empresaId,
+        numero
+      );
 
-      reply.send({
-        ...empresaRow,
-        guion_agente: { ...empresaRow.guion_agente, ...override },
-      });
+      reply.send({ ...empresaRow, guion_agente: guionConVariables });
     }
   );
 
@@ -248,15 +265,15 @@ export async function internalRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { llamadaWebhookId } = req.params;
 
-      const solicitud = await pool.query<{ empresa_id: string; prompt: string | null }>(
-        "SELECT empresa_id, prompt FROM llamadas_webhook WHERE id = $1",
+      const solicitud = await pool.query<{ empresa_id: string; prompt: string | null; numero: string }>(
+        "SELECT empresa_id, prompt, numero FROM llamadas_webhook WHERE id = $1",
         [llamadaWebhookId]
       );
       if (solicitud.rows.length === 0) {
         reply.code(404).send({ error: "solicitud de llamada no encontrada" });
         return;
       }
-      const { empresa_id: empresaId, prompt } = solicitud.rows[0];
+      const { empresa_id: empresaId, prompt, numero } = solicitud.rows[0];
 
       const empresa = await pool.query(
         `SELECT nombre, guion_agente, horario_atencion, numeros_transferencia, voz_agente, campos_personalizados,
@@ -270,12 +287,17 @@ export async function internalRoutes(app: FastifyInstance) {
       }
 
       const empresaRow = empresa.rows[0];
-      reply.send({
-        ...empresaRow,
-        guion_agente: prompt
-          ? { ...empresaRow.guion_agente, prompt_personalizado: prompt }
-          : empresaRow.guion_agente,
-      });
+      const guionCombinado = prompt
+        ? { ...empresaRow.guion_agente, prompt_personalizado: prompt }
+        : empresaRow.guion_agente;
+      const guionConVariables = await aplicarVariablesContacto(
+        guionCombinado,
+        empresaRow.campos_personalizados ?? [],
+        empresaId,
+        numero
+      );
+
+      reply.send({ ...empresaRow, guion_agente: guionConVariables });
     }
   );
 }

@@ -5,6 +5,7 @@ import { SelectorVoz } from "@/components/SelectorVoz";
 import { FormConFeedback } from "@/components/FormConFeedback";
 import { ProbarLlamadaIA } from "@/components/ProbarLlamadaIA";
 import { ClonarVoz } from "@/components/ClonarVoz";
+import { EditorPromptConVariables } from "@/components/EditorPromptConVariables";
 import { guardarIaAction } from "./actions";
 
 export default async function IaConfigPage() {
@@ -104,20 +105,20 @@ export default async function IaConfigPage() {
                 prompt.system
               </span>
             </div>
-            <textarea
-              id="prompt_personalizado"
-              name="prompt_personalizado"
+            <EditorPromptConVariables
               defaultValue={g.prompt_personalizado}
+              campos={empresa.campos_personalizados ?? []}
               placeholder={
                 "Si escribes algo aquí, esto reemplaza por completo los campos guiados de al lado.\n\n" +
                 "Ej:\nEres el asistente de [Empresa]. Saluda con calidez, pregunta el motivo de la\n" +
-                "llamada, toma nombre y teléfono, y transfiere si el cliente lo pide o está molesto."
+                "llamada, toma nombre y teléfono, y transfiere si el cliente lo pide o está molesto.\n\n" +
+                'Escribe "/" para insertar variables del contacto, ej: {{nombre}}, {{numero_de_poliza}}...'
               }
-              spellCheck={false}
-              className="h-[420px] w-full resize-none bg-slate-950 px-4 py-4 font-mono text-sm text-slate-100 caret-indigo-400 placeholder:text-slate-600 focus:outline-none lg:h-[520px]"
             />
             <div className="border-t border-slate-800 bg-slate-900 px-4 py-2 text-xs text-slate-500">
-              Si lo dejas vacío, se usa el modo guiado de la derecha para armar el prompt automáticamente.
+              Si lo dejas vacío, se usa el modo guiado de la derecha para armar el prompt automáticamente. Escribe
+              "/" para insertar variables del contacto — se sustituyen por sus datos reales si ya lo conocemos al
+              momento de la llamada.
             </div>
           </section>
 

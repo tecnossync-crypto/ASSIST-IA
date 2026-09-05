@@ -58,7 +58,15 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     if (!voiceWsUrl) throw new Error("VOICE_WS_URL no está configurado");
     if (!publicBaseUrl) throw new Error("PUBLIC_BASE_URL no está configurado");
 
-    const twiml = twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid, voz, ttsProvider, publicBaseUrl });
+    const twiml = twimlConnectVoiceAgent({
+      voiceWsUrl,
+      empresaId,
+      callSid,
+      numeroCliente: from,
+      voz,
+      ttsProvider,
+      publicBaseUrl,
+    });
     reply.type("text/xml").send(twiml);
   });
 
@@ -115,6 +123,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           voiceWsUrl,
           empresaId,
           callSid,
+          numeroCliente: to,
           webhookLlamadaId,
           voz: voz.rows[0]?.voz_agente ?? null,
           ttsProvider: voz.rows[0]?.tts_provider ?? null,

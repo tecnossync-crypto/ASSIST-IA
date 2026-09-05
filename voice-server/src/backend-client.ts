@@ -28,8 +28,9 @@ async function internalFetch(path: string, init: RequestInit = {}) {
   return res;
 }
 
-export async function getEmpresaConfig(empresaId: string): Promise<EmpresaConfig> {
-  const res = await internalFetch(`/internal/empresas/${empresaId}/config-agente`);
+export async function getEmpresaConfig(empresaId: string, numeroCliente?: string): Promise<EmpresaConfig> {
+  const query = numeroCliente ? `?numero=${encodeURIComponent(numeroCliente)}` : "";
+  const res = await internalFetch(`/internal/empresas/${empresaId}/config-agente${query}`);
   return (await res.json()) as EmpresaConfig;
 }
 

@@ -8,14 +8,24 @@ export function twimlConnectVoiceAgent(opts: {
   voiceWsUrl: string;
   empresaId: string;
   callSid: string;
+  numeroCliente?: string | null;
   voz?: string | null;
   ttsProvider?: string | null;
   campanaContactoId?: string | null;
   webhookLlamadaId?: string | null;
   publicBaseUrl: string;
 }): string {
-  const { voiceWsUrl, empresaId, callSid, voz, ttsProvider, campanaContactoId, webhookLlamadaId, publicBaseUrl } =
-    opts;
+  const {
+    voiceWsUrl,
+    empresaId,
+    callSid,
+    numeroCliente,
+    voz,
+    ttsProvider,
+    campanaContactoId,
+    webhookLlamadaId,
+    publicBaseUrl,
+  } = opts;
 
   // ConversationRelay necesita "ttsProvider" y "voice" como atributos
   // SEPARADOS (ej. ttsProvider="amazon" voice="Pedro-Neural") — un solo
@@ -33,6 +43,12 @@ export function twimlConnectVoiceAgent(opts: {
   const parametroWebhook = webhookLlamadaId
     ? `\n      <Parameter name="webhookLlamadaId" value="${webhookLlamadaId}" />`
     : "";
+  // El voice-server se lo pasa al backend al pedir el guion, para que
+  // pueda mapear {{variables}} del prompt con los datos reales del
+  // contacto (si ya lo conocemos) — ver /internal/*/config-agente.
+  const parametroNumeroCliente = numeroCliente
+    ? `\n      <Parameter name="numeroCliente" value="${numeroCliente}" />`
+    : "";
 
   // <Record> deja constancia de la llamada completa; <Connect><ConversationRelay>
   // entrega el audio como texto por WebSocket a nuestro servidor de voz IA.
@@ -47,7 +63,7 @@ export function twimlConnectVoiceAgent(opts: {
   <Connect>
     <ConversationRelay url="${voiceWsUrl}"${vozAttr}>
       <Parameter name="empresaId" value="${empresaId}" />
-      <Parameter name="callSid" value="${callSid}" />${parametroCampana}${parametroWebhook}
+      <Parameter name="callSid" value="${callSid}" />${parametroCampana}${parametroWebhook}${parametroNumeroCliente}
     </ConversationRelay>
   </Connect>
   <Redirect method="POST">${publicBaseUrl}/webhooks/twilio/post-relay</Redirect>
