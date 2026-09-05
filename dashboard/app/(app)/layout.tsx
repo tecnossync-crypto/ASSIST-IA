@@ -1,7 +1,8 @@
 import { Sidebar } from "@/components/Sidebar";
 import { PanelTelefono } from "@/components/PanelTelefono";
 import { Softphone } from "@/components/Softphone";
-import { listarContactos, listarLlamadas, listarColas } from "@/lib/api";
+import { EstadoAgenteBoton } from "@/components/EstadoAgenteBoton";
+import { listarContactos, listarLlamadas, listarColas, obtenerAgentePropio } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
 
 // Shell de la plataforma ya autenticada: Sidebar (con quién entró), panel de
@@ -13,16 +14,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // las llamadas de su propia cola.
   const colaId = sesion?.rol === "operador" ? sesion?.colaId : undefined;
 
-  const [contactos, recientes, colas] = await Promise.all([
+  const [contactos, recientes, colas, agentePropio] = await Promise.all([
     listarContactos().catch(() => []),
     listarLlamadas({ limite: 15, colaId }).catch(() => []),
     listarColas().catch(() => []),
+    sesion ? obtenerAgentePropio(sesion.usuarioId).catch(() => null) : Promise.resolve(null),
   ]);
 
   return (
     <div className="flex h-full">
       <Sidebar sesion={sesion} />
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        {agentePropio && (
+          <div className="sticky top-0 z-40 flex justify-end border-b border-slate-200 bg-white/80 px-6 py-2.5 backdrop-blur">
+            <EstadoAgenteBoton usuarioId={agentePropio.id} disponibleInicial={agentePropio.disponible} />
+          </div>
+        )}
         <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
       </div>
       <PanelTelefono contactos={contactos} recientes={recientes} colas={colas} />

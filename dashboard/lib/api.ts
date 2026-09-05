@@ -551,6 +551,16 @@ export async function listarAgentes(): Promise<Agente[]> {
   return data.agentes;
 }
 
+export async function obtenerAgentePropio(
+  usuarioId: string
+): Promise<{ id: string; nombre: string; disponible: boolean } | null> {
+  const res = await fetch(new URL(`/api/agentes/${usuarioId}`, BACKEND_URL), { cache: "no-store" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Error obteniendo agente: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.agente;
+}
+
 export async function crearAgente(data: {
   nombre: string;
   email: string;

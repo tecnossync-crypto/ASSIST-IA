@@ -32,6 +32,21 @@ export async function agentesRoutes(app: FastifyInstance) {
     reply.send({ agentes: result.rows });
   });
 
+  // Estado propio de un usuario (nombre + si está disponible ahora mismo) —
+  // lo usa el botón de estado del dashboard (arriba a la derecha).
+  app.get<{ Params: { id: string } }>("/api/agentes/:id", async (req, reply) => {
+    const { id } = req.params;
+    const result = await pool.query(
+      "SELECT id, nombre, email, rol, disponible FROM usuarios WHERE id = $1",
+      [id]
+    );
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: "no encontrado" });
+      return;
+    }
+    reply.send({ agente: result.rows[0] });
+  });
+
   app.post<{
     Body: {
       empresaId: string;
