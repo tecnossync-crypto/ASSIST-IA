@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Bot, Users, Workflow, Headset, History, Plug, ChevronRight } from "lucide-react";
+import { Building2, Bot, Users, Workflow, Headset, History, Plug, HardDrive, ChevronRight } from "lucide-react";
 
 const SECCIONES = [
   {
@@ -43,6 +43,12 @@ const SECCIONES = [
     Icon: Plug,
     titulo: "Integraciones",
     descripcion: "API para pedir llamadas por webhook, y conexiones con otras plataformas.",
+  },
+  {
+    href: "/configuracion/almacenamiento",
+    Icon: HardDrive,
+    titulo: "Almacenamiento",
+    descripcion: "Uso de espacio, retención, exportar grabaciones y sincronizarlas a tu nube.",
   },
 ];
 

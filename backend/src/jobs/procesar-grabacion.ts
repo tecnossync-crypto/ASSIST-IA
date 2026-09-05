@@ -3,6 +3,7 @@ import twilio from "twilio";
 import { pool } from "../db/pool.js";
 import { desencriptar } from "../lib/crypto.js";
 import { subirGrabacion } from "../lib/storage.js";
+import { sincronizarGrabacionANube } from "../lib/sincronizacion-nube.js";
 
 /**
  * Se dispara desde el webhook recordingStatusCallback cuando Twilio avisa
@@ -58,11 +59,22 @@ export async function procesarGrabacion(opts: {
   const urlStorage = await subirGrabacion({ key, body: audioBuffer, contentType: "audio/mpeg" });
 
   await pool.query(
-    `INSERT INTO grabaciones (empresa_id, llamada_id, url_storage, duracion_segundos, hash_integridad)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [empresaId, llamadaId, urlStorage, recordingDurationSegundos, hash]
+    `INSERT INTO grabaciones (empresa_id, llamada_id, url_storage, duracion_segundos, hash_integridad, tamano_bytes)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [empresaId, llamadaId, urlStorage, recordingDurationSegundos, hash, audioBuffer.length]
   );
 
   // Borrar en Twilio solo después de confirmar que ya quedó en storage propio.
   await client.recordings(recordingSid).remove();
+
+  // Copia opcional a la nube del cliente (Zoho WorkDrive, etc.) — no
+  // bloquea ni rompe el procesamiento normal si la empresa no lo configuró
+  // o si falla la subida.
+  sincronizarGrabacionANube({
+    empresaId,
+    nombreArchivo: `${recordingSid}.mp3`,
+    contenido: audioBuffer,
+  }).catch((err) => {
+    console.error(`No se pudo sincronizar la grabación ${recordingSid} a la nube:`, err);
+  });
 }

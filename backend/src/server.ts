@@ -27,6 +27,8 @@ import { auditoriaRoutes } from "./routes/auditoria.js";
 import { monitoreoRoutes } from "./routes/monitoreo.js";
 import { grabacionesRoutes } from "./routes/grabaciones.js";
 import { webhooksExternosRoutes } from "./routes/webhooks-externos.js";
+import { almacenamientoRoutes } from "./routes/almacenamiento.js";
+import { integracionesNubeRoutes } from "./routes/integraciones-nube.js";
 import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
 import { limpiarGrabacionesVencidas } from "./jobs/limpiar-grabaciones.js";
 
@@ -72,6 +74,8 @@ await app.register(auditoriaRoutes);
 await app.register(monitoreoRoutes);
 await app.register(grabacionesRoutes);
 await app.register(webhooksExternosRoutes);
+await app.register(almacenamientoRoutes);
+await app.register(integracionesNubeRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 

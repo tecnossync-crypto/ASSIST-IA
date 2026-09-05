@@ -672,6 +672,55 @@ export async function actualizarRetencionGrabaciones(dias: number): Promise<void
   if (!res.ok) throw new Error(`Error actualizando retención de grabaciones: HTTP ${res.status}`);
 }
 
+// Uso de almacenamiento (Configuración → Almacenamiento).
+export interface AlmacenamientoUso {
+  totalBytes: number;
+  totalGrabaciones: number;
+  porMes: { mes: string; bytes: number; cantidad: number }[];
+}
+
+export async function obtenerAlmacenamiento(): Promise<AlmacenamientoUso> {
+  const url = new URL("/api/almacenamiento", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo uso de almacenamiento: HTTP ${res.status}`);
+  return res.json();
+}
+
+// Conexión con Zoho WorkDrive (OAuth) — el cliente inicia sesión con su
+// propia cuenta de Zoho, esto solo consulta/gestiona el estado ya conectado.
+export interface EstadoZohoWorkDrive {
+  configurado: boolean; // si la plataforma ya registró su app en Zoho
+  conectado: boolean; // si ESTA empresa ya autorizó el acceso
+  carpetaId: string | null;
+}
+
+export async function obtenerEstadoZoho(): Promise<EstadoZohoWorkDrive> {
+  const url = new URL("/api/integraciones/zoho-workdrive/estado", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo estado de Zoho WorkDrive: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function guardarCarpetaZoho(carpetaId: string): Promise<void> {
+  const res = await fetch(new URL("/api/integraciones/zoho-workdrive/carpeta", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, carpetaId }),
+  });
+  if (!res.ok) throw new Error(`Error guardando carpeta de Zoho WorkDrive: HTTP ${res.status}`);
+}
+
+export async function desconectarZoho(): Promise<void> {
+  const res = await fetch(new URL("/api/integraciones/zoho-workdrive/desconectar", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID }),
+  });
+  if (!res.ok) throw new Error(`Error desconectando Zoho WorkDrive: HTTP ${res.status}`);
+}
+
 // API key para que plataformas externas pidan llamadas vía webhook
 // (POST /api/webhooks/llamadas) — Configuración → Integraciones.
 export async function regenerarApiKey(): Promise<{ apiKey: string }> {

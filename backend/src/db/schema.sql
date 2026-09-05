@@ -25,6 +25,9 @@ CREATE TABLE empresas (
     enrutamiento_llamadas JSONB NOT NULL DEFAULT '{"modo":"todos","turno_actual":0}'::jsonb, -- cómo repartir llamadas entre agentes del ejecutable de call center: todos | round_robin | disponibilidad
     retencion_grabaciones_dias INTEGER NOT NULL DEFAULT 30, -- días que se conserva el audio antes de borrarse solo
     api_key             TEXT UNIQUE, -- para que plataformas externas pidan llamadas vía POST /api/webhooks/llamadas
+    zoho_workdrive_refresh_token_enc TEXT, -- OAuth: el cliente conecta su propia cuenta de Zoho WorkDrive
+    zoho_workdrive_api_domain TEXT,
+    zoho_workdrive_carpeta_id TEXT,
     activa              BOOLEAN NOT NULL DEFAULT true,
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -120,6 +123,7 @@ CREATE TABLE grabaciones (
     url_storage     TEXT NOT NULL,          -- ubicación en storage propio (R2/S3)
     duracion_segundos INTEGER,
     hash_integridad TEXT NOT NULL,          -- hash del archivo para constancia
+    tamano_bytes    BIGINT,                 -- para el reporte de uso de almacenamiento
     creado_en       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
