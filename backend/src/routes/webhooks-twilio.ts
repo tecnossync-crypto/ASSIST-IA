@@ -12,7 +12,7 @@ import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
 import { reprogramarOFallar } from "../jobs/dispatcher-campanas.js";
 import { asegurarContacto } from "../lib/contactos.js";
 import { ejecutarFlujosTrabajo } from "../lib/flujos-trabajo.js";
-import { elegirAgentesParaLlamada } from "../lib/agentes.js";
+import { elegirAgentesParaLlamada, usuarioIdDesdeIdentidad } from "../lib/agentes.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -180,7 +180,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       // MISMA conferencia y la arranca — la primera en entrar gana, y
       // /webhooks/twilio/conferencia-evento cancela las demás.
       const agenteUrl = `${publicBaseUrl}/webhooks/twilio/conferencia-agente?conferencia=${encodeURIComponent(conferenciaNombre)}`;
-      const callSidsAgentes = await Promise.all(
+      const intentos = await Promise.all(
         identidadesAgentes.map((identidad) =>
           twilioEmpresa.client.calls
             .create({
@@ -190,17 +190,20 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
               method: "POST",
               timeout: twilioEmpresa.timeoutTimbrado,
             })
-            .then((c) => c.sid)
+            .then((c) => ({ callSid: c.sid, identidad }))
             .catch((err) => {
               app.log.warn({ err, identidad }, "No se pudo marcar a un agente para llamada normal");
               return null;
             })
         )
       );
+      const exitosos = intentos.filter((i): i is { callSid: string; identidad: string } => Boolean(i));
+      const callSidsAgentes = exitosos.map((i) => i.callSid);
+      const identidadPorCallSid = Object.fromEntries(exitosos.map((i) => [i.callSid, i.identidad]));
 
       await pool.query(
-        `UPDATE llamadas SET conferencia_nombre = $2, agentes_call_sids = $3 WHERE id = $1`,
-        [llamadaId, conferenciaNombre, callSidsAgentes.filter((s): s is string => Boolean(s))]
+        `UPDATE llamadas SET conferencia_nombre = $2, agentes_call_sids = $3, agentes_call_sids_identidad = $4 WHERE id = $1`,
+        [llamadaId, conferenciaNombre, callSidsAgentes, JSON.stringify(identidadPorCallSid)]
       );
 
       reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl }));
@@ -235,8 +238,13 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     if (evento !== "participant-join" || !friendlyName?.startsWith("llamada-") || !callSid) return;
 
     const llamadaId = friendlyName.slice("llamada-".length);
-    const llamada = await pool.query<{ empresa_id: string; agentes_call_sids: string[]; agente_call_sid: string | null }>(
-      "SELECT empresa_id, agentes_call_sids, agente_call_sid FROM llamadas WHERE id = $1",
+    const llamada = await pool.query<{
+      empresa_id: string;
+      agentes_call_sids: string[];
+      agente_call_sid: string | null;
+      agentes_call_sids_identidad: Record<string, string>;
+    }>(
+      "SELECT empresa_id, agentes_call_sids, agente_call_sid, agentes_call_sids_identidad FROM llamadas WHERE id = $1",
       [llamadaId]
     );
     const row = llamada.rows[0];
@@ -244,10 +252,15 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
 
     if (row.agente_call_sid) return; // ya había un agente conectado, nada que hacer
 
-    await pool.query("UPDATE llamadas SET agente_call_sid = $2, estado = 'en_curso' WHERE id = $1", [
-      llamadaId,
-      callSid,
-    ]);
+    // Resuelve qué agente contestó (para el panel de supervisión en vivo) a
+    // partir de la identidad con la que se marcó esa pierna.
+    const identidad = row.agentes_call_sids_identidad[callSid];
+    const agenteUsuarioId = identidad ? usuarioIdDesdeIdentidad(identidad) : null;
+
+    await pool.query(
+      "UPDATE llamadas SET agente_call_sid = $2, agente_usuario_id = $3, estado = 'en_curso' WHERE id = $1",
+      [llamadaId, callSid, agenteUsuarioId]
+    );
 
     const twilioEmpresa = await clienteTwilioEmpresa(row.empresa_id);
     if (!twilioEmpresa) return;

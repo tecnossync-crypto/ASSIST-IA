@@ -10,7 +10,14 @@ const PUBLICAS = ["/login", "/_next", "/favicon.ico", "/api/webhooks"];
 // Configuración a los operadores, pero eso es solo cosmético: sin esto,
 // cualquiera con sesión (incluso un operador) podía entrar directo por URL
 // y, por ejemplo, generar el API key o escuchar llamadas en vivo.
-const SOLO_ADMIN = ["/configuracion", "/api/monitoreo", "/api/grabaciones", "/api/clonar-voz"];
+const SOLO_ADMIN = [
+  "/configuracion",
+  "/supervision",
+  "/api/monitoreo",
+  "/api/grabaciones",
+  "/api/clonar-voz",
+  "/api/supervision",
+];
 
 // Protege todo el dashboard (páginas Y rutas /api propias): sin sesión
 // válida, redirige a /login o responde 401/403 si es una API. Corre en

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Phone, Megaphone, Users, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, Phone, Megaphone, Users, Settings, Radio, LogOut } from "lucide-react";
 import { cerrarSesionAction } from "@/app/logout/actions";
 
 const ITEMS = [
@@ -13,6 +13,9 @@ const ITEMS = [
   { href: "/configuracion", label: "Configuración", Icon: Settings },
 ];
 
+// Solo admin — mismo criterio que Configuración.
+const ITEMS_SOLO_ADMIN = [{ href: "/supervision", label: "Supervisión", Icon: Radio }];
+
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/);
   return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase() || "?";
@@ -20,7 +23,10 @@ function iniciales(nombre: string): string {
 
 export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | null }) {
   const pathname = usePathname();
-  const items = sesion?.rol === "admin" ? ITEMS : ITEMS.filter((i) => i.href !== "/configuracion");
+  const esAdmin = sesion?.rol === "admin";
+  const items = esAdmin
+    ? [...ITEMS.slice(0, 2), ...ITEMS_SOLO_ADMIN, ...ITEMS.slice(2)]
+    : ITEMS.filter((i) => i.href !== "/configuracion");
 
   return (
     <aside className="flex h-full w-60 flex-shrink-0 flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950">

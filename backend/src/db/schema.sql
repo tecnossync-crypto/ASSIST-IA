@@ -106,7 +106,9 @@ CREATE TABLE llamadas (
     finalizada_en       TIMESTAMPTZ,
     conferencia_nombre  TEXT, -- nombre de la conferencia de Twilio (llamadas "normales"), para poder unir al admin a escuchar/intervenir
     agente_call_sid     TEXT, -- pierna del agente que contestó
-    agentes_call_sids   TEXT[] NOT NULL DEFAULT '{}' -- todas las piernas de agente marcadas, para cancelar las que no contestaron
+    agentes_call_sids   TEXT[] NOT NULL DEFAULT '{}', -- todas las piernas de agente marcadas, para cancelar las que no contestaron
+    agentes_call_sids_identidad JSONB NOT NULL DEFAULT '{}'::jsonb, -- {callSid: identidadAgente} para saber quién contestó
+    agente_usuario_id   UUID REFERENCES usuarios(id) -- qué agente terminó contestando, para el panel de supervisión en vivo
 );
 
 CREATE INDEX idx_llamadas_empresa ON llamadas(empresa_id, iniciada_en DESC);

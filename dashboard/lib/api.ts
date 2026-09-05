@@ -24,6 +24,28 @@ export interface LlamadaResumen {
   accion_pendiente: string | null;
 }
 
+export interface LlamadaActiva {
+  id: string;
+  direccion: "entrante" | "saliente";
+  numero_origen: string;
+  numero_destino: string;
+  iniciada_en: string;
+  agente_call_sid: string | null;
+  cola_id: string | null;
+  cola_nombre: string | null;
+  agente_id: string | null;
+  agente_nombre: string | null;
+}
+
+export async function listarLlamadasActivas(): Promise<LlamadaActiva[]> {
+  const url = new URL("/api/llamadas/activas", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando llamadas activas: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.llamadas;
+}
+
 export interface LlamadaDetalle {
   llamada: {
     id: string;

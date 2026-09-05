@@ -76,6 +76,33 @@ export async function llamadasRoutes(app: FastifyInstance) {
     reply.send({ llamadas: result.rows });
   });
 
+  // Para el panel de "Supervisión en vivo": todas las llamadas en curso
+  // ahora mismo, con quién las está atendiendo, para que un admin vea de un
+  // vistazo qué está pasando y pueda entrar a escuchar la que quiera.
+  app.get<{ Querystring: { empresaId?: string } }>("/api/llamadas/activas", async (req, reply) => {
+    const { empresaId } = req.query;
+    if (!empresaId) {
+      reply.code(400).send({ error: "empresaId es requerido" });
+      return;
+    }
+
+    const result = await pool.query(
+      `SELECT
+         l.id, l.direccion, l.numero_origen, l.numero_destino, l.iniciada_en,
+         l.agente_call_sid, l.cola_id,
+         c.nombre AS cola_nombre,
+         u.id AS agente_id, u.nombre AS agente_nombre
+       FROM llamadas l
+       LEFT JOIN colas c ON c.id = l.cola_id
+       LEFT JOIN usuarios u ON u.id = l.agente_usuario_id
+       WHERE l.empresa_id = $1 AND l.estado = 'en_curso'
+       ORDER BY l.iniciada_en`,
+      [empresaId]
+    );
+
+    reply.send({ llamadas: result.rows });
+  });
+
   app.get<{ Params: { id: string } }>("/api/llamadas/:id", async (req, reply) => {
     const { id } = req.params;
 
