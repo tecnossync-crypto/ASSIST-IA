@@ -24,8 +24,7 @@ export async function crearAgenteAction(formData: FormData) {
   await auditar("crear", "agente", { nombre, email });
 }
 
-export async function eliminarAgenteAction(formData: FormData) {
-  const id = String(formData.get("id"));
+export async function eliminarAgenteAction(id: string) {
   await eliminarAgente(id);
   revalidatePath("/configuracion/agentes");
   await auditar("eliminar", "agente", { id });
@@ -54,8 +53,7 @@ export async function actualizarEnrutamientoColaAction(formData: FormData) {
   await auditar("actualizar", "cola", { id, modo });
 }
 
-export async function eliminarColaAction(formData: FormData) {
-  const id = String(formData.get("id"));
+export async function eliminarColaAction(id: string) {
   await eliminarCola(id);
   revalidatePath("/configuracion/agentes");
   await auditar("eliminar", "cola", { id });

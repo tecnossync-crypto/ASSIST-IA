@@ -4,6 +4,7 @@ import { listarCampanas, obtenerEmpresa } from "@/lib/api";
 import { formatFechaHora } from "@/lib/format";
 import { crearCampanaAction, iniciarCampanaAction, pausarCampanaAction } from "./actions";
 import { CampanaContactosInput } from "@/components/CampanaContactosInput";
+import { BotonAccion } from "@/components/BotonAccion";
 
 const ETIQUETAS_ESTADO: Record<string, string> = {
   borrador: "Borrador",
@@ -129,19 +130,21 @@ export default async function CampanasPage() {
                 <td className="px-4 py-3 text-slate-500">{formatFechaHora(c.creado_en)}</td>
                 <td className="px-4 py-3 text-right">
                   {c.estado === "en_curso" ? (
-                    <form action={pausarCampanaAction}>
-                      <input type="hidden" name="id" value={c.id} />
-                      <button type="submit" className="text-sm text-amber-700 hover:underline">
-                        Pausar
-                      </button>
-                    </form>
+                    <BotonAccion
+                      accion={() => pausarCampanaAction(c.id)}
+                      mensajeExito="Pausada."
+                      className="text-sm text-amber-700 hover:underline"
+                    >
+                      Pausar
+                    </BotonAccion>
                   ) : c.estado !== "completada" ? (
-                    <form action={iniciarCampanaAction}>
-                      <input type="hidden" name="id" value={c.id} />
-                      <button type="submit" className="text-sm text-indigo-700 hover:underline">
-                        {c.estado === "borrador" ? "Iniciar" : "Reanudar"}
-                      </button>
-                    </form>
+                    <BotonAccion
+                      accion={() => iniciarCampanaAction(c.id)}
+                      mensajeExito="Iniciada."
+                      className="text-sm text-indigo-700 hover:underline"
+                    >
+                      {c.estado === "borrador" ? "Iniciar" : "Reanudar"}
+                    </BotonAccion>
                   ) : null}
                 </td>
               </tr>

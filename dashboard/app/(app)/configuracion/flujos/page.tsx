@@ -2,6 +2,7 @@ import { Workflow, Tag, ClipboardList } from "lucide-react";
 import { listarFlujosTrabajo } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { FlujoTrabajoForm } from "@/components/FlujoTrabajoForm";
+import { BotonAccion } from "@/components/BotonAccion";
 import { activarFlujoAction, desactivarFlujoAction, eliminarFlujoAction } from "./actions";
 
 const ETIQUETAS_DISPARADOR: Record<string, string> = {
@@ -59,26 +60,29 @@ export default async function FlujosTrabajoPage() {
             </div>
             <div className="flex items-center gap-3">
               {f.activo ? (
-                <form action={desactivarFlujoAction}>
-                  <input type="hidden" name="id" value={f.id} />
-                  <button type="submit" className="text-xs text-amber-700 hover:underline">
-                    Desactivar
-                  </button>
-                </form>
+                <BotonAccion
+                  accion={() => desactivarFlujoAction(f.id)}
+                  mensajeExito="Desactivada."
+                  className="text-xs text-amber-700 hover:underline"
+                >
+                  Desactivar
+                </BotonAccion>
               ) : (
-                <form action={activarFlujoAction}>
-                  <input type="hidden" name="id" value={f.id} />
-                  <button type="submit" className="text-xs text-indigo-700 hover:underline">
-                    Activar
-                  </button>
-                </form>
+                <BotonAccion
+                  accion={() => activarFlujoAction(f.id)}
+                  mensajeExito="Activada."
+                  className="text-xs text-indigo-700 hover:underline"
+                >
+                  Activar
+                </BotonAccion>
               )}
-              <form action={eliminarFlujoAction}>
-                <input type="hidden" name="id" value={f.id} />
-                <button type="submit" className="text-xs text-red-600 hover:underline">
-                  Eliminar
-                </button>
-              </form>
+              <BotonAccion
+                accion={() => eliminarFlujoAction(f.id)}
+                mensajeExito="Eliminada."
+                mensajeConfirmar={`¿Eliminar la regla "${f.nombre}"?`}
+              >
+                Eliminar
+              </BotonAccion>
             </div>
           </div>
         ))}

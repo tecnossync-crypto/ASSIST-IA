@@ -5,6 +5,7 @@ import { CloudCheck, ExternalLink } from "lucide-react";
 import { EMPRESA_ID, type EstadoZohoWorkDrive } from "@/lib/api";
 import { guardarCarpetaZohoAction, desconectarZohoAction } from "@/app/(app)/configuracion/almacenamiento/actions";
 import { OverlayGuardando } from "./OverlayGuardando";
+import { BotonAccion } from "./BotonAccion";
 
 const BACKEND_PUBLIC_URL = process.env.NEXT_PUBLIC_BACKEND_PUBLIC_URL || "";
 
@@ -61,11 +62,13 @@ export function ConexionZohoWorkDrive({ estado }: { estado: EstadoZohoWorkDrive 
           <CloudCheck size={15} />
           Conectado a Zoho WorkDrive
         </p>
-        <form action={desconectarZohoAction}>
-          <button type="submit" className="text-xs text-red-600 hover:underline">
-            Desconectar
-          </button>
-        </form>
+        <BotonAccion
+          accion={desconectarZohoAction}
+          mensajeExito="Desconectado."
+          mensajeConfirmar="¿Desconectar Zoho WorkDrive? Las grabaciones dejarán de subirse ahí hasta que vuelvas a conectar."
+        >
+          Desconectar
+        </BotonAccion>
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-slate-600">ID de la carpeta destino en WorkDrive</label>

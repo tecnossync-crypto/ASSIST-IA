@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { obtenerCampana } from "@/lib/api";
 import { formatFechaHora } from "@/lib/format";
 import { iniciarCampanaAction, pausarCampanaAction } from "../actions";
+import { BotonAccion } from "@/components/BotonAccion";
 
 const ETIQUETAS_ESTADO_CONTACTO: Record<string, string> = {
   pendiente: "Pendiente",
@@ -36,25 +37,21 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
         </div>
 
         {campana.estado === "en_curso" ? (
-          <form action={pausarCampanaAction}>
-            <input type="hidden" name="id" value={campana.id} />
-            <button
-              type="submit"
-              className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
-            >
-              Pausar campaña
-            </button>
-          </form>
+          <BotonAccion
+            accion={() => pausarCampanaAction(campana.id)}
+            mensajeExito="Campaña pausada."
+            className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+          >
+            Pausar campaña
+          </BotonAccion>
         ) : campana.estado !== "completada" ? (
-          <form action={iniciarCampanaAction}>
-            <input type="hidden" name="id" value={campana.id} />
-            <button
-              type="submit"
-              className="ts-brand-button rounded-md px-4 py-2 text-sm font-medium text-white shadow shadow-indigo-500/30"
-            >
-              {campana.estado === "borrador" ? "Iniciar campaña" : "Reanudar campaña"}
-            </button>
-          </form>
+          <BotonAccion
+            accion={() => iniciarCampanaAction(campana.id)}
+            mensajeExito="Campaña iniciada."
+            className="ts-brand-button rounded-md px-4 py-2 text-sm font-medium text-white shadow shadow-indigo-500/30"
+          >
+            {campana.estado === "borrador" ? "Iniciar campaña" : "Reanudar campaña"}
+          </BotonAccion>
         ) : null}
       </div>
 

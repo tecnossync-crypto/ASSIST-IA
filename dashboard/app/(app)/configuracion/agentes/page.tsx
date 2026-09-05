@@ -3,6 +3,7 @@ import { listarAgentes, listarColas, obtenerEmpresa } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { EnrutamientoForm } from "@/components/EnrutamientoForm";
 import { ColaEnrutamientoSelect } from "@/components/ColaEnrutamientoSelect";
+import { BotonAccion } from "@/components/BotonAccion";
 import { crearAgenteAction, eliminarAgenteAction, crearColaAction, eliminarColaAction } from "./actions";
 
 export default async function AgentesPage() {
@@ -51,12 +52,13 @@ export default async function AgentesPage() {
               </div>
               <div className="flex items-center gap-3">
                 <ColaEnrutamientoSelect colaId={c.id} modoActual={c.enrutamiento?.modo ?? "todos"} />
-                <form action={eliminarColaAction}>
-                  <input type="hidden" name="id" value={c.id} />
-                  <button type="submit" className="text-xs text-red-600 hover:underline">
-                    Eliminar
-                  </button>
-                </form>
+                <BotonAccion
+                  accion={() => eliminarColaAction(c.id)}
+                  mensajeExito="Eliminada."
+                  mensajeConfirmar={`¿Eliminar la cola "${c.nombre}"? Sus agentes quedarán sin cola.`}
+                >
+                  Eliminar
+                </BotonAccion>
               </div>
             </div>
           ))}
@@ -149,12 +151,13 @@ export default async function AgentesPage() {
                 </p>
               </div>
             </div>
-            <form action={eliminarAgenteAction}>
-              <input type="hidden" name="id" value={a.id} />
-              <button type="submit" className="text-xs text-red-600 hover:underline">
-                Eliminar
-              </button>
-            </form>
+            <BotonAccion
+              accion={() => eliminarAgenteAction(a.id)}
+              mensajeExito="Eliminado."
+              mensajeConfirmar={`¿Eliminar al agente "${a.nombre}"?`}
+            >
+              Eliminar
+            </BotonAccion>
           </div>
         ))}
       </section>

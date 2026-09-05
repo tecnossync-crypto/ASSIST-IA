@@ -29,22 +29,19 @@ export async function crearFlujoAction(formData: FormData) {
   await auditar("crear", "flujo_trabajo", { nombre, disparador, accion });
 }
 
-export async function activarFlujoAction(formData: FormData) {
-  const id = String(formData.get("id"));
+export async function activarFlujoAction(id: string) {
   await activarFlujoTrabajo(id);
   revalidatePath("/configuracion/flujos");
   await auditar("activar", "flujo_trabajo", { id });
 }
 
-export async function desactivarFlujoAction(formData: FormData) {
-  const id = String(formData.get("id"));
+export async function desactivarFlujoAction(id: string) {
   await desactivarFlujoTrabajo(id);
   revalidatePath("/configuracion/flujos");
   await auditar("desactivar", "flujo_trabajo", { id });
 }
 
-export async function eliminarFlujoAction(formData: FormData) {
-  const id = String(formData.get("id"));
+export async function eliminarFlujoAction(id: string) {
   await eliminarFlujoTrabajo(id);
   revalidatePath("/configuracion/flujos");
   await auditar("eliminar", "flujo_trabajo", { id });

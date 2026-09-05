@@ -37,15 +37,13 @@ export async function crearCampanaAction(formData: FormData) {
   redirect(`/campanas/${campanaId}`);
 }
 
-export async function iniciarCampanaAction(formData: FormData) {
-  const id = String(formData.get("id"));
+export async function iniciarCampanaAction(id: string) {
   await iniciarCampana(id);
   revalidatePath("/campanas");
   revalidatePath(`/campanas/${id}`);
 }
 
-export async function pausarCampanaAction(formData: FormData) {
-  const id = String(formData.get("id"));
+export async function pausarCampanaAction(id: string) {
   await pausarCampana(id);
   revalidatePath("/campanas");
   revalidatePath(`/campanas/${id}`);
