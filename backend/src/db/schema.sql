@@ -23,6 +23,7 @@ CREATE TABLE empresas (
     timeout_timbrado_segundos INTEGER NOT NULL DEFAULT 30, -- cuánto espera Twilio antes de "no contesta" en salientes
     tiempo_respuesta_segundos NUMERIC NOT NULL DEFAULT 0, -- pausa artificial antes de que el bot responda
     enrutamiento_llamadas JSONB NOT NULL DEFAULT '{"modo":"todos","turno_actual":0}'::jsonb, -- cómo repartir llamadas entre agentes del ejecutable de call center: todos | round_robin | disponibilidad
+    retencion_grabaciones_dias INTEGER NOT NULL DEFAULT 30, -- días que se conserva el audio antes de borrarse solo
     activa              BOOLEAN NOT NULL DEFAULT true,
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );

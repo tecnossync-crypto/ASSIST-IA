@@ -21,7 +21,7 @@ export async function empresaRoutes(app: FastifyInstance) {
     const result = await pool.query(
       `SELECT id, nombre, guion_agente, numeros_transferencia, voz_agente, tts_provider, campos_personalizados,
               etiquetas_disponibles, duracion_maxima_llamada_segundos, timeout_timbrado_segundos,
-              tiempo_respuesta_segundos, enrutamiento_llamadas
+              tiempo_respuesta_segundos, enrutamiento_llamadas, retencion_grabaciones_dias
        FROM empresas WHERE id = $1`,
       [empresaId]
     );
@@ -42,7 +42,12 @@ export async function empresaRoutes(app: FastifyInstance) {
       numeros_transferencia: string[];
       voz_agente?: string | null;
       tts_provider?: string | null;
-      campos_personalizados?: { nombre: string; descripcion?: string }[];
+      campos_personalizados?: {
+        nombre: string;
+        descripcion?: string;
+        tipo?: "texto" | "fecha" | "dropdown";
+        opciones?: string[];
+      }[];
       etiquetas_disponibles?: { nombre: string; color?: string }[];
       duracion_maxima_llamada_segundos?: number;
       timeout_timbrado_segundos?: number;
@@ -114,6 +119,30 @@ export async function empresaRoutes(app: FastifyInstance) {
         `UPDATE empresas SET enrutamiento_llamadas = jsonb_set(enrutamiento_llamadas, '{modo}', to_jsonb($2::text))
          WHERE id = $1 RETURNING id`,
         [empresaId, modo]
+      );
+      if (result.rows.length === 0) {
+        reply.code(404).send({ error: "no encontrada" });
+        return;
+      }
+
+      reply.send({ ok: true });
+    }
+  );
+
+  // Cuántos días se conserva el audio de las grabaciones antes de que la
+  // limpieza automática lo borre (ver jobs/limpiar-grabaciones.ts).
+  app.put<{ Body: { empresaId: string; dias: number } }>(
+    "/api/empresa/retencion-grabaciones",
+    async (req, reply) => {
+      const { empresaId, dias } = req.body;
+      if (!empresaId || !Number.isInteger(dias) || dias < 1) {
+        reply.code(400).send({ error: "empresaId y un número de días válido (mínimo 1) son requeridos" });
+        return;
+      }
+
+      const result = await pool.query(
+        `UPDATE empresas SET retencion_grabaciones_dias = $2 WHERE id = $1 RETURNING id`,
+        [empresaId, dias]
       );
       if (result.rows.length === 0) {
         reply.code(404).send({ error: "no encontrada" });

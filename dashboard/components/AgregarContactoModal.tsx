@@ -126,17 +126,37 @@ export function AgregarContactoModal({ campos = [] }: { campos?: CampoPersonaliz
 
               {campos.length > 0 && (
                 <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
-                  {campos.map((campo) => (
-                    <div key={campo.nombre} className="flex flex-col gap-1">
-                      <label className="text-xs font-medium text-slate-600">{campo.nombre}</label>
-                      <input
-                        value={datos[campo.nombre] ?? ""}
-                        onChange={(e) => setDatos((prev) => ({ ...prev, [campo.nombre]: e.target.value }))}
-                        placeholder={campo.descripcion || undefined}
-                        className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                    </div>
-                  ))}
+                  {campos.map((campo) => {
+                    const tipo = campo.tipo ?? "texto";
+                    const valor = datos[campo.nombre] ?? "";
+                    return (
+                      <div key={campo.nombre} className="flex flex-col gap-1">
+                        <label className="text-xs font-medium text-slate-600">{campo.nombre}</label>
+                        {tipo === "dropdown" ? (
+                          <select
+                            value={valor}
+                            onChange={(e) => setDatos((prev) => ({ ...prev, [campo.nombre]: e.target.value }))}
+                            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          >
+                            <option value="">—</option>
+                            {(campo.opciones ?? []).map((op) => (
+                              <option key={op} value={op}>
+                                {op}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type={tipo === "fecha" ? "date" : "text"}
+                            value={valor}
+                            onChange={(e) => setDatos((prev) => ({ ...prev, [campo.nombre]: e.target.value }))}
+                            placeholder={tipo === "texto" ? campo.descripcion || undefined : undefined}
+                            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 

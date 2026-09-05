@@ -1,5 +1,6 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { Readable } from "node:stream";
 
 /**
  * Storage propio para grabaciones. Funciona con S3 real de AWS (dejar
@@ -64,4 +65,19 @@ export async function urlFirmadaGrabacion(urlStorage: string, expiraSegundos = 3
     new GetObjectCommand({ Bucket: bucket, Key: key }),
     { expiresIn: expiraSegundos }
   );
+}
+
+/** Borra el archivo del storage (usado por la limpieza de retención). */
+export async function eliminarGrabacion(urlStorage: string): Promise<void> {
+  const [bucket, ...keyParts] = urlStorage.split("/");
+  const key = keyParts.join("/");
+  await getClient().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+/** Stream del audio, para armar el ZIP de exportación sin cargar todo en memoria. */
+export async function streamGrabacion(urlStorage: string): Promise<Readable> {
+  const [bucket, ...keyParts] = urlStorage.split("/");
+  const key = keyParts.join("/");
+  const res = await getClient().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  return res.Body as Readable;
 }

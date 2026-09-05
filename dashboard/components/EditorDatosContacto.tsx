@@ -65,17 +65,37 @@ export function EditorDatosContacto({
       <OverlayGuardando estado={guardando ? "guardando" : guardado ? "ok" : null} />
       {campos.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {campos.map((campo) => (
-            <div key={campo.nombre} className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">{campo.nombre}</label>
-              <input
-                value={valores[campo.nombre] ?? ""}
-                onChange={(e) => actualizar(campo.nombre, e.target.value)}
-                placeholder={campo.descripcion || undefined}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-          ))}
+          {campos.map((campo) => {
+            const tipo = campo.tipo ?? "texto";
+            const valor = valores[campo.nombre] ?? "";
+            return (
+              <div key={campo.nombre} className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-600">{campo.nombre}</label>
+                {tipo === "dropdown" ? (
+                  <select
+                    value={valor}
+                    onChange={(e) => actualizar(campo.nombre, e.target.value)}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">—</option>
+                    {(campo.opciones ?? []).map((op) => (
+                      <option key={op} value={op}>
+                        {op}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={tipo === "fecha" ? "date" : "text"}
+                    value={valor}
+                    onChange={(e) => actualizar(campo.nombre, e.target.value)}
+                    placeholder={tipo === "texto" ? campo.descripcion || undefined : undefined}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

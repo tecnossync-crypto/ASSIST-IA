@@ -24,7 +24,9 @@ import { colasRoutes } from "./routes/colas.js";
 import { authRoutes } from "./routes/auth.js";
 import { auditoriaRoutes } from "./routes/auditoria.js";
 import { monitoreoRoutes } from "./routes/monitoreo.js";
+import { grabacionesRoutes } from "./routes/grabaciones.js";
 import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
+import { limpiarGrabacionesVencidas } from "./jobs/limpiar-grabaciones.js";
 
 const app = Fastify({ logger: true });
 
@@ -49,6 +51,7 @@ await app.register(colasRoutes);
 await app.register(authRoutes);
 await app.register(auditoriaRoutes);
 await app.register(monitoreoRoutes);
+await app.register(grabacionesRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 
@@ -76,3 +79,14 @@ if (publicBaseUrl) {
 } else {
   app.log.warn("PUBLIC_BASE_URL no configurado: despachador de campañas deshabilitado");
 }
+
+// Limpieza de grabaciones vencidas (retención configurable por empresa,
+// 30 días por defecto): corre una vez por hora, no hace falta más seguido.
+const LIMPIEZA_GRABACIONES_TICK_MS = Number(process.env.LIMPIEZA_GRABACIONES_TICK_MS ?? 60 * 60 * 1000);
+setInterval(() => {
+  limpiarGrabacionesVencidas()
+    .then(({ borradas }) => {
+      if (borradas > 0) app.log.info(`Limpieza de grabaciones: ${borradas} archivo(s) vencido(s) borrado(s)`);
+    })
+    .catch((err) => app.log.error(err, "Error en limpieza de grabaciones vencidas"));
+}, LIMPIEZA_GRABACIONES_TICK_MS);

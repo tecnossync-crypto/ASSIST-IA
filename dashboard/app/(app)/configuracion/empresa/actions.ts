@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { actualizarEmpresa, obtenerEmpresa } from "@/lib/api";
+import { actualizarEmpresa, actualizarRetencionGrabaciones, obtenerEmpresa } from "@/lib/api";
 import { auditar } from "@/lib/session";
 
 export async function guardarEmpresaAction(formData: FormData) {
@@ -30,4 +30,13 @@ export async function guardarEmpresaAction(formData: FormData) {
 
   revalidatePath("/configuracion/empresa");
   await auditar("actualizar", "empresa", { nombre, numeros_transferencia });
+}
+
+export async function guardarRetencionAction(formData: FormData) {
+  const dias = parseInt(String(formData.get("retencion_dias") ?? "30"), 10);
+  if (!Number.isFinite(dias) || dias < 1) return;
+
+  await actualizarRetencionGrabaciones(dias);
+  revalidatePath("/configuracion/empresa");
+  await auditar("actualizar", "retencion_grabaciones", { dias });
 }

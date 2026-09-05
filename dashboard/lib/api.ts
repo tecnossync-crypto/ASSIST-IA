@@ -107,9 +107,13 @@ export interface GuionAgente {
   instrucciones_extra?: string;
 }
 
+export type TipoCampoPersonalizado = "texto" | "fecha" | "dropdown";
+
 export interface CampoPersonalizado {
   nombre: string;
   descripcion?: string;
+  tipo?: TipoCampoPersonalizado; // sin valor = "texto" (compatibilidad con campos creados antes de esto)
+  opciones?: string[]; // solo aplica si tipo === "dropdown"
 }
 
 export interface EtiquetaDisponible {
@@ -130,6 +134,7 @@ export interface EmpresaConfig {
   timeout_timbrado_segundos: number;
   tiempo_respuesta_segundos: number;
   enrutamiento_llamadas: { modo: "todos" | "round_robin" | "disponibilidad"; turno_actual?: number };
+  retencion_grabaciones_dias: number;
 }
 
 export async function obtenerEmpresa(): Promise<EmpresaConfig> {
@@ -633,6 +638,15 @@ export async function actualizarEnrutamiento(modo: ModoEnrutamiento): Promise<vo
     body: JSON.stringify({ empresaId: EMPRESA_ID, modo }),
   });
   if (!res.ok) throw new Error(`Error actualizando enrutamiento: HTTP ${res.status}`);
+}
+
+export async function actualizarRetencionGrabaciones(dias: number): Promise<void> {
+  const res = await fetch(new URL("/api/empresa/retencion-grabaciones", BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, dias }),
+  });
+  if (!res.ok) throw new Error(`Error actualizando retención de grabaciones: HTTP ${res.status}`);
 }
 
 export async function listarColas(): Promise<Cola[]> {
