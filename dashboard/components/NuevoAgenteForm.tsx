@@ -33,13 +33,13 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
             {estado.nombreCreado} fue creado. Copia esta contraseña ahora — no se volverá a mostrar.
           </p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 rounded border border-emerald-300 bg-white px-2 py-1 font-mono text-sm">
+            <code className="flex-1 rounded border border-emerald-300 bg-surface px-2 py-1 font-mono text-sm">
               {estado.emailCreado} · {estado.passwordGenerada}
             </code>
             <button
               type="button"
               onClick={copiarPassword}
-              className="flex items-center gap-1 rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+              className="flex items-center gap-1 rounded-md border border-emerald-300 bg-surface px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
             >
               {copiado ? <Check size={13} /> : <Copy size={13} />}
               {copiado ? "Copiado" : "Copiar"}
@@ -60,20 +60,20 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
           name="nombre"
           required
           placeholder="Nombre"
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
         <input
           name="email"
           type="email"
           required
           placeholder="Email"
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
         <select
           name="rol"
           value={rol}
           onChange={(e) => setRol(e.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           <option value="operador">Agente</option>
           <option value="supervisor">Supervisor</option>
@@ -82,7 +82,7 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
         <select
           name="colaId"
           defaultValue=""
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           <option value="">Sin cola</option>
           {colas.map((c) => (
@@ -98,17 +98,17 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
           pattern="\d{4,6}"
           title="4 a 6 dígitos"
           placeholder={rol === "operador" ? "PIN softphone (4-6 dígitos)" : "PIN softphone (opcional)"}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
 
         {requiereAcceso ? (
-          <p className="col-span-full flex items-center gap-1.5 text-xs text-slate-500 sm:col-start-1">
+          <p className="col-span-full flex items-center gap-1.5 text-xs text-muted sm:col-start-1">
             <KeyRound size={12} />
             Este rol siempre tiene acceso al dashboard completo — te daré una contraseña temporal al crearlo.
           </p>
         ) : (
-          <label className="col-span-full flex items-center gap-2 text-xs text-slate-600 sm:col-start-1">
-            <input type="checkbox" name="conAcceso" className="rounded border-slate-300" />
+          <label className="col-span-full flex items-center gap-2 text-xs text-ink-2 sm:col-start-1">
+            <input type="checkbox" name="conAcceso" className="rounded border-edge" />
             También darle acceso al dashboard completo (además del PIN)
           </label>
         )}

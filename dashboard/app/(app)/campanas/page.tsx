@@ -20,19 +20,19 @@ export default async function CampanasPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold">Campañas</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           Llamadas salientes masivas con reintentos automáticos si no contestan.
         </p>
       </div>
 
-      <details className="rounded-lg border border-slate-200 bg-white">
-        <summary className="flex cursor-pointer select-none items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700">
+      <details className="rounded-lg border border-edge bg-surface">
+        <summary className="flex cursor-pointer select-none items-center gap-2 px-5 py-3 text-sm font-medium text-ink-2">
           <Megaphone size={15} className="text-indigo-600" />
           Nueva campaña
         </summary>
         <form action={crearCampanaAction} className="flex flex-col gap-4 border-t border-slate-100 p-5">
           <div className="flex flex-col gap-1">
-            <label htmlFor="nombre" className="text-sm font-medium text-slate-700">
+            <label htmlFor="nombre" className="text-sm font-medium text-ink-2">
               Nombre de la campaña
             </label>
             <input
@@ -40,12 +40,12 @@ export default async function CampanasPage() {
               name="nombre"
               required
               placeholder="Ej: Cobros septiembre"
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="contactos" className="text-sm font-medium text-slate-700">
+            <label htmlFor="contactos" className="text-sm font-medium text-ink-2">
               Números a llamar
             </label>
             <CampanaContactosInput etiquetas={empresa.etiquetas_disponibles} />
@@ -53,7 +53,7 @@ export default async function CampanasPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
-              <label htmlFor="reintentos_max" className="text-sm font-medium text-slate-700">
+              <label htmlFor="reintentos_max" className="text-sm font-medium text-ink-2">
                 Reintentos máximos
               </label>
               <input
@@ -62,11 +62,11 @@ export default async function CampanasPage() {
                 type="number"
                 min={0}
                 defaultValue={2}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor="horas_entre_reintentos" className="text-sm font-medium text-slate-700">
+              <label htmlFor="horas_entre_reintentos" className="text-sm font-medium text-ink-2">
                 Horas entre reintentos
               </label>
               <input
@@ -76,13 +76,13 @@ export default async function CampanasPage() {
                 min={0.1}
                 step={0.5}
                 defaultValue={4}
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="prompt_override" className="text-sm font-medium text-slate-700">
+            <label htmlFor="prompt_override" className="text-sm font-medium text-ink-2">
               Guion específico de esta campaña (opcional)
             </label>
             <textarea
@@ -90,7 +90,7 @@ export default async function CampanasPage() {
               name="prompt_override"
               rows={3}
               placeholder="Si lo dejas vacío, usa el guion normal configurado en Configuración."
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="rounded-md border border-edge px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
@@ -103,9 +103,9 @@ export default async function CampanasPage() {
         </form>
       </details>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-edge bg-surface">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500">
+          <thead className="bg-surface-2 text-left text-muted">
             <tr>
               <th className="px-4 py-2 font-medium">Nombre</th>
               <th className="px-4 py-2 font-medium">Estado</th>
@@ -114,20 +114,20 @@ export default async function CampanasPage() {
               <th className="px-4 py-2 font-medium"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-edge">
             {campanas.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-50">
+              <tr key={c.id} className="hover:bg-surface-2">
                 <td className="px-4 py-3">
                   <Link href={`/campanas/${c.id}`} className="font-medium text-indigo-700 hover:underline">
                     {c.nombre}
                   </Link>
                 </td>
                 <td className="px-4 py-3">{ETIQUETAS_ESTADO[c.estado] ?? c.estado}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-4 py-3 text-ink-2">
                   {c.completados}/{c.total_contactos} completados
                   {Number(c.fallidos) > 0 ? ` · ${c.fallidos} fallidos` : ""}
                 </td>
-                <td className="px-4 py-3 text-slate-500">{formatFechaHora(c.creado_en)}</td>
+                <td className="px-4 py-3 text-muted">{formatFechaHora(c.creado_en)}</td>
                 <td className="px-4 py-3 text-right">
                   {c.estado === "en_curso" ? (
                     <BotonAccion
@@ -151,7 +151,7 @@ export default async function CampanasPage() {
             ))}
             {campanas.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted">
                   No hay campañas todavía.
                 </td>
               </tr>

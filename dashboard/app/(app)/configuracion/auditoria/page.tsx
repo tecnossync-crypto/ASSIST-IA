@@ -39,10 +39,10 @@ export default async function AuditoriaPage() {
         descripcion="Quién cambió qué en Configuración, y cuándo."
       />
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-edge bg-surface">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-500">
+            <thead className="bg-surface-2 text-left text-muted">
               <tr>
                 <th className="whitespace-nowrap px-4 py-2 font-medium">Fecha</th>
                 <th className="whitespace-nowrap px-4 py-2 font-medium">Usuario</th>
@@ -51,22 +51,22 @@ export default async function AuditoriaPage() {
                 <th className="px-4 py-2 font-medium">Detalle</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-edge">
               {registros.map((r) => {
-                const accion = ETIQUETAS_ACCION[r.accion] ?? { label: r.accion, color: "bg-slate-100 text-slate-600" };
+                const accion = ETIQUETAS_ACCION[r.accion] ?? { label: r.accion, color: "bg-surface-2 text-ink-2" };
                 return (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-500">{formatFechaHora(r.creado_en)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-800">{r.usuario_nombre}</td>
+                  <tr key={r.id} className="hover:bg-surface-2">
+                    <td className="whitespace-nowrap px-4 py-3 text-muted">{formatFechaHora(r.creado_en)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 font-medium text-ink">{r.usuario_nombre}</td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${accion.color}`}>
                         {accion.label}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                    <td className="whitespace-nowrap px-4 py-3 text-ink-2">
                       {ETIQUETAS_ENTIDAD[r.entidad] ?? r.entidad}
                     </td>
-                    <td className="max-w-xs truncate px-4 py-3 text-xs text-slate-400">
+                    <td className="max-w-xs truncate px-4 py-3 text-xs text-muted">
                       {resumenDetalle(r.entidad, r.detalle)}
                     </td>
                   </tr>
@@ -74,7 +74,7 @@ export default async function AuditoriaPage() {
               })}
               {registros.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted">
                     Todavía no hay cambios registrados.
                   </td>
                 </tr>

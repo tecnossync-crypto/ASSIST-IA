@@ -54,7 +54,7 @@ export function EditorDatosContacto({
 
   if (campos.length === 0 && datosHuérfanos.length === 0) {
     return (
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-muted">
         No hay campos configurados — agrégalos en Configuración → Contactos.
       </p>
     );
@@ -70,12 +70,12 @@ export function EditorDatosContacto({
             const valor = valores[campo.nombre] ?? "";
             return (
               <div key={campo.nombre} className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-slate-600">{campo.nombre}</label>
+                <label className="text-xs font-medium text-ink-2">{campo.nombre}</label>
                 {tipo === "dropdown" ? (
                   <select
                     value={valor}
                     onChange={(e) => actualizar(campo.nombre, e.target.value)}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="">—</option>
                     {(campo.opciones ?? []).map((op) => (
@@ -90,7 +90,7 @@ export function EditorDatosContacto({
                     value={valor}
                     onChange={(e) => actualizar(campo.nombre, e.target.value)}
                     placeholder={tipo === "texto" ? campo.descripcion || undefined : undefined}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 )}
               </div>
@@ -100,14 +100,14 @@ export function EditorDatosContacto({
       )}
 
       {datosHuérfanos.length > 0 && (
-        <div className="rounded-md bg-slate-50 p-3">
-          <p className="mb-2 text-xs font-medium text-slate-500">
+        <div className="rounded-md bg-surface-2 p-3">
+          <p className="mb-2 text-xs font-medium text-muted">
             Otros datos capturados (campo ya no está configurado):
           </p>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
             {datosHuérfanos.map(([campo, valor]) => (
               <div key={campo}>
-                <dt className="text-slate-500">{campo}</dt>
+                <dt className="text-muted">{campo}</dt>
                 <dd className="font-medium">{valor}</dd>
               </div>
             ))}

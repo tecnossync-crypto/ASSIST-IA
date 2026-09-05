@@ -58,7 +58,7 @@ export function ImportarContactos() {
       </button>
       <input ref={inputRef} type="file" accept=".csv,text/csv" onChange={manejarArchivo} className="hidden" />
       {mensaje && (
-        <p className={`text-xs ${estado === "error" ? "text-red-600" : "text-slate-500"}`}>{mensaje}</p>
+        <p className={`text-xs ${estado === "error" ? "text-red-600" : "text-muted"}`}>{mensaje}</p>
       )}
     </div>
   );

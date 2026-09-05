@@ -2,15 +2,63 @@
 
 /* Identidad Tecnossync: gradiente indigo → violeta → cian, chrome oscuro
    slate-900/indigo-950, contenido en tarjetas claras. Misma línea que el
-   resto de la plataforma (omnichannel). */
+   resto de la plataforma (omnichannel).
+
+   Modo oscuro: en vez de repartir clases `dark:` por los ~50 archivos que
+   pintan tarjetas/tablas/texto, se remapean acá los tokens de "chrome" del
+   contenido (fondo de tarjeta, fondo sutil, bordes, texto) a variables CSS.
+   El barrido de componentes cambió `bg-white` → `bg-surface`,
+   `border-slate-200` → `border-edge`, etc. — mismo valor que antes en modo
+   claro, y su par oscuro se activa solo con la clase `dark` en <html>. El
+   Sidebar y la pantalla de carga NO se tocaron: ya eran oscuros a propósito
+   en los dos modos. Los colores de marca/estado (indigo, emerald, amber,
+   red) tampoco se tocan — se quedan igual en ambos modos. */
 :root {
   --background: #f8fafc; /* slate-50 */
   --foreground: #0f172a; /* slate-900 */
+  --color-surface: #ffffff; /* antes bg-white */
+  --color-surface-2: #f8fafc; /* antes bg-slate-50/100 (paneles sutiles, cabeceras de tabla) */
+  --color-edge: #e2e8f0; /* antes border/divide-slate-200/300 */
+  --color-ink: #1e293b; /* antes text-slate-800/900 */
+  --color-ink-2: #475569; /* antes text-slate-600/700 */
+  --color-muted: #64748b; /* antes text-slate-400/500 */
+}
+
+/* Sin elección explícita, sigue el tema del sistema operativo. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #0b1220;
+    --foreground: #e2e8f0;
+    --color-surface: #111c30;
+    --color-surface-2: #0f172a;
+    --color-edge: #263449;
+    --color-ink: #f1f5f9;
+    --color-ink-2: #cbd5e1;
+    --color-muted: #94a3b8;
+  }
+}
+
+/* Elección explícita del usuario (botón de tema) — gana en los dos sentidos. */
+:root[data-theme="dark"] {
+  --background: #0b1220;
+  --foreground: #e2e8f0;
+  --color-surface: #111c30;
+  --color-surface-2: #0f172a;
+  --color-edge: #263449;
+  --color-ink: #f1f5f9;
+  --color-ink-2: #cbd5e1;
+  --color-muted: #94a3b8;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-edge: var(--color-edge);
+  --color-ink: var(--color-ink);
+  --color-ink-2: var(--color-ink-2);
+  --color-muted: var(--color-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

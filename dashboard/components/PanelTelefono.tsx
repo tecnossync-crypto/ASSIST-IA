@@ -172,7 +172,7 @@ export function PanelTelefono({
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 sm:bottom-8 sm:right-8">
       {abierto && (
-        <div className="w-[19rem] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 ring-1 ring-black/5">
+        <div className="w-[19rem] overflow-hidden rounded-3xl border border-edge bg-surface shadow-2xl shadow-slate-900/20 ring-1 ring-black/5">
           {/* Encabezado */}
           <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4 py-4">
             <div className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-indigo-500/20 blur-2xl" />
@@ -208,7 +208,7 @@ export function PanelTelefono({
                     value={colaId}
                     onChange={(e) => setColaId(e.target.value)}
                     disabled={enLlamada}
-                    className="w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
+                    className="w-full rounded-md border border-edge bg-surface-2 px-2.5 py-1.5 text-xs text-ink-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
                   >
                     <option value="">Cola general (todos los agentes)</option>
                     {colas.map((c) => (
@@ -227,13 +227,13 @@ export function PanelTelefono({
                   onChange={(e) => setNumero(e.target.value.replace(/[^\d+*#]/g, ""))}
                   placeholder="Número"
                   disabled={enLlamada}
-                  className="w-full bg-transparent text-center text-2xl font-semibold tracking-wide text-slate-800 placeholder:text-slate-300 focus:outline-none disabled:text-slate-400"
+                  className="w-full bg-transparent text-center text-2xl font-semibold tracking-wide text-ink placeholder:text-muted focus:outline-none disabled:text-muted"
                 />
                 {numero && !enLlamada && (
                   <button
                     type="button"
                     onClick={() => setNumero((n) => n.slice(0, -1))}
-                    className="mt-1 text-slate-400 hover:text-slate-700"
+                    className="mt-1 text-muted hover:text-ink-2"
                     aria-label="Borrar"
                   >
                     <Delete size={16} className="mx-auto" />
@@ -242,7 +242,7 @@ export function PanelTelefono({
               </div>
 
               {/* Pestañas */}
-              <div className="flex border-b border-t border-slate-100">
+              <div className="flex border-b border-t border-edge">
                 {[
                   { id: "marcar" as Tab, label: "Marcar", Icon: Phone },
                   { id: "contactos" as Tab, label: "Contactos", Icon: Users },
@@ -255,7 +255,7 @@ export function PanelTelefono({
                     disabled={enLlamada}
                     className={
                       "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 " +
-                      (tab === id ? "border-b-2 border-indigo-600 text-indigo-700" : "text-slate-400 hover:text-slate-600")
+                      (tab === id ? "border-b-2 border-indigo-600 text-indigo-700" : "text-muted hover:text-ink-2")
                     }
                   >
                     <Icon size={15} />
@@ -273,7 +273,7 @@ export function PanelTelefono({
                         type="button"
                         onClick={() => setNumero((n) => n + t)}
                         disabled={enLlamada}
-                        className="rounded-xl border border-slate-200 py-3 text-lg font-medium text-slate-700 transition-colors hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        className="rounded-xl border border-edge py-3 text-lg font-medium text-ink-2 transition-colors hover:bg-surface-2 active:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {t}
                       </button>
@@ -287,9 +287,9 @@ export function PanelTelefono({
                       value={busqueda}
                       onChange={(e) => setBusqueda(e.target.value)}
                       placeholder="Buscar contacto…"
-                      className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="rounded-md border border-edge px-2.5 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
-                    <div className="flex flex-col divide-y divide-slate-100">
+                    <div className="flex flex-col divide-y divide-edge">
                       {contactosFiltrados.map((c) => {
                         const nombreCompleto = [c.nombre, c.apellido].filter(Boolean).join(" ") || c.numero;
                         return (
@@ -300,25 +300,25 @@ export function PanelTelefono({
                               setNumero(c.numero);
                               setTab("marcar");
                             }}
-                            className="flex items-center justify-between py-2 text-left text-sm hover:bg-slate-50"
+                            className="flex items-center justify-between py-2 text-left text-sm hover:bg-surface-2"
                           >
                             <span>
-                              <span className="block text-slate-800">{nombreCompleto}</span>
-                              <span className="block text-xs text-slate-400">{c.numero}</span>
+                              <span className="block text-ink">{nombreCompleto}</span>
+                              <span className="block text-xs text-muted">{c.numero}</span>
                             </span>
                             <Phone size={14} className="text-indigo-500" />
                           </button>
                         );
                       })}
                       {contactosFiltrados.length === 0 && (
-                        <p className="py-4 text-center text-xs text-slate-400">Sin contactos.</p>
+                        <p className="py-4 text-center text-xs text-muted">Sin contactos.</p>
                       )}
                     </div>
                   </div>
                 )}
 
                 {tab === "recientes" && (
-                  <div className="flex flex-col divide-y divide-slate-100">
+                  <div className="flex flex-col divide-y divide-edge">
                     {recientes.map((l) => {
                       const num = l.direccion === "entrante" ? l.numero_origen : l.numero_destino;
                       return (
@@ -329,24 +329,24 @@ export function PanelTelefono({
                             setNumero(num);
                             setTab("marcar");
                           }}
-                          className="flex items-center justify-between py-2 text-left text-sm hover:bg-slate-50"
+                          className="flex items-center justify-between py-2 text-left text-sm hover:bg-surface-2"
                         >
                           <span>
-                            <span className="block text-slate-800">{num}</span>
-                            <span className="block text-xs capitalize text-slate-400">{l.direccion}</span>
+                            <span className="block text-ink">{num}</span>
+                            <span className="block text-xs capitalize text-muted">{l.direccion}</span>
                           </span>
                           <Phone size={14} className="text-indigo-500" />
                         </button>
                       );
                     })}
                     {recientes.length === 0 && (
-                      <p className="py-4 text-center text-xs text-slate-400">Sin llamadas recientes.</p>
+                      <p className="py-4 text-center text-xs text-muted">Sin llamadas recientes.</p>
                     )}
                   </div>
                 )}
               </div>
 
-              <div className="border-t border-slate-100 p-3">
+              <div className="border-t border-edge p-3">
                 {enLlamada ? (
                   <button
                     type="button"

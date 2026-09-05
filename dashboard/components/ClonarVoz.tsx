@@ -39,11 +39,11 @@ export function ClonarVoz() {
 
   return (
     <section className="rounded-xl border border-violet-200 bg-violet-50/40 p-5">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
         <Mic size={16} className="text-violet-600" />
         Clonar voz (ElevenLabs)
       </div>
-      <p className="mb-3 text-xs text-slate-500">
+      <p className="mb-3 text-xs text-muted">
         Sube un audio de 1 a 5 minutos con la voz que quieres que use el bot (idealmente limpio, sin ruido de
         fondo ni música). Se crea una voz clonada y queda activada automáticamente.
       </p>
@@ -53,9 +53,9 @@ export function ClonarVoz() {
           value={nombreVoz}
           onChange={(e) => setNombreVoz(e.target.value)}
           placeholder="Nombre para esta voz (ej. Voz oficial VRA)"
-          className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+          className="flex-1 rounded-md border border-edge px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
         />
-        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 hover:border-violet-400">
+        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-edge bg-surface px-3 py-2 text-sm text-ink-2 hover:border-violet-400">
           <Upload size={14} />
           {archivo ? archivo.name : "Elegir audio"}
           <input

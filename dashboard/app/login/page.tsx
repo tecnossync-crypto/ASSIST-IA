@@ -1,5 +1,6 @@
 import { PhoneCall, Bot, BarChart3 } from "lucide-react";
 import { LoginForm } from "./LoginForm";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const PUNTOS = [
   { Icon: PhoneCall, texto: "Llamadas entrantes y salientes en un solo lugar" },
@@ -15,8 +16,11 @@ export default async function LoginPage({
   const { next } = await searchParams;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="grid w-full max-w-4xl grid-cols-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5 md:grid-cols-2">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
+      <div className="grid w-full max-w-4xl grid-cols-1 overflow-hidden rounded-2xl border border-edge bg-surface shadow-xl shadow-slate-900/5 md:grid-cols-2">
         {/* Panel de marca */}
         <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-10 text-white md:flex">
           <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl" />
@@ -53,8 +57,8 @@ export default async function LoginPage({
               V
             </span>
           </div>
-          <h2 className="text-lg font-semibold text-slate-800">Iniciar sesión</h2>
-          <p className="mb-6 text-sm text-slate-500">Entra con el email y contraseña de tu cuenta.</p>
+          <h2 className="text-lg font-semibold text-ink">Iniciar sesión</h2>
+          <p className="mb-6 text-sm text-muted">Entra con el email y contraseña de tu cuenta.</p>
           <LoginForm next={next ?? "/"} />
         </div>
       </div>

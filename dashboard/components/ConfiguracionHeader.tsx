@@ -12,7 +12,7 @@ export function ConfiguracionHeader({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <Link href="/configuracion" className="text-sm text-slate-500 hover:underline">
+      <Link href="/configuracion" className="text-sm text-muted hover:underline">
         ← Configuración
       </Link>
       <div className="flex items-center gap-3">
@@ -21,7 +21,7 @@ export function ConfiguracionHeader({
         </span>
         <div>
           <h1 className="text-xl font-semibold">{titulo}</h1>
-          <p className="text-sm text-slate-500">{descripcion}</p>
+          <p className="text-sm text-muted">{descripcion}</p>
         </div>
       </div>
     </div>

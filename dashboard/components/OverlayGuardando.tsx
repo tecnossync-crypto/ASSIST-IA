@@ -25,13 +25,13 @@ export function OverlayGuardando({
   if (!estado) return null;
 
   return (
-    <div className="absolute inset-0 z-[70] flex items-center justify-center rounded-[inherit] bg-white/85 backdrop-blur-sm">
+    <div className="absolute inset-0 z-[70] flex items-center justify-center rounded-[inherit] bg-surface/85 backdrop-blur-sm">
       <div className="flex flex-col items-center gap-3 px-6 py-5 text-center">
         {estado === "guardando" && (
           <>
             <Loader2 size={28} className="animate-spin text-indigo-600" />
-            <p className="text-sm font-medium text-slate-700">{mensajeGuardando}</p>
-            <p className="text-xs text-slate-400">Un momento, no cierres esta ventana.</p>
+            <p className="text-sm font-medium text-ink-2">{mensajeGuardando}</p>
+            <p className="text-xs text-muted">Un momento, no cierres esta ventana.</p>
           </>
         )}
         {estado === "ok" && (

@@ -71,25 +71,25 @@ export function EstadoAgenteBoton({
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}
-        className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:border-slate-300"
+        className="flex items-center gap-2 rounded-full border border-edge bg-surface px-3 py-1.5 text-xs font-medium text-ink-2 shadow-sm hover:border-edge"
       >
         {cargando ? (
-          <Loader2 size={10} className="animate-spin text-slate-400" />
+          <Loader2 size={10} className="animate-spin text-muted" />
         ) : (
           <span className={`h-2 w-2 rounded-full ${actual.colorPunto}`} />
         )}
         {actual.etiqueta}
-        <ChevronDown size={13} className="text-slate-400" />
+        <ChevronDown size={13} className="text-muted" />
       </button>
 
       {abierto && (
-        <div className="absolute right-0 z-50 mt-1.5 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+        <div className="absolute right-0 z-50 mt-1.5 w-44 overflow-hidden rounded-lg border border-edge bg-surface py-1 shadow-lg">
           {OPCIONES.map((o) => (
             <button
               key={o.valor}
               type="button"
               onClick={() => elegir(o.valor)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-ink-2 hover:bg-surface-2"
             >
               <span className={`h-2 w-2 rounded-full ${o.colorPunto}`} />
               {o.etiqueta}

@@ -22,7 +22,7 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/campanas" className="text-sm text-slate-500 hover:underline">
+        <Link href="/campanas" className="text-sm text-muted hover:underline">
           ← Volver a campañas
         </Link>
       </div>
@@ -30,7 +30,7 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold">{campana.nombre}</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             {contactos.length} contactos · reintenta hasta {campana.reintentos_max} veces, cada{" "}
             {campana.horas_entre_reintentos}h · creada {formatFechaHora(campana.creado_en)}
           </p>
@@ -55,9 +55,9 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-edge bg-surface">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500">
+          <thead className="bg-surface-2 text-left text-muted">
             <tr>
               <th className="px-4 py-2 font-medium">Número</th>
               <th className="px-4 py-2 font-medium">Nombre</th>
@@ -66,9 +66,9 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
               <th className="px-4 py-2 font-medium">Última llamada</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-edge">
             {contactos.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-50">
+              <tr key={c.id} className="hover:bg-surface-2">
                 <td className="px-4 py-3">{c.numero}</td>
                 <td className="px-4 py-3">{c.nombre ?? "—"}</td>
                 <td className="px-4 py-3">
@@ -81,7 +81,7 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
                           ? "bg-red-100 text-red-800"
                           : c.estado === "llamando"
                             ? "bg-indigo-100 text-indigo-800"
-                            : "bg-slate-100 text-slate-700")
+                            : "bg-surface-2 text-ink-2")
                     }
                   >
                     {ETIQUETAS_ESTADO_CONTACTO[c.estado] ?? c.estado}

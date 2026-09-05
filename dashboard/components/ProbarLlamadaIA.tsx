@@ -33,11 +33,11 @@ export function ProbarLlamadaIA() {
 
   return (
     <section className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-5">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
         <PhoneCall size={16} className="text-emerald-600" />
         Probar con una llamada
       </div>
-      <p className="mb-3 text-xs text-slate-500">
+      <p className="mb-3 text-xs text-muted">
         Guarda los cambios primero — el bot usa el prompt tal como está guardado, no lo que hayas escrito sin guardar.
       </p>
       <div className="flex gap-2">
@@ -45,7 +45,7 @@ export function ProbarLlamadaIA() {
           value={numero}
           onChange={(e) => setNumero(e.target.value.replace(/[^\d+]/g, ""))}
           placeholder="+18095551234"
-          className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          className="flex-1 rounded-md border border-edge px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
         />
         <button
           type="button"

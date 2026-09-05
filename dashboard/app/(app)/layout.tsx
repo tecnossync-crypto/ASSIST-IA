@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { PanelTelefono } from "@/components/PanelTelefono";
 import { Softphone } from "@/components/Softphone";
 import { EstadoAgenteBoton } from "@/components/EstadoAgenteBoton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { listarContactos, listarLlamadas, listarColas, obtenerAgentePropio } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
 
@@ -25,11 +26,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex h-full">
       <Sidebar sesion={sesion} />
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        {agentePropio && (
-          <div className="sticky top-0 z-40 flex justify-end border-b border-slate-200 bg-white/80 px-6 py-2.5 backdrop-blur">
+        <div className="sticky top-0 z-40 flex items-center justify-end gap-3 border-b border-edge bg-surface/80 px-6 py-2.5 backdrop-blur">
+          {agentePropio && (
             <EstadoAgenteBoton usuarioId={agentePropio.id} estadoInicial={agentePropio.estado_presencia} />
-          </div>
-        )}
+          )}
+          <ThemeToggle />
+        </div>
         <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
       </div>
       <PanelTelefono contactos={contactos} recientes={recientes} colas={colas} />

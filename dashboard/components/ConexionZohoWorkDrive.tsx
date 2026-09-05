@@ -16,9 +16,9 @@ export function ConexionZohoWorkDrive({ estado }: { estado: EstadoZohoWorkDrive 
 
   if (!estado.configurado) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-medium text-slate-600">Zoho WorkDrive</p>
-        <p className="mt-1 text-xs text-slate-400">
+      <div className="rounded-lg border border-dashed border-edge bg-surface-2 p-4">
+        <p className="text-sm font-medium text-ink-2">Zoho WorkDrive</p>
+        <p className="mt-1 text-xs text-muted">
           Falta configurar el Client ID/Secret de la app de Zoho a nivel de plataforma — pídeselo a tu
           desarrollador antes de poder conectar.
         </p>
@@ -28,10 +28,10 @@ export function ConexionZohoWorkDrive({ estado }: { estado: EstadoZohoWorkDrive 
 
   if (!estado.conectado) {
     return (
-      <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
+      <div className="flex items-center justify-between rounded-lg border border-edge p-4">
         <div>
-          <p className="text-sm font-medium text-slate-700">Zoho WorkDrive</p>
-          <p className="text-xs text-slate-400">Cada grabación se sube automáticamente a la carpeta que elijas.</p>
+          <p className="text-sm font-medium text-ink-2">Zoho WorkDrive</p>
+          <p className="text-xs text-muted">Cada grabación se sube automáticamente a la carpeta que elijas.</p>
         </div>
         <a
           href={`${BACKEND_PUBLIC_URL}/api/integraciones/zoho-workdrive/conectar?empresaId=${EMPRESA_ID}`}
@@ -71,13 +71,13 @@ export function ConexionZohoWorkDrive({ estado }: { estado: EstadoZohoWorkDrive 
         </BotonAccion>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-slate-600">ID de la carpeta destino en WorkDrive</label>
+        <label className="text-xs font-medium text-ink-2">ID de la carpeta destino en WorkDrive</label>
         <div className="flex gap-2">
           <input
             value={carpetaId}
             onChange={(e) => setCarpetaId(e.target.value)}
             placeholder="ej. jk3x9..."
-            className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="flex-1 rounded-md border border-edge px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
           <button
             type="button"
@@ -87,7 +87,7 @@ export function ConexionZohoWorkDrive({ estado }: { estado: EstadoZohoWorkDrive 
             Guardar
           </button>
         </div>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted">
           Se ve en la URL cuando abres la carpeta en WorkDrive (después de <span className="font-mono">/folders/</span>).
         </p>
       </div>

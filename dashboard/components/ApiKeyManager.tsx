@@ -46,34 +46,34 @@ export function ApiKeyManager({ apiKeyActual }: { apiKeyActual: string | null })
 
       {apiKey ? (
         <div className="flex items-center gap-2">
-          <div className="flex flex-1 items-center gap-2 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-700">
+          <div className="flex flex-1 items-center gap-2 rounded-md border border-edge bg-surface-2 px-3 py-2 font-mono text-sm text-ink-2">
             <KeyRound size={14} className="text-indigo-500" />
             <span className="truncate">{revelada ? apiKey : enmascarar(apiKey)}</span>
           </div>
           <button
             type="button"
             onClick={() => setRevelada((r) => !r)}
-            className="rounded-md border border-slate-300 px-2.5 py-2 text-xs text-slate-600 hover:bg-slate-50"
+            className="rounded-md border border-edge px-2.5 py-2 text-xs text-ink-2 hover:bg-surface-2"
           >
             {revelada ? "Ocultar" : "Ver"}
           </button>
           <button
             type="button"
             onClick={copiar}
-            className="flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-2 text-xs text-slate-600 hover:bg-slate-50"
+            className="flex items-center gap-1 rounded-md border border-edge px-2.5 py-2 text-xs text-ink-2 hover:bg-surface-2"
           >
             {copiado ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
           </button>
         </div>
       ) : (
-        <p className="text-sm text-slate-400">Todavía no has generado un API key.</p>
+        <p className="text-sm text-muted">Todavía no has generado un API key.</p>
       )}
 
       <button
         type="button"
         onClick={regenerar}
         disabled={generando}
-        className="flex w-fit items-center gap-1.5 rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:border-indigo-400 hover:text-indigo-700 disabled:opacity-60"
+        className="flex w-fit items-center gap-1.5 rounded-md border border-dashed border-edge px-3 py-1.5 text-xs text-ink-2 hover:border-indigo-400 hover:text-indigo-700 disabled:opacity-60"
       >
         <RefreshCw size={13} />
         {apiKey ? "Regenerar" : "Generar API key"}

@@ -22,9 +22,9 @@ export default async function ContactosPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Contactos</h1>
-          <p className="text-sm text-slate-500">Perfil acumulado de cada cliente, a partir de lo que dice en sus llamadas.</p>
+          <p className="text-sm text-muted">Perfil acumulado de cada cliente, a partir de lo que dice en sus llamadas.</p>
         </div>
-        <span className="text-sm text-slate-500">{contactos.length} resultado(s)</span>
+        <span className="text-sm text-muted">{contactos.length} resultado(s)</span>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -34,13 +34,13 @@ export default async function ContactosPage({
 
       <form className="flex gap-2">
         <div className="relative flex-1">
-          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <input
             type="text"
             name="q"
             defaultValue={q}
             placeholder="Buscar por nombre, apellido o número…"
-            className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-edge py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
         <button
@@ -51,9 +51,9 @@ export default async function ContactosPage({
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-edge bg-surface">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500">
+          <thead className="bg-surface-2 text-left text-muted">
             <tr>
               <th className="px-4 py-2 font-medium">Nombre</th>
               <th className="px-4 py-2 font-medium">Número</th>
@@ -62,12 +62,12 @@ export default async function ContactosPage({
               <th className="px-4 py-2 font-medium">Última actividad</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-edge">
             {contactos.map((c) => {
               const nombreCompleto = [c.nombre, c.apellido].filter(Boolean).join(" ") || "—";
               const otrosDatos = Object.entries(c.datos ?? {});
               return (
-                <tr key={c.id} className="hover:bg-slate-50">
+                <tr key={c.id} className="hover:bg-surface-2">
                   <td className="px-4 py-3">
                     <Link href={`/contactos/${c.id}`} className="font-medium text-indigo-700 hover:underline">
                       {nombreCompleto}
@@ -81,18 +81,18 @@ export default async function ContactosPage({
                       ))}
                     </div>
                   </td>
-                  <td className="max-w-xs truncate px-4 py-3 text-slate-600">
+                  <td className="max-w-xs truncate px-4 py-3 text-ink-2">
                     {otrosDatos.length > 0
                       ? otrosDatos.map(([k, v]) => `${k}: ${v}`).join(" · ")
                       : "—"}
                   </td>
-                  <td className="px-4 py-3 text-slate-500">{formatFechaHora(c.actualizado_en)}</td>
+                  <td className="px-4 py-3 text-muted">{formatFechaHora(c.actualizado_en)}</td>
                 </tr>
               );
             })}
             {contactos.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={5} className="px-4 py-8 text-center text-muted">
                   No hay contactos todavía.
                 </td>
               </tr>

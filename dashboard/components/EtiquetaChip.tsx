@@ -3,7 +3,7 @@ const COLORES: Record<string, string> = {
   emerald: "bg-emerald-100 text-emerald-800",
   amber: "bg-amber-100 text-amber-800",
   rose: "bg-rose-100 text-rose-800",
-  slate: "bg-slate-100 text-slate-700",
+  slate: "bg-surface-2 text-ink-2",
 };
 
 export function EtiquetaChip({ nombre, color }: { nombre: string; color?: string }) {

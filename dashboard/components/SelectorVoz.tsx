@@ -39,7 +39,7 @@ export function SelectorVoz({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+      <div className="flex flex-wrap gap-3 text-sm text-ink-2">
         {esClonada && (
           <label className="flex items-center gap-1.5">
             <input type="radio" name="voz_modo" checked={modo === "clonada"} onChange={() => setModo("clonada")} />
@@ -91,7 +91,7 @@ export function SelectorVoz({
               (form.elements.namedItem("tts_provider") as HTMLInputElement).value = provider;
             }
           }}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           {VOCES_RECOMENDADAS.map((v) => (
             <option key={claveDe(v.provider, v.voice)} value={claveDe(v.provider, v.voice)}>
@@ -104,11 +104,11 @@ export function SelectorVoz({
       {modo === "personalizada" && (
         <div className="grid grid-cols-2 gap-2">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-500">Proveedor</label>
+            <label className="text-xs text-muted">Proveedor</label>
             <select
               name="tts_provider"
               defaultValue={!esConocida ? (defaultProvider ?? "google") : "google"}
-              className="rounded-md border border-slate-300 px-2 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="rounded-md border border-edge px-2 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="google">Google</option>
               <option value="amazon">Amazon</option>
@@ -116,12 +116,12 @@ export function SelectorVoz({
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-slate-500">Nombre de voz</label>
+            <label className="text-xs text-muted">Nombre de voz</label>
             <input
               name="voz_agente"
               defaultValue={!esConocida ? (defaultValue ?? "") : ""}
               placeholder="Ej: Pedro-Neural"
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="rounded-md border border-edge px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
@@ -144,7 +144,7 @@ export function SelectorVoz({
         </>
       )}
 
-      <p className="text-xs text-slate-400">Catálogo verificado contra la documentación de Twilio ConversationRelay.</p>
+      <p className="text-xs text-muted">Catálogo verificado contra la documentación de Twilio ConversationRelay.</p>
     </div>
   );
 }

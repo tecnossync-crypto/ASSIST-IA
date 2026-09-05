@@ -34,27 +34,27 @@ export default async function ResumenPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold">Resumen</h1>
-        <p className="text-sm text-slate-500">Estado general de la línea, hoy.</p>
+        <p className="text-sm text-muted">Estado general de la línea, hoy.</p>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {TARJETAS.map((t) => (
-          <div key={t.key} className="rounded-xl border border-slate-200 bg-white p-4">
+          <div key={t.key} className="rounded-xl border border-edge bg-surface p-4">
             <span className={`mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg ${t.color}`}>
               <t.Icon size={16} />
             </span>
-            <p className="text-2xl font-bold text-slate-800">{resumen[t.key]}</p>
-            <p className="text-xs text-slate-500">{t.label}</p>
+            <p className="text-2xl font-bold text-ink">{resumen[t.key]}</p>
+            <p className="text-xs text-muted">{t.label}</p>
           </div>
         ))}
       </div>
 
       {/* Fila de gráficos */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
+        <section className="rounded-xl border border-edge bg-surface p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700">Llamadas · últimos 7 días</h2>
+            <h2 className="text-sm font-semibold text-ink-2">Llamadas · últimos 7 días</h2>
             {tasaExito !== null && (
               <span className="flex items-center gap-1 text-xs text-emerald-600">
                 <CheckCircle2 size={13} />
@@ -65,24 +65,24 @@ export default async function ResumenPage() {
           <GraficoLlamadasSemana datos={resumen.llamadas_por_dia} />
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="mb-4 text-sm font-semibold text-slate-700">Satisfacción del cliente</h2>
+        <section className="rounded-xl border border-edge bg-surface p-5">
+          <h2 className="mb-4 text-sm font-semibold text-ink-2">Satisfacción del cliente</h2>
           <DonaSatisfaccion datos={resumen.satisfaccion} />
         </section>
       </div>
 
       {/* Últimas llamadas */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-700">Últimas llamadas</h2>
+        <h2 className="text-sm font-semibold text-ink-2">Últimas llamadas</h2>
         <Link href="/llamadas" className="text-sm text-indigo-700 hover:underline">
           Ver todas →
         </Link>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-edge bg-surface">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-500">
+            <thead className="bg-surface-2 text-left text-muted">
               <tr>
                 <th className="whitespace-nowrap px-4 py-2 font-medium">Fecha</th>
                 <th className="whitespace-nowrap px-4 py-2 font-medium">Número</th>
@@ -92,9 +92,9 @@ export default async function ResumenPage() {
                 <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-edge">
               {ultimas.map((l) => (
-                <tr key={l.id} className="hover:bg-slate-50">
+                <tr key={l.id} className="hover:bg-surface-2">
                   <td className="whitespace-nowrap px-4 py-3">
                     <Link href={`/llamadas/${l.id}`}>{formatFechaHoraCorta(l.iniciada_en)}</Link>
                   </td>
@@ -103,7 +103,7 @@ export default async function ResumenPage() {
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">{formatDuracion(l.duracion_segundos)}</td>
                   <td className="whitespace-nowrap px-4 py-3">{etiquetaEstado(l.estado)}</td>
-                  <td className="max-w-xs truncate px-4 py-3 text-slate-600">{l.resumen_motivo ?? "—"}</td>
+                  <td className="max-w-xs truncate px-4 py-3 text-ink-2">{l.resumen_motivo ?? "—"}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
                     <Link
                       href={`/llamadas/${l.id}`}
@@ -117,7 +117,7 @@ export default async function ResumenPage() {
               ))}
               {ultimas.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted">
                     No hay llamadas todavía.
                   </td>
                 </tr>

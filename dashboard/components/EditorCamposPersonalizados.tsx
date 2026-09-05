@@ -55,18 +55,18 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
           {campos.map((c, i) => {
             const tipo = c.tipo ?? "texto";
             return (
-              <div key={i} className="flex flex-col gap-2 rounded-md border border-slate-200 p-3">
+              <div key={i} className="flex flex-col gap-2 rounded-md border border-edge p-3">
                 <div className="flex gap-2">
                   <input
                     value={c.nombre}
                     onChange={(e) => actualizar(i, { nombre: e.target.value })}
                     placeholder="Nombre del campo (ej: número de póliza)"
-                    className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="flex-1 rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                   <select
                     value={tipo}
                     onChange={(e) => actualizar(i, { tipo: e.target.value as TipoCampoPersonalizado })}
-                    className="rounded-md border border-slate-300 px-2 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="rounded-md border border-edge px-2 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     {TIPOS.map((t) => (
                       <option key={t.valor} value={t.valor}>
@@ -77,7 +77,7 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
                   <button
                     type="button"
                     onClick={() => quitar(i)}
-                    className="flex items-center justify-center rounded-md border border-slate-200 px-2.5 text-slate-400 hover:border-red-200 hover:text-red-600"
+                    className="flex items-center justify-center rounded-md border border-edge px-2.5 text-muted hover:border-red-200 hover:text-red-600"
                     aria-label="Quitar campo"
                   >
                     <Trash2 size={15} />
@@ -88,16 +88,16 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
                   value={c.descripcion ?? ""}
                   onChange={(e) => actualizar(i, { descripcion: e.target.value })}
                   placeholder="Descripción / cómo pedirlo (opcional)"
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">api_name:</span>
+                  <span className="text-xs text-muted">api_name:</span>
                   <input
                     value={c.api_name ?? ""}
                     onChange={(e) => actualizar(i, { api_name: generarApiName(e.target.value) })}
                     placeholder={generarApiName(c.nombre) || "se genera solo"}
-                    className="flex-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs text-slate-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="flex-1 rounded-md border border-edge bg-surface-2 px-2.5 py-1 font-mono text-xs text-ink-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
@@ -114,9 +114,9 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
                         })
                       }
                       placeholder="Opciones separadas por coma (ej: Auto, Salud, Vida)"
-                      className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
-                    <p className="text-xs text-slate-400">El agente y quien llene el contacto a mano elegirán una de estas opciones.</p>
+                    <p className="text-xs text-muted">El agente y quien llene el contacto a mano elegirán una de estas opciones.</p>
                   </div>
                 )}
               </div>
@@ -128,13 +128,13 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
       <button
         type="button"
         onClick={agregar}
-        className="flex w-fit items-center gap-1.5 rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:border-indigo-400 hover:text-indigo-700"
+        className="flex w-fit items-center gap-1.5 rounded-md border border-dashed border-edge px-3 py-1.5 text-sm text-ink-2 hover:border-indigo-400 hover:text-indigo-700"
       >
         <Plus size={14} />
         Agregar campo
       </button>
 
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-muted">
         El agente pedirá estos datos durante la llamada y quedarán guardados en el perfil de cada contacto. El
         "api_name" es la clave técnica y estable que usan las integraciones (Zoho, etc.) para mapear este campo —
         no cambia aunque edites el nombre visible.

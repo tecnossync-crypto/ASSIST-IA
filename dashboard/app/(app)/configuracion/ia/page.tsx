@@ -23,18 +23,18 @@ export default async function IaConfigPage() {
       <FormConFeedback action={guardarIaAction} className="flex flex-col gap-6">
         {/* Panel de selección — gestor de llamadas, franja horizontal arriba de todo */}
         <section className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-5">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-ink">
             <PhoneCall size={16} className="text-indigo-600" />
             Gestor de llamadas
           </div>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-slate-700">Voz del agente</span>
+              <span className="text-sm font-medium text-ink-2">Voz del agente</span>
               <SelectorVoz defaultValue={empresa.voz_agente} defaultProvider={empresa.tts_provider} />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="tiempo_respuesta_segundos" className="text-sm font-medium text-slate-700">
+              <label htmlFor="tiempo_respuesta_segundos" className="text-sm font-medium text-ink-2">
                 Tiempo de respuesta
               </label>
               <div className="flex items-center gap-2">
@@ -46,15 +46,15 @@ export default async function IaConfigPage() {
                   max={5}
                   step={0.5}
                   defaultValue={empresa.tiempo_respuesta_segundos}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
-                <span className="text-sm text-slate-500">seg</span>
+                <span className="text-sm text-muted">seg</span>
               </div>
-              <p className="text-xs text-slate-400">Pausa antes de responder (0-5s).</p>
+              <p className="text-xs text-muted">Pausa antes de responder (0-5s).</p>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="duracion_maxima_minutos" className="text-sm font-medium text-slate-700">
+              <label htmlFor="duracion_maxima_minutos" className="text-sm font-medium text-ink-2">
                 Duración máxima
               </label>
               <div className="flex items-center gap-2">
@@ -65,15 +65,15 @@ export default async function IaConfigPage() {
                   min={1}
                   step={0.5}
                   defaultValue={(empresa.duracion_maxima_llamada_segundos / 60).toString()}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
-                <span className="text-sm text-slate-500">min</span>
+                <span className="text-sm text-muted">min</span>
               </div>
-              <p className="text-xs text-slate-400">El bot se despide y corta al llegar aquí.</p>
+              <p className="text-xs text-muted">El bot se despide y corta al llegar aquí.</p>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="timeout_timbrado_segundos" className="text-sm font-medium text-slate-700">
+              <label htmlFor="timeout_timbrado_segundos" className="text-sm font-medium text-ink-2">
                 Timbrado (salientes)
               </label>
               <div className="flex items-center gap-2">
@@ -84,11 +84,11 @@ export default async function IaConfigPage() {
                   min={5}
                   max={600}
                   defaultValue={empresa.timeout_timbrado_segundos}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
-                <span className="text-sm text-slate-500">seg</span>
+                <span className="text-sm text-muted">seg</span>
               </div>
-              <p className="text-xs text-slate-400">Espera antes de "no contesta".</p>
+              <p className="text-xs text-muted">Espera antes de "no contesta".</p>
             </div>
           </div>
         </section>
@@ -100,7 +100,7 @@ export default async function IaConfigPage() {
               <span className="h-2.5 w-2.5 rounded-full bg-red-500/70" />
               <span className="h-2.5 w-2.5 rounded-full bg-amber-500/70" />
               <span className="h-2.5 w-2.5 rounded-full bg-green-500/70" />
-              <span className="ml-2 flex items-center gap-1.5 text-xs text-slate-400">
+              <span className="ml-2 flex items-center gap-1.5 text-xs text-muted">
                 <Terminal size={12} />
                 prompt.system
               </span>
@@ -115,34 +115,34 @@ export default async function IaConfigPage() {
                 'Escribe "/" para insertar variables del contacto, ej: {{nombre}}, {{numero_de_poliza}}...'
               }
             />
-            <div className="border-t border-slate-800 bg-slate-900 px-4 py-2 text-xs text-slate-500">
+            <div className="border-t border-slate-800 bg-slate-900 px-4 py-2 text-xs text-muted">
               Si lo dejas vacío, se usa el modo guiado de la derecha para armar el prompt automáticamente. Escribe
               "/" para insertar variables del contacto — se sustituyen por sus datos reales si ya lo conocemos al
               momento de la llamada.
             </div>
           </section>
 
-          <section className="rounded-xl border border-slate-200 bg-white p-5">
-            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <section className="rounded-xl border border-edge bg-surface p-5">
+            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-ink">
               <MessageSquareText size={16} className="text-indigo-600" />
               Modo guiado
             </div>
-            <p className="mb-4 text-xs text-slate-400">Se ignora si escribiste algo en la consola de la izquierda.</p>
+            <p className="mb-4 text-xs text-muted">Se ignora si escribiste algo en la consola de la izquierda.</p>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label htmlFor="saludo" className="text-sm text-slate-600">
+                <label htmlFor="saludo" className="text-sm text-ink-2">
                   Saludo inicial
                 </label>
                 <input
                   id="saludo"
                   name="saludo"
                   defaultValue={g.saludo}
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <label htmlFor="que_resuelve" className="text-sm text-slate-600">
+                <label htmlFor="que_resuelve" className="text-sm text-ink-2">
                   Qué resuelve esta línea
                 </label>
                 <input
@@ -150,12 +150,12 @@ export default async function IaConfigPage() {
                   name="que_resuelve"
                   defaultValue={g.que_resuelve}
                   placeholder="Ej: agendar citas, cotizaciones"
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <label htmlFor="cuando_transferir" className="text-sm text-slate-600">
+                <label htmlFor="cuando_transferir" className="text-sm text-ink-2">
                   Cuándo transferir a un humano
                 </label>
                 <input
@@ -163,7 +163,7 @@ export default async function IaConfigPage() {
                   name="cuando_transferir"
                   defaultValue={g.cuando_transferir}
                   placeholder="Ej: si lo pide o está molesto"
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
             </div>

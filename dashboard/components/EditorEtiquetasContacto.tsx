@@ -37,7 +37,7 @@ export function EditorEtiquetasContacto({
 
   if (catalogo.length === 0) {
     return (
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-muted">
         No hay etiquetas configuradas — agrégalas en Configuración → Campos y etiquetas.
       </p>
     );

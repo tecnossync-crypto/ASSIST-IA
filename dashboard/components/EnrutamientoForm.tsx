@@ -38,7 +38,7 @@ export function EnrutamientoForm({ modoActual }: { modoActual: string }) {
           key={m.valor}
           className={
             "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors " +
-            (modoActual === m.valor ? "border-indigo-300 bg-indigo-50/60" : "border-slate-200 hover:border-slate-300")
+            (modoActual === m.valor ? "border-indigo-300 bg-indigo-50/60" : "border-edge hover:border-edge")
           }
         >
           <input
@@ -50,8 +50,8 @@ export function EnrutamientoForm({ modoActual }: { modoActual: string }) {
             className="mt-1 accent-indigo-600"
           />
           <span>
-            <span className="block text-sm font-medium text-slate-800">{m.label}</span>
-            <span className="block text-xs text-slate-500">{m.descripcion}</span>
+            <span className="block text-sm font-medium text-ink">{m.label}</span>
+            <span className="block text-xs text-muted">{m.descripcion}</span>
           </span>
         </label>
       ))}

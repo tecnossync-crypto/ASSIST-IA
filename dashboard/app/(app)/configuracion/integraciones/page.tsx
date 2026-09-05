@@ -24,12 +24,12 @@ export default async function IntegracionesPage() {
         descripcion="Conecta la plataforma con tus otras herramientas."
       />
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
           <Webhook size={16} className="text-indigo-600" />
           API para pedir llamadas por webhook
         </div>
-        <p className="mb-4 text-xs text-slate-500">
+        <p className="mb-4 text-xs text-muted">
           Cualquier plataforma tuya (un CRM, tu e-commerce, un sistema de tickets…) puede pedirle a esta
           plataforma que llame a un cliente con IA, mandando el número y — si quieres— un prompt específico
           para esa llamada puntual.
@@ -49,28 +49,28 @@ export default async function IntegracionesPage() {
   }'`}</code>
           </pre>
         </div>
-        <ul className="mt-3 space-y-1 text-xs text-slate-500">
+        <ul className="mt-3 space-y-1 text-xs text-muted">
           <li>
-            <span className="font-mono text-slate-700">numero</span> — requerido, el teléfono a llamar (con código de país).
+            <span className="font-mono text-ink-2">numero</span> — requerido, el teléfono a llamar (con código de país).
           </li>
           <li>
-            <span className="font-mono text-slate-700">prompt</span> — opcional. Si lo mandas, reemplaza el prompt
+            <span className="font-mono text-ink-2">prompt</span> — opcional. Si lo mandas, reemplaza el prompt
             normal del agente solo para esta llamada; si no lo mandas, usa el guion configurado en
             Configuración → Inteligencia Artificial.
           </li>
           <li>
-            <span className="font-mono text-slate-700">origen</span> — opcional, libre, solo para identificar de
+            <span className="font-mono text-ink-2">origen</span> — opcional, libre, solo para identificar de
             dónde vino la solicitud.
           </li>
         </ul>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
           <Webhook size={16} className="text-indigo-600" />
           API para actualizar datos de un contacto
         </div>
-        <p className="mb-4 text-xs text-slate-500">
+        <p className="mb-4 text-xs text-muted">
           Para cuando algo cambia del lado de tu CRM (Zoho u otro) y quieres que se refleje acá — manda el número
           y los campos que cambiaron, usando el <span className="font-mono">api_name</span> de cada uno (ver
           tabla abajo), no el nombre visible.
@@ -91,36 +91,36 @@ ${(empresa.campos_personalizados ?? []).slice(0, 2).map((c) => `      "${c.api_n
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
           <Database size={16} className="text-indigo-600" />
           Campos disponibles (api_name)
         </div>
-        <p className="mb-4 text-xs text-slate-500">
+        <p className="mb-4 text-xs text-muted">
           Estas son las claves técnicas de los campos personalizados configurados en Configuración → Contactos —
           úsalas al mapear en Zoho o cualquier otra integración.
         </p>
 
         {(empresa.campos_personalizados ?? []).length === 0 ? (
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             No hay campos personalizados configurados todavía — agrégalos en Configuración → Contactos.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-md border border-slate-200">
+          <div className="overflow-hidden rounded-md border border-edge">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-slate-500">
+              <thead className="bg-surface-2 text-left text-muted">
                 <tr>
                   <th className="px-3 py-2 font-medium">Nombre visible</th>
                   <th className="px-3 py-2 font-medium">api_name</th>
                   <th className="px-3 py-2 font-medium">Tipo</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-edge">
                 {(empresa.campos_personalizados ?? []).map((c) => (
                   <tr key={c.nombre}>
-                    <td className="px-3 py-2 text-slate-700">{c.nombre}</td>
+                    <td className="px-3 py-2 text-ink-2">{c.nombre}</td>
                     <td className="px-3 py-2 font-mono text-xs text-indigo-700">{c.api_name || "—"}</td>
-                    <td className="px-3 py-2 capitalize text-slate-500">{c.tipo ?? "texto"}</td>
+                    <td className="px-3 py-2 capitalize text-muted">{c.tipo ?? "texto"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -130,7 +130,7 @@ ${(empresa.campos_personalizados ?? []).slice(0, 2).map((c) => `      "${c.api_n
       </section>
 
       <section>
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink-2">
           <Sparkles size={16} className="text-indigo-500" />
           Próximamente
         </div>
@@ -138,13 +138,13 @@ ${(empresa.campos_personalizados ?? []).slice(0, 2).map((c) => `      "${c.api_n
           {PROXIMAMENTE.map((integracion) => (
             <div
               key={integracion.nombre}
-              className="relative rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 opacity-70"
+              className="relative rounded-lg border border-dashed border-edge bg-surface-2 p-4 opacity-70"
             >
-              <span className="absolute right-3 top-3 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+              <span className="absolute right-3 top-3 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-medium text-muted">
                 Próximamente
               </span>
-              <p className="text-sm font-medium text-slate-600">{integracion.nombre}</p>
-              <p className="mt-1 text-xs text-slate-400">{integracion.descripcion}</p>
+              <p className="text-sm font-medium text-ink-2">{integracion.nombre}</p>
+              <p className="mt-1 text-xs text-muted">{integracion.descripcion}</p>
             </div>
           ))}
         </div>

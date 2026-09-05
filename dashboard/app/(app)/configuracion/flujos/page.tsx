@@ -22,8 +22,8 @@ export default async function FlujosTrabajoPage() {
         descripcion="Reglas automáticas: cuando una llamada termina de cierta forma, la plataforma hace algo por ti."
       />
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-ink">
           <Workflow size={16} className="text-indigo-600" />
           Nueva regla
         </div>
@@ -31,16 +31,16 @@ export default async function FlujosTrabajoPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-slate-700">Reglas activas</h2>
+        <h2 className="text-sm font-semibold text-ink-2">Reglas activas</h2>
         {flujos.length === 0 && (
-          <p className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-400">
+          <p className="rounded-lg border border-dashed border-edge p-4 text-sm text-muted">
             No hay flujos de trabajo todavía.
           </p>
         )}
         {flujos.map((f) => (
           <div
             key={f.id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4"
+            className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-surface p-4"
           >
             <div className="flex items-start gap-3">
               {f.accion === "agregar_etiqueta" ? (
@@ -49,8 +49,8 @@ export default async function FlujosTrabajoPage() {
                 <ClipboardList size={16} className="mt-0.5 text-indigo-500" />
               )}
               <div>
-                <p className="text-sm font-medium text-slate-800">{f.nombre}</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm font-medium text-ink">{f.nombre}</p>
+                <p className="text-xs text-muted">
                   Cuando: {ETIQUETAS_DISPARADOR[f.disparador] ?? f.disparador} · Entonces:{" "}
                   {f.accion === "agregar_etiqueta"
                     ? `agregar etiqueta "${f.accion_datos.etiqueta}"`

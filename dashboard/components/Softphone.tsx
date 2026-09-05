@@ -177,13 +177,13 @@ export function Softphone() {
       {!enLlamada && (
         <div className="fixed bottom-28 right-6 z-[55] sm:right-8">
           {sesion ? (
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 shadow-md">
+            <div className="flex items-center gap-2 rounded-full border border-edge bg-surface px-3 py-1.5 text-xs text-ink-2 shadow-md">
               <Headset size={12} className="text-emerald-600" />
               {sesion.nombre}
               <button
                 type="button"
                 onClick={cerrarSesionAgente}
-                className="text-slate-400 hover:text-red-600"
+                className="text-muted hover:text-red-600"
                 aria-label="Salir"
                 title="Salir de la sesión de agente"
               >
@@ -191,8 +191,8 @@ export function Softphone() {
               </button>
             </div>
           ) : loginAbierto ? (
-            <div className="w-56 rounded-xl border border-slate-200 bg-white p-3 shadow-lg">
-              <p className="mb-2 text-xs font-medium text-slate-700">PIN de agente</p>
+            <div className="w-56 rounded-xl border border-edge bg-surface p-3 shadow-lg">
+              <p className="mb-2 text-xs font-medium text-ink-2">PIN de agente</p>
               <input
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
@@ -200,13 +200,13 @@ export function Softphone() {
                 inputMode="numeric"
                 maxLength={6}
                 autoFocus
-                className="mb-2 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="mb-2 w-full rounded-md border border-edge px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setLoginAbierto(false)}
-                  className="flex-1 rounded-md border border-slate-200 py-1.5 text-xs text-slate-500 hover:bg-slate-50"
+                  className="flex-1 rounded-md border border-edge py-1.5 text-xs text-muted hover:bg-surface-2"
                 >
                   Cancelar
                 </button>
@@ -225,7 +225,7 @@ export function Softphone() {
             <button
               type="button"
               onClick={() => setLoginAbierto(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 shadow-md hover:border-indigo-300 hover:text-indigo-700"
+              className="flex items-center gap-1.5 rounded-full border border-edge bg-surface px-3 py-1.5 text-xs text-muted shadow-md hover:border-indigo-300 hover:text-indigo-700"
             >
               <Headset size={12} />
               Conectarme como agente
@@ -235,9 +235,9 @@ export function Softphone() {
       )}
 
       {enLlamada && (
-        <div className="fixed bottom-28 right-6 z-[60] w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 sm:right-8">
+        <div className="fixed bottom-28 right-6 z-[60] w-72 overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl shadow-slate-900/20 sm:right-8">
           <div className="flex items-center gap-3 bg-gradient-to-br from-emerald-600 to-emerald-700 px-4 py-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface/15 text-white">
               <PhoneIncoming size={16} className={estadoLlamada === "sonando" ? "animate-pulse" : ""} />
             </span>
             <div>

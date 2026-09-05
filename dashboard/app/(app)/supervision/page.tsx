@@ -12,7 +12,7 @@ export default async function SupervisionPage() {
           <Radio size={20} className="text-emerald-600" />
           Supervisión en vivo
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           Todas las llamadas que están ocurriendo ahora mismo, con qué agente las está atendiendo. Se actualiza sola.
         </p>
       </div>

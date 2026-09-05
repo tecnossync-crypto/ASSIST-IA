@@ -16,20 +16,20 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/contactos" className="text-sm text-slate-500 hover:underline">
+        <Link href="/contactos" className="text-sm text-muted hover:underline">
           ← Volver a contactos
         </Link>
       </div>
 
       <div>
         <h1 className="text-xl font-semibold">{nombreCompleto}</h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           {contacto.numero} · última actividad {formatFechaHora(contacto.actualizado_en)}
         </p>
       </div>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Etiquetas</h2>
+      <section className="rounded-lg border border-edge bg-surface p-4">
+        <h2 className="mb-3 text-sm font-semibold text-ink-2">Etiquetas</h2>
         <EditorEtiquetasContacto
           contactoId={contacto.id}
           catalogo={empresa.etiquetas_disponibles ?? []}
@@ -37,8 +37,8 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
         />
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Datos</h2>
+      <section className="rounded-lg border border-edge bg-surface p-4">
+        <h2 className="mb-3 text-sm font-semibold text-ink-2">Datos</h2>
         <EditorDatosContacto
           contactoId={contacto.id}
           campos={empresa.campos_personalizados ?? []}
@@ -47,10 +47,10 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Historial de llamadas</h2>
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <h2 className="mb-2 text-sm font-semibold text-ink-2">Historial de llamadas</h2>
+        <div className="overflow-hidden rounded-lg border border-edge bg-surface">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-500">
+            <thead className="bg-surface-2 text-left text-muted">
               <tr>
                 <th className="px-4 py-2 font-medium">Fecha</th>
                 <th className="px-4 py-2 font-medium">Dirección</th>
@@ -58,9 +58,9 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
                 <th className="px-4 py-2 font-medium">Estado</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-edge">
               {llamadas.map((l) => (
-                <tr key={l.id} className="hover:bg-slate-50">
+                <tr key={l.id} className="hover:bg-surface-2">
                   <td className="px-4 py-3">
                     <Link href={`/llamadas/${l.id}`} className="text-indigo-700 hover:underline">
                       {formatFechaHora(l.iniciada_en)}
@@ -73,7 +73,7 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
               ))}
               {llamadas.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={4} className="px-4 py-8 text-center text-muted">
                     Sin llamadas registradas.
                   </td>
                 </tr>

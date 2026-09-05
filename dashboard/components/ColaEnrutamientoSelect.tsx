@@ -18,7 +18,7 @@ export function ColaEnrutamientoSelect({ colaId, modoActual }: { colaId: string;
         name="modo"
         defaultValue={modoActual}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
-        className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        className="rounded-md border border-edge px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
       >
         {MODOS.map((m) => (
           <option key={m.valor} value={m.valor}>

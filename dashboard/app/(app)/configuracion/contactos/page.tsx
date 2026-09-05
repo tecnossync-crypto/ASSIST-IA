@@ -20,35 +20,35 @@ export default async function ContactosConfigPage() {
 
       <Link
         href="/contactos"
-        className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-300"
+        className="flex items-center justify-between rounded-lg border border-edge bg-surface p-4 hover:border-indigo-300"
       >
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
             <Upload size={16} />
           </span>
           <div>
-            <p className="text-sm font-medium text-slate-800">Importar contactos (CSV)</p>
-            <p className="text-xs text-slate-500">Se hace desde el módulo de Contactos, no aquí.</p>
+            <p className="text-sm font-medium text-ink">Importar contactos (CSV)</p>
+            <p className="text-xs text-muted">Se hace desde el módulo de Contactos, no aquí.</p>
           </div>
         </div>
-        <ArrowUpRight size={16} className="text-slate-400" />
+        <ArrowUpRight size={16} className="text-muted" />
       </Link>
 
       <FormConFeedback action={guardarContactosConfigAction} className="flex flex-col gap-6">
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <section className="rounded-lg border border-edge bg-surface p-5">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-ink">
             <Database size={16} className="text-indigo-600" />
             Campos a recolectar
           </div>
-          <p className="mb-3 text-xs text-slate-500">
+          <p className="mb-3 text-xs text-muted">
             Nombre, apellido y teléfono se guardan siempre. Agrega aquí lo que además necesites por este negocio
             (número de póliza, placa, dirección…). Se guardan en el perfil de cada contacto.
           </p>
           <EditorCamposPersonalizados valorInicial={empresa.campos_personalizados ?? []} />
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5">
-          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+        <section className="rounded-lg border border-edge bg-surface p-5">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-ink">
             <Tags size={16} className="text-indigo-600" />
             Etiquetas de contactos
           </div>

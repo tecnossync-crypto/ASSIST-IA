@@ -72,22 +72,22 @@ export function AgregarContactoModal({ campos = [] }: { campos?: CampoPersonaliz
 
       {abierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="relative w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+          <div className="relative w-full max-w-sm rounded-xl border border-edge bg-surface p-5 shadow-xl">
             <OverlayGuardando
               estado={estado === "cargando" ? "guardando" : estado === "ok" ? "ok" : estado === "error" ? "error" : null}
               mensajeExito={mensaje}
               mensajeError={mensaje}
             />
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-800">Nuevo contacto</h2>
-              <button type="button" onClick={cerrar} className="text-slate-400 hover:text-slate-700">
+              <h2 className="text-sm font-semibold text-ink">Nuevo contacto</h2>
+              <button type="button" onClick={cerrar} className="text-muted hover:text-ink-2">
                 <X size={16} />
               </button>
             </div>
 
             <form onSubmit={guardar} className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <label htmlFor="modal_numero" className="text-xs font-medium text-slate-600">
+                <label htmlFor="modal_numero" className="text-xs font-medium text-ink-2">
                   Número *
                 </label>
                 <input
@@ -96,30 +96,30 @@ export function AgregarContactoModal({ campos = [] }: { campos?: CampoPersonaliz
                   onChange={(e) => setNumero(e.target.value)}
                   required
                   placeholder="+18095551234"
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="modal_nombre" className="text-xs font-medium text-slate-600">
+                  <label htmlFor="modal_nombre" className="text-xs font-medium text-ink-2">
                     Nombre
                   </label>
                   <input
                     id="modal_nombre"
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="modal_apellido" className="text-xs font-medium text-slate-600">
+                  <label htmlFor="modal_apellido" className="text-xs font-medium text-ink-2">
                     Apellido
                   </label>
                   <input
                     id="modal_apellido"
                     value={apellido}
                     onChange={(e) => setApellido(e.target.value)}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -131,12 +131,12 @@ export function AgregarContactoModal({ campos = [] }: { campos?: CampoPersonaliz
                     const valor = datos[campo.nombre] ?? "";
                     return (
                       <div key={campo.nombre} className="flex flex-col gap-1">
-                        <label className="text-xs font-medium text-slate-600">{campo.nombre}</label>
+                        <label className="text-xs font-medium text-ink-2">{campo.nombre}</label>
                         {tipo === "dropdown" ? (
                           <select
                             value={valor}
                             onChange={(e) => setDatos((prev) => ({ ...prev, [campo.nombre]: e.target.value }))}
-                            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           >
                             <option value="">—</option>
                             {(campo.opciones ?? []).map((op) => (
@@ -151,7 +151,7 @@ export function AgregarContactoModal({ campos = [] }: { campos?: CampoPersonaliz
                             value={valor}
                             onChange={(e) => setDatos((prev) => ({ ...prev, [campo.nombre]: e.target.value }))}
                             placeholder={tipo === "texto" ? campo.descripcion || undefined : undefined}
-                            className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                         )}
                       </div>

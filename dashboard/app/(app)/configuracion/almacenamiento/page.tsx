@@ -19,27 +19,27 @@ export default async function AlmacenamientoPage() {
         descripcion="Cuánto espacio ocupan tus grabaciones, cuánto tiempo se conservan, y a dónde más quieres enviarlas."
       />
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-ink">
           <HardDrive size={16} className="text-indigo-600" />
           Uso actual
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-md bg-slate-50 p-4">
-            <p className="text-2xl font-bold text-slate-800">{formatBytes(uso.totalBytes)}</p>
-            <p className="text-xs text-slate-500">Espacio usado en grabaciones</p>
+          <div className="rounded-md bg-surface-2 p-4">
+            <p className="text-2xl font-bold text-ink">{formatBytes(uso.totalBytes)}</p>
+            <p className="text-xs text-muted">Espacio usado en grabaciones</p>
           </div>
-          <div className="rounded-md bg-slate-50 p-4">
-            <p className="text-2xl font-bold text-slate-800">{uso.totalGrabaciones}</p>
-            <p className="text-xs text-slate-500">Grabaciones guardadas</p>
+          <div className="rounded-md bg-surface-2 p-4">
+            <p className="text-2xl font-bold text-ink">{uso.totalGrabaciones}</p>
+            <p className="text-xs text-muted">Grabaciones guardadas</p>
           </div>
         </div>
         {uso.porMes.length > 0 && (
           <div className="mt-4">
-            <p className="mb-2 text-xs font-medium text-slate-500">Últimos meses</p>
+            <p className="mb-2 text-xs font-medium text-muted">Últimos meses</p>
             <div className="flex flex-col gap-1">
               {uso.porMes.map((m) => (
-                <div key={m.mes} className="flex items-center justify-between text-xs text-slate-500">
+                <div key={m.mes} className="flex items-center justify-between text-xs text-muted">
                   <span>{m.mes}</span>
                   <span>
                     {m.cantidad} grabación(es) · {formatBytes(m.bytes)}
@@ -51,15 +51,15 @@ export default async function AlmacenamientoPage() {
         )}
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-ink">
           <Archive size={16} className="text-indigo-600" />
           Retención y exportación
         </div>
 
         <FormConFeedback action={guardarRetencionAction} submitLabel="Guardar" className="mb-5">
           <div className="flex flex-col gap-1">
-            <label htmlFor="retencion_dias" className="text-sm font-medium text-slate-700">
+            <label htmlFor="retencion_dias" className="text-sm font-medium text-ink-2">
               Días que se conservan antes de borrarse
             </label>
             <input
@@ -68,19 +68,19 @@ export default async function AlmacenamientoPage() {
               type="number"
               min={1}
               defaultValue={empresa.retencion_grabaciones_dias}
-              className="w-32 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-32 rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted">
               Pasado este tiempo se borra el archivo de audio solo (la transcripción y el resumen de la llamada se
               quedan siempre). Por defecto, 30 días.
             </p>
           </div>
         </FormConFeedback>
 
-        <div className="flex items-center justify-between rounded-md bg-slate-50 p-3">
+        <div className="flex items-center justify-between rounded-md bg-surface-2 p-3">
           <div>
-            <p className="text-sm font-medium text-slate-700">Exportar todas las grabaciones</p>
-            <p className="text-xs text-slate-400">Descarga un .zip con el audio de todas las llamadas grabadas hasta ahora.</p>
+            <p className="text-sm font-medium text-ink-2">Exportar todas las grabaciones</p>
+            <p className="text-xs text-muted">Descarga un .zip con el audio de todas las llamadas grabadas hasta ahora.</p>
           </div>
           <a
             href="/api/grabaciones/exportar"
@@ -92,12 +92,12 @@ export default async function AlmacenamientoPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-800">
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
           <Cloud size={16} className="text-indigo-600" />
           Sincronizar copias a la nube
         </div>
-        <p className="mb-4 text-xs text-slate-500">
+        <p className="mb-4 text-xs text-muted">
           Conecta tu propia cuenta (inicias sesión ahí, nunca nos das tu contraseña) y cada grabación se sube
           automáticamente también a esa carpeta, además de guardarse acá.
         </p>
@@ -105,7 +105,7 @@ export default async function AlmacenamientoPage() {
         <div className="flex flex-col gap-3">
           <ConexionZohoWorkDrive estado={zoho} />
 
-          <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-400">
+          <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-muted">
             <Sparkles size={12} />
             Próximamente
           </div>
@@ -113,9 +113,9 @@ export default async function AlmacenamientoPage() {
             {PROXIMAMENTE.map((nombre) => (
               <div
                 key={nombre}
-                className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-center opacity-70"
+                className="rounded-lg border border-dashed border-edge bg-surface-2 p-3 text-center opacity-70"
               >
-                <p className="text-xs font-medium text-slate-500">{nombre}</p>
+                <p className="text-xs font-medium text-muted">{nombre}</p>
               </div>
             ))}
           </div>

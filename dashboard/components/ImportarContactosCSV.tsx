@@ -36,14 +36,14 @@ export function ImportarContactosCSV({ onImportar }: { onImportar: (texto: strin
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="flex w-fit items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:border-indigo-400 hover:text-indigo-700"
+        className="flex w-fit items-center gap-1.5 rounded-md border border-edge px-3 py-1.5 text-sm text-ink-2 hover:border-indigo-400 hover:text-indigo-700"
       >
         <Upload size={14} />
         Importar desde CSV
       </button>
       <input ref={inputRef} type="file" accept=".csv,text/csv" onChange={manejarArchivo} className="hidden" />
-      {mensaje && <p className="text-xs text-slate-500">{mensaje}</p>}
-      <p className="text-xs text-slate-400">
+      {mensaje && <p className="text-xs text-muted">{mensaje}</p>}
+      <p className="text-xs text-muted">
         Columnas <code>numero</code> y <code>nombre</code> (o sin encabezado: número en la primera columna, nombre en
         la segunda). En Excel: Archivo → Guardar como → CSV.
       </p>

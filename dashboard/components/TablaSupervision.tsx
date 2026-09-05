@@ -44,18 +44,18 @@ export function TablaSupervision({ llamadasIniciales }: { llamadasIniciales: Lla
 
   if (llamadas.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+      <div className="rounded-lg border border-dashed border-edge p-8 text-center">
         <Radio size={22} className="mx-auto mb-2 text-slate-300" />
-        <p className="text-sm text-slate-400">No hay llamadas activas en este momento.</p>
+        <p className="text-sm text-muted">No hay llamadas activas en este momento.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-hidden rounded-lg border border-edge bg-surface">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500">
+          <thead className="bg-surface-2 text-left text-muted">
             <tr>
               <th className="whitespace-nowrap px-4 py-2 font-medium">Dirección</th>
               <th className="whitespace-nowrap px-4 py-2 font-medium">Cliente</th>
@@ -65,9 +65,9 @@ export function TablaSupervision({ llamadasIniciales }: { llamadasIniciales: Lla
               <th className="px-4 py-2 font-medium"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-edge">
             {llamadas.map((l) => (
-              <tr key={l.id} className="hover:bg-slate-50">
+              <tr key={l.id} className="hover:bg-surface-2">
                 <td className="whitespace-nowrap px-4 py-3">
                   {l.direccion === "entrante" ? (
                     <PhoneIncoming size={14} className="text-sky-500" />
@@ -78,7 +78,7 @@ export function TablaSupervision({ llamadasIniciales }: { llamadasIniciales: Lla
                 <td className="whitespace-nowrap px-4 py-3">
                   {l.direccion === "entrante" ? l.numero_origen : l.numero_destino}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-600">{l.cola_nombre ?? "—"}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-ink-2">{l.cola_nombre ?? "—"}</td>
                 <td className="whitespace-nowrap px-4 py-3">
                   {l.agente_nombre ? (
                     <span className="flex items-center gap-1.5">
@@ -92,7 +92,7 @@ export function TablaSupervision({ llamadasIniciales }: { llamadasIniciales: Lla
                     <span className="text-xs text-amber-600">Esperando que contesten…</span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-600">
+                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-ink-2">
                   {formatDuracionEnVivo(l.iniciada_en)}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right">

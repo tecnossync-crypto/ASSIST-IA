@@ -114,12 +114,12 @@ export function EditorPromptConVariables({
         onBlur={() => setTimeout(() => setMenuAbierto(false), 150)}
         placeholder={placeholder}
         spellCheck={false}
-        className="h-[420px] w-full resize-none bg-slate-950 px-4 py-4 font-mono text-sm text-slate-100 caret-indigo-400 placeholder:text-slate-600 focus:outline-none lg:h-[520px]"
+        className="h-[420px] w-full resize-none bg-slate-950 px-4 py-4 font-mono text-sm text-slate-100 caret-indigo-400 placeholder:text-ink-2 focus:outline-none lg:h-[520px]"
       />
 
       {menuAbierto && variablesFiltradas.length > 0 && (
         <div className="absolute bottom-3 left-4 z-20 w-64 overflow-hidden rounded-lg border border-slate-700 bg-slate-800 shadow-xl">
-          <div className="flex items-center gap-1.5 border-b border-slate-700 px-3 py-1.5 text-[10px] uppercase tracking-wide text-slate-400">
+          <div className="flex items-center gap-1.5 border-b border-slate-700 px-3 py-1.5 text-[10px] uppercase tracking-wide text-muted">
             <Braces size={11} />
             Variables del contacto
           </div>
@@ -138,7 +138,7 @@ export function EditorPromptConVariables({
                 }
               >
                 <span className="font-mono text-xs text-indigo-300">{`{{${v.api_name}}}`}</span>
-                <span className="text-[11px] text-slate-400">{v.label}</span>
+                <span className="text-[11px] text-muted">{v.label}</span>
               </button>
             ))}
           </div>

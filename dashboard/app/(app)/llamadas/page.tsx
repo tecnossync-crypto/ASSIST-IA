@@ -22,15 +22,15 @@ export default async function LlamadasPage({
     <div className="relative flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Llamadas</h1>
-        <span className="text-sm text-slate-500">{llamadas.length} resultado(s)</span>
+        <span className="text-sm text-muted">{llamadas.length} resultado(s)</span>
       </div>
 
       <BuscadorLlamadas />
 
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-lg border border-edge bg-surface">
           <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-500">
+            <thead className="bg-surface-2 text-left text-muted">
               <tr>
                 <th className="whitespace-nowrap px-4 py-2 font-medium">Fecha</th>
                 <th className="whitespace-nowrap px-4 py-2 font-medium">Dirección</th>
@@ -41,9 +41,9 @@ export default async function LlamadasPage({
                 <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-edge">
               {llamadas.map((l) => (
-                <tr key={l.id} className="hover:bg-slate-50">
+                <tr key={l.id} className="hover:bg-surface-2">
                   <td className="whitespace-nowrap px-4 py-3">
                     <Link href={`/llamadas/${l.id}`} className="block">
                       {formatFechaHoraCorta(l.iniciada_en)}
@@ -70,7 +70,7 @@ export default async function LlamadasPage({
                       {etiquetaEstado(l.estado)}
                     </span>
                   </td>
-                  <td className="max-w-xs truncate px-4 py-3 text-slate-600">
+                  <td className="max-w-xs truncate px-4 py-3 text-ink-2">
                     {l.resumen_motivo ?? "—"}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
@@ -86,7 +86,7 @@ export default async function LlamadasPage({
               ))}
               {llamadas.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted">
                     {esOperadorSinCola
                       ? "No perteneces a ninguna cola todavía — pídele a un admin que te asigne una en Configuración → Agentes."
                       : "No hay llamadas todavía."}

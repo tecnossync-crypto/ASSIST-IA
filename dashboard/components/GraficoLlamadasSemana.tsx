@@ -75,7 +75,7 @@ export function GraficoLlamadasSemana({ datos }: { datos: Punto[] }) {
           );
         })}
       </svg>
-      <div className="mt-2 flex items-center justify-center gap-4 text-xs text-slate-500">
+      <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" /> Entrantes
         </span>

@@ -15,7 +15,7 @@ export function DonaSatisfaccion({ datos }: { datos: Datos }) {
   if (total === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center py-6 text-center">
-        <p className="text-sm text-slate-400">Todavía no hay llamadas evaluadas.</p>
+        <p className="text-sm text-muted">Todavía no hay llamadas evaluadas.</p>
         <p className="mt-1 text-xs text-slate-300">Se calcula sobre los últimos 30 días.</p>
       </div>
     );
@@ -61,16 +61,16 @@ export function DonaSatisfaccion({ datos }: { datos: Datos }) {
         )}
       </svg>
       <div>
-        <p className="text-3xl font-bold text-slate-800">{porcentaje ?? "—"}%</p>
-        <p className="mb-2 text-xs text-slate-400">satisfacción positiva</p>
+        <p className="text-3xl font-bold text-ink">{porcentaje ?? "—"}%</p>
+        <p className="mb-2 text-xs text-muted">satisfacción positiva</p>
         <div className="flex flex-col gap-1 text-xs">
-          <span className="flex items-center gap-1.5 text-slate-600">
+          <span className="flex items-center gap-1.5 text-ink-2">
             <span className="h-2 w-2 rounded-full bg-emerald-500" /> Positiva · {positivas}
           </span>
-          <span className="flex items-center gap-1.5 text-slate-600">
+          <span className="flex items-center gap-1.5 text-ink-2">
             <span className="h-2 w-2 rounded-full bg-slate-300" /> Neutral · {neutrales}
           </span>
-          <span className="flex items-center gap-1.5 text-slate-600">
+          <span className="flex items-center gap-1.5 text-ink-2">
             <span className="h-2 w-2 rounded-full bg-red-400" /> Negativa · {negativas}
           </span>
         </div>

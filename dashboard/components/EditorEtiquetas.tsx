@@ -35,12 +35,12 @@ export function EditorEtiquetas({ valorInicial }: { valorInicial: EtiquetaDispon
         <div className="flex flex-col gap-2">
           {etiquetas.map((e, i) => (
             <div key={i} className="flex items-center gap-2">
-              <Tag size={14} className="text-slate-400" />
+              <Tag size={14} className="text-muted" />
               <input
                 value={e.nombre}
                 onChange={(ev) => actualizar(i, { nombre: ev.target.value })}
                 placeholder="Nombre de la etiqueta (ej: VIP, moroso)"
-                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="flex-1 rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <div className="flex gap-1">
                 {COLORES.map((c) => (
@@ -60,7 +60,7 @@ export function EditorEtiquetas({ valorInicial }: { valorInicial: EtiquetaDispon
               <button
                 type="button"
                 onClick={() => quitar(i)}
-                className="flex items-center justify-center rounded-md border border-slate-200 px-2.5 text-slate-400 hover:border-red-200 hover:text-red-600"
+                className="flex items-center justify-center rounded-md border border-edge px-2.5 text-muted hover:border-red-200 hover:text-red-600"
                 aria-label="Quitar etiqueta"
               >
                 <Trash2 size={15} />
@@ -73,13 +73,13 @@ export function EditorEtiquetas({ valorInicial }: { valorInicial: EtiquetaDispon
       <button
         type="button"
         onClick={agregar}
-        className="flex w-fit items-center gap-1.5 rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:border-indigo-400 hover:text-indigo-700"
+        className="flex w-fit items-center gap-1.5 rounded-md border border-dashed border-edge px-3 py-1.5 text-sm text-ink-2 hover:border-indigo-400 hover:text-indigo-700"
       >
         <Plus size={14} />
         Agregar etiqueta
       </button>
 
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-muted">
         Catálogo de etiquetas disponibles para organizar contactos (se asignan manualmente o desde un flujo de
         trabajo).
       </p>

@@ -57,7 +57,7 @@ export default function ConfiguracionHubPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold">Configuración</h1>
-        <p className="text-sm text-slate-500">Elige qué parte de la plataforma quieres ajustar.</p>
+        <p className="text-sm text-muted">Elige qué parte de la plataforma quieres ajustar.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -65,14 +65,14 @@ export default function ConfiguracionHubPage() {
           <Link
             key={href}
             href={href}
-            className="group flex items-start gap-4 rounded-xl border border-slate-200 bg-white p-5 transition-all hover:border-indigo-300 hover:shadow-sm"
+            className="group flex items-start gap-4 rounded-xl border border-edge bg-surface p-5 transition-all hover:border-indigo-300 hover:shadow-sm"
           >
             <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow shadow-indigo-500/30">
               <Icon size={20} />
             </span>
             <div className="flex-1">
-              <p className="font-medium text-slate-800 group-hover:text-indigo-700">{titulo}</p>
-              <p className="mt-0.5 text-sm text-slate-500">{descripcion}</p>
+              <p className="font-medium text-ink group-hover:text-indigo-700">{titulo}</p>
+              <p className="mt-0.5 text-sm text-muted">{descripcion}</p>
             </div>
             <ChevronRight size={18} className="mt-2 flex-shrink-0 text-slate-300 group-hover:text-indigo-500" />
           </Link>

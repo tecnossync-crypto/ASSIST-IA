@@ -84,7 +84,7 @@ export function MonitoreoLlamada({ llamadaId }: { llamadaId: string }) {
 
   if (estado === "conectando") {
     return (
-      <span className="flex items-center gap-1.5 text-xs text-slate-500">
+      <span className="flex items-center gap-1.5 text-xs text-muted">
         <Loader2 size={13} className="animate-spin" /> Conectando…
       </span>
     );
@@ -107,7 +107,7 @@ export function MonitoreoLlamada({ llamadaId }: { llamadaId: string }) {
         title={interviniendo ? "Dejar de hablar" : "Intervenir (hablar)"}
         className={
           "flex h-6 w-6 items-center justify-center rounded-full " +
-          (interviniendo ? "bg-amber-500 text-white" : "bg-white text-emerald-700 hover:bg-emerald-100")
+          (interviniendo ? "bg-amber-500 text-white" : "bg-surface text-emerald-700 hover:bg-emerald-100")
         }
       >
         {interviniendo ? <MicOff size={12} /> : <Mic size={12} />}
@@ -116,7 +116,7 @@ export function MonitoreoLlamada({ llamadaId }: { llamadaId: string }) {
         type="button"
         onClick={salir}
         title="Dejar de escuchar"
-        className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-slate-500 hover:bg-red-50 hover:text-red-600"
+        className="flex h-6 w-6 items-center justify-center rounded-full bg-surface text-muted hover:bg-red-50 hover:text-red-600"
       >
         <X size={12} />
       </button>
