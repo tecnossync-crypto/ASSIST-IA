@@ -52,7 +52,10 @@ export async function contactosRoutes(app: FastifyInstance) {
   // si ya existe el contacto, solo rellena nombre/apellido si venían vacíos
   // (no pisa datos ya capturados por el agente en llamadas reales).
   app.post<{
-    Body: { empresaId: string; contactos: { numero: string; nombre?: string; apellido?: string }[] };
+    Body: {
+      empresaId: string;
+      contactos: { numero: string; nombre?: string; apellido?: string; datos?: Record<string, string> }[];
+    };
   }>("/api/contactos/importar", async (req, reply) => {
     const { empresaId, contactos } = req.body;
     if (!empresaId || !contactos?.length) {
@@ -66,14 +69,15 @@ export async function contactosRoutes(app: FastifyInstance) {
     for (const c of contactos) {
       if (!c.numero) continue;
       const result = await pool.query(
-        `INSERT INTO contactos (empresa_id, numero, nombre, apellido)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO contactos (empresa_id, numero, nombre, apellido, datos)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (empresa_id, numero) DO UPDATE SET
            nombre = COALESCE(contactos.nombre, EXCLUDED.nombre),
            apellido = COALESCE(contactos.apellido, EXCLUDED.apellido),
+           datos = contactos.datos || EXCLUDED.datos,
            actualizado_en = now()
          RETURNING (xmax = 0) AS es_nuevo`,
-        [empresaId, c.numero, c.nombre ?? null, c.apellido ?? null]
+        [empresaId, c.numero, c.nombre ?? null, c.apellido ?? null, JSON.stringify(c.datos ?? {})]
       );
       if (result.rows[0]?.es_nuevo) insertados++;
       else actualizados++;
@@ -81,6 +85,28 @@ export async function contactosRoutes(app: FastifyInstance) {
 
     reply.send({ ok: true, insertados, actualizados });
   });
+
+  // Los campos personalizados que la empresa configura en Configuración →
+  // Contactos, editados a mano desde la ficha del contacto (no solo lo que
+  // capture el bot en una llamada). Reemplaza el objeto completo — el
+  // dashboard siempre manda el set entero de campos configurados.
+  app.put<{ Params: { id: string }; Body: { datos: Record<string, string> } }>(
+    "/api/contactos/:id/datos",
+    async (req, reply) => {
+      const { id } = req.params;
+      const { datos } = req.body;
+
+      const result = await pool.query(
+        `UPDATE contactos SET datos = $2, actualizado_en = now() WHERE id = $1 RETURNING id`,
+        [id, JSON.stringify(datos ?? {})]
+      );
+      if (result.rows.length === 0) {
+        reply.code(404).send({ error: "no encontrado" });
+        return;
+      }
+      reply.send({ ok: true });
+    }
+  );
 
   app.put<{ Params: { id: string }; Body: { etiquetas: string[] } }>(
     "/api/contactos/:id/etiquetas",
@@ -91,6 +117,26 @@ export async function contactosRoutes(app: FastifyInstance) {
       const result = await pool.query(
         `UPDATE contactos SET etiquetas = $2, actualizado_en = now() WHERE id = $1 RETURNING id`,
         [id, etiquetas ?? []]
+      );
+      if (result.rows.length === 0) {
+        reply.code(404).send({ error: "no encontrado" });
+        return;
+      }
+      reply.send({ ok: true });
+    }
+  );
+
+  // Notas libres que el agente del ejecutable de escritorio deja durante o
+  // después de la llamada (seguimiento, próximos pasos, etc.).
+  app.put<{ Params: { id: string }; Body: { notas: string } }>(
+    "/api/contactos/:id/notas",
+    async (req, reply) => {
+      const { id } = req.params;
+      const { notas } = req.body;
+
+      const result = await pool.query(
+        `UPDATE contactos SET notas = $2, actualizado_en = now() WHERE id = $1 RETURNING id`,
+        [id, notas ?? ""]
       );
       if (result.rows.length === 0) {
         reply.code(404).send({ error: "no encontrado" });

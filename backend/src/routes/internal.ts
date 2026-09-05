@@ -55,10 +55,11 @@ export async function internalRoutes(app: FastifyInstance) {
       resumenSolicitud?: string;
       resumenResultado?: string;
       accionPendiente?: string;
+      satisfaccion?: "positiva" | "neutral" | "negativa";
     };
   }>("/internal/llamadas/:callSid/transcripcion", async (req, reply) => {
     const { callSid } = req.params;
-    const { textoCompleto, resumenMotivo, resumenSolicitud, resumenResultado, accionPendiente } =
+    const { textoCompleto, resumenMotivo, resumenSolicitud, resumenResultado, accionPendiente, satisfaccion } =
       req.body;
 
     const llamada = await pool.query<{ id: string; empresa_id: string }>(
@@ -75,8 +76,8 @@ export async function internalRoutes(app: FastifyInstance) {
 
     await pool.query(
       `INSERT INTO transcripciones
-         (empresa_id, llamada_id, texto_completo, resumen_motivo, resumen_solicitud, resumen_resultado, accion_pendiente)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+         (empresa_id, llamada_id, texto_completo, resumen_motivo, resumen_solicitud, resumen_resultado, accion_pendiente, satisfaccion)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         empresaId,
         llamadaId,
@@ -85,6 +86,7 @@ export async function internalRoutes(app: FastifyInstance) {
         resumenSolicitud ?? null,
         resumenResultado ?? null,
         accionPendiente ?? null,
+        satisfaccion ?? null,
       ]
     );
 

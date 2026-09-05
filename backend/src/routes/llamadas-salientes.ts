@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
+import { generarTokenVoz } from "../lib/voice-token.js";
 
 /**
  * Dispara llamadas salientes manuales desde el dashboard (panel de
@@ -55,10 +55,10 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
     }
   );
 
-  app.post<{ Body: { empresaId: string; numero: string } }>(
+  app.post<{ Body: { empresaId: string; numero: string; colaId?: string | null } }>(
     "/api/llamadas/normal",
     async (req, reply) => {
-      const { empresaId, numero } = req.body;
+      const { empresaId, numero, colaId } = req.body;
 
       if (!empresaId || !numero) {
         reply.code(400).send({ error: "empresaId y numero son requeridos" });
@@ -71,27 +71,23 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
         return;
       }
 
-      const empresa = await pool.query<{ numeros_transferencia: string[] }>(
-        "SELECT numeros_transferencia FROM empresas WHERE id = $1",
-        [empresaId]
-      );
-      const destino = empresa.rows[0]?.numeros_transferencia?.[0];
-      if (!destino) {
-        reply.code(400).send({ error: "No hay un número de transferencia configurado (Configuración → Empresa)" });
-        return;
-      }
-
       const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
       if (!twilioEmpresa) {
         reply.code(400).send({ error: "La empresa no tiene credenciales Twilio configuradas" });
         return;
       }
 
+      const parametroCola = colaId ? `&colaId=${encodeURIComponent(colaId)}` : "";
+
       try {
         const call = await twilioEmpresa.client.calls.create({
           to: numero,
           from: twilioEmpresa.fromNumber,
-          url: `${publicBaseUrl}/webhooks/twilio/voice-normal?destino=${encodeURIComponent(destino)}`,
+          // Quién contesta (uno o varios agentes, según el enrutamiento de
+          // la cola elegida o de la empresa) se decide en
+          // /webhooks/twilio/voice-normal, al momento en que el cliente
+          // contesta — no acá al originar.
+          url: `${publicBaseUrl}/webhooks/twilio/voice-normal?empresaId=${empresaId}${parametroCola}`,
           method: "POST",
           statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
           statusCallbackMethod: "POST",
@@ -99,7 +95,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           timeout: twilioEmpresa.timeoutTimbrado,
         });
 
-        app.log.info({ callSid: call.sid, numero, destino }, "Llamada normal (humano) originada");
+        app.log.info({ callSid: call.sid, numero, colaId }, "Llamada normal (softphone) originada");
         reply.send({ ok: true, callSid: call.sid });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada normal");
@@ -107,4 +103,52 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
       }
     }
   );
+
+  // Token de Twilio Voice SDK para que un softphone (navegador del
+  // dashboard, o el ejecutable de escritorio ya logueado con usuarioId) se
+  // registre y pueda recibir las llamadas "normales" (ver arriba).
+  app.get<{ Querystring: { empresaId?: string; usuarioId?: string } }>("/api/voice-token", async (req, reply) => {
+    const { empresaId, usuarioId } = req.query;
+    if (!empresaId) {
+      reply.code(400).send({ error: "empresaId es requerido" });
+      return;
+    }
+
+    const resultado = await generarTokenVoz(empresaId, usuarioId);
+    if (!resultado) {
+      reply.code(400).send({ error: "La empresa no tiene credenciales de softphone configuradas" });
+      return;
+    }
+
+    reply.send(resultado);
+  });
+
+  // Colgar manualmente desde el dashboard (botón "Colgar" del panel de
+  // teléfono). No depende de que el otro lado cuelgue primero ni de esperar
+  // el webhook de Twilio — termina la llamada ya mismo en la API de Twilio;
+  // el webhook de call-status llega después y solo confirma en la BD.
+  app.post<{ Body: { empresaId: string; callSid: string } }>("/api/llamadas/colgar", async (req, reply) => {
+    const { empresaId, callSid } = req.body;
+    if (!empresaId || !callSid) {
+      reply.code(400).send({ error: "empresaId y callSid son requeridos" });
+      return;
+    }
+
+    const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
+    if (!twilioEmpresa) {
+      reply.code(400).send({ error: "La empresa no tiene credenciales Twilio configuradas" });
+      return;
+    }
+
+    try {
+      await twilioEmpresa.client.calls(callSid).update({ status: "completed" });
+      reply.send({ ok: true });
+    } catch (err) {
+      // Si ya estaba colgada (ej. el otro lado colgó primero), Twilio
+      // responde con error — no es un fallo real desde la perspectiva del
+      // usuario, la llamada de todos modos ya terminó.
+      app.log.warn({ err, callSid }, "Error colgando llamada (puede que ya estuviera terminada)");
+      reply.send({ ok: true });
+    }
+  });
 }

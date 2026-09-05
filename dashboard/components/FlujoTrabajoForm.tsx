@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { crearFlujoAction } from "@/app/configuracion/flujos/actions";
+import { crearFlujoAction } from "@/app/(app)/configuracion/flujos/actions";
 
 const DISPARADORES = [
   { valor: "llamada_completada", label: "La llamada termina completada (sin transferir)" },

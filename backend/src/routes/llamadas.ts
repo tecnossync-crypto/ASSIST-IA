@@ -11,9 +11,17 @@ import { urlFirmadaGrabacion } from "../lib/storage.js";
  */
 export async function llamadasRoutes(app: FastifyInstance) {
   app.get<{
-    Querystring: { empresaId?: string; q?: string; estado?: string; limite?: string; offset?: string };
+    Querystring: {
+      empresaId?: string;
+      q?: string;
+      estado?: string;
+      callSid?: string;
+      colaId?: string;
+      limite?: string;
+      offset?: string;
+    };
   }>("/api/llamadas", async (req, reply) => {
-    const { empresaId, q, estado, limite, offset } = req.query;
+    const { empresaId, q, estado, callSid, colaId, limite, offset } = req.query;
 
     if (!empresaId) {
       reply.code(400).send({ error: "empresaId es requerido" });
@@ -26,6 +34,18 @@ export async function llamadasRoutes(app: FastifyInstance) {
     if (estado) {
       valores.push(estado);
       condiciones.push(`l.estado = $${valores.length}`);
+    }
+
+    if (callSid) {
+      valores.push(callSid);
+      condiciones.push(`l.call_sid = $${valores.length}`);
+    }
+
+    // Un agente (rol operador) solo debe ver las llamadas de su propia cola
+    // — el dashboard pasa esto cuando quien pide la lista no es admin.
+    if (colaId) {
+      valores.push(colaId);
+      condiciones.push(`l.cola_id = $${valores.length}`);
     }
 
     if (q) {
@@ -61,7 +81,8 @@ export async function llamadasRoutes(app: FastifyInstance) {
 
     const llamada = await pool.query(
       `SELECT id, empresa_id, call_sid, direccion, numero_origen, numero_destino,
-              estado, transferida, transferencia_destino, duracion_segundos, iniciada_en, finalizada_en
+              estado, transferida, transferencia_destino, duracion_segundos, iniciada_en, finalizada_en,
+              cola_id, conferencia_nombre, agente_call_sid
        FROM llamadas WHERE id = $1`,
       [id]
     );

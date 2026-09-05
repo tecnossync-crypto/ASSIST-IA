@@ -55,6 +55,7 @@ export async function guardarTranscripcion(
     resumenSolicitud?: string;
     resumenResultado?: string;
     accionPendiente?: string;
+    satisfaccion?: "positiva" | "neutral" | "negativa";
   }
 ) {
   await internalFetch(`/internal/llamadas/${callSid}/transcripcion`, {

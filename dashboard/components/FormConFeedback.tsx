@@ -1,14 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { OverlayGuardando } from "./OverlayGuardando";
 
 /**
- * Envuelve un <form action={...}> de Server Action agregando: botón que se
- * deshabilita y dice "Guardando…" mientras corre, y un mensaje verde de
- * confirmación cuando termina. Reemplaza el <button> manual que cada
- * pantalla tenía antes — así todas las pantallas de Configuración se ven y
- * se comportan igual al guardar.
+ * Envuelve un <form action={...}> de Server Action agregando un overlay
+ * bloqueante mientras guarda (como una transacción bancaria: tapa el
+ * formulario, no deja tocar nada hasta que termina) y un check verde de
+ * confirmación al terminar. Así todas las pantallas de Configuración se ven
+ * y se comportan igual al guardar.
  */
 export function FormConFeedback({
   action,
@@ -35,14 +35,15 @@ export function FormConFeedback({
   useEffect(() => {
     if (!state) return;
     setMostrarExito(true);
-    const t = setTimeout(() => setMostrarExito(false), 3000);
+    const t = setTimeout(() => setMostrarExito(false), 1800);
     return () => clearTimeout(t);
   }, [state]);
 
   return (
-    <form action={formAction} className={className}>
+    <form action={formAction} className={`relative ${className ?? ""}`}>
+      <OverlayGuardando estado={isPending ? "guardando" : mostrarExito ? "ok" : null} mensajeExito={mensajeExito} />
       {children}
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mt-4">
         <button
           type="submit"
           disabled={isPending}
@@ -50,18 +51,6 @@ export function FormConFeedback({
         >
           {isPending ? "Guardando…" : submitLabel}
         </button>
-        {isPending && (
-          <span className="flex items-center gap-1.5 text-sm text-indigo-600">
-            <Loader2 size={14} className="animate-spin" />
-            Aplicando cambios…
-          </span>
-        )}
-        {!isPending && mostrarExito && (
-          <span className="flex items-center gap-1.5 text-sm text-green-600">
-            <CheckCircle2 size={14} />
-            {mensajeExito}
-          </span>
-        )}
       </div>
     </form>
   );

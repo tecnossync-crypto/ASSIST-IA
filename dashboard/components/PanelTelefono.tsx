@@ -1,59 +1,163 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Delete, Phone, Users, History, Loader2, CheckCircle2, Bot, User, X } from "lucide-react";
-import type { ContactoResumen, LlamadaResumen } from "@/lib/api";
+import { Delete, Phone, PhoneOff, Users, History, Loader2, X } from "lucide-react";
+import type { ContactoResumen, LlamadaResumen, Cola } from "@/lib/api";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
 
 type Tab = "marcar" | "contactos" | "recientes";
-type Modo = "elegir" | "ia" | "normal";
+type EstadoLlamada = "idle" | "marcando" | "en_curso" | "finalizada" | "error";
+
+function formatCronometro(segundos: number): string {
+  const m = Math.floor(segundos / 60)
+    .toString()
+    .padStart(2, "0");
+  const s = Math.floor(segundos % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${m}:${s}`;
+}
 
 export function PanelTelefono({
   contactos,
   recientes,
+  colas,
 }: {
   contactos: ContactoResumen[];
   recientes: LlamadaResumen[];
+  colas: Cola[];
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
-  const [modo, setModo] = useState<Modo>("elegir");
   const [tab, setTab] = useState<Tab>("marcar");
   const [numero, setNumero] = useState("");
   const [busqueda, setBusqueda] = useState("");
-  const [estado, setEstado] = useState<"idle" | "cargando" | "ok" | "error">("idle");
+  const [colaId, setColaId] = useState("");
+  const [estado, setEstado] = useState<EstadoLlamada>("idle");
   const [mensaje, setMensaje] = useState("");
+  const [segundos, setSegundos] = useState(0);
+  const [colgando, setColgando] = useState(false);
+  const callSidRef = useRef<string | null>(null);
+
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cronoRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function limpiarTemporizadores() {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (cronoRef.current) clearInterval(cronoRef.current);
+    pollRef.current = null;
+    cronoRef.current = null;
+  }
+
+  useEffect(() => () => limpiarTemporizadores(), []);
 
   function cerrarTodo() {
+    if (estado === "marcando" || estado === "en_curso") return; // no cerrar en medio de una llamada
     setAbierto(false);
-    setModo("elegir");
     setTab("marcar");
     setNumero("");
     setEstado("idle");
+    setMensaje("");
+  }
+
+  function empezarCronometro() {
+    setSegundos(0);
+    cronoRef.current = setInterval(() => setSegundos((s) => s + 1), 1000);
+  }
+
+  function terminarLlamada(msg: string, ok: boolean) {
+    limpiarTemporizadores();
+    callSidRef.current = null;
+    setEstado(ok ? "finalizada" : "error");
+    setMensaje(msg);
+    router.refresh();
+    setTimeout(() => {
+      setEstado("idle");
+      setMensaje("");
+      setNumero("");
+      setSegundos(0);
+    }, 3500);
+  }
+
+  function monitorearLlamada(callSid: string) {
+    callSidRef.current = callSid;
+    // OJO: este intervalo debe seguir corriendo durante toda la llamada
+    // (no solo hasta que conteste) — es la única forma en que el panel se
+    // entera de que la llamada terminó y puede volver a dejar llamar.
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/llamada-estado?callSid=${encodeURIComponent(callSid)}`, {
+          cache: "no-store",
+        });
+        const data = await res.json();
+        const llamada = data.llamada as LlamadaResumen | null;
+        if (!llamada) return; // aún no llega el webhook de contestada
+
+        if (llamada.estado === "en_curso" || llamada.estado === "transferida") {
+          setEstado((prev) => {
+            if (prev !== "en_curso") {
+              empezarCronometro();
+              return "en_curso";
+            }
+            return prev;
+          });
+        } else if (["completada", "fallida"].includes(llamada.estado)) {
+          terminarLlamada(
+            llamada.estado === "completada" ? "Llamada finalizada." : "La llamada no se completó.",
+            llamada.estado === "completada"
+          );
+        }
+      } catch {
+        // silencioso: se reintenta en el próximo tick
+      }
+    }, 1500);
+  }
+
+  async function colgar() {
+    if (!callSidRef.current || colgando) return;
+    setColgando(true);
+    try {
+      await fetch("/api/colgar", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ callSid: callSidRef.current }),
+      });
+      // No hace falta esperar el webhook: la damos por terminada ya mismo,
+      // el sondeo de arriba solo confirma cuando Twilio lo refleje en la BD.
+      terminarLlamada("Llamada finalizada.", true);
+    } finally {
+      setColgando(false);
+    }
   }
 
   async function llamar(num: string) {
-    if (!num) return;
-    setEstado("cargando");
+    if (!num || estado === "marcando" || estado === "en_curso") return;
+    setEstado("marcando");
     setMensaje("");
     try {
-      const endpoint = modo === "normal" ? "/api/llamar-normal" : "/api/llamar";
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/llamar-normal", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ numero: num }),
+        body: JSON.stringify({ numero: num, colaId: colaId || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error originando la llamada");
-      setEstado("ok");
-      setMensaje(`Llamando a ${num}…`);
       router.refresh();
-      setTimeout(() => setEstado("idle"), 4000);
+      if (data.callSid) {
+        monitorearLlamada(data.callSid);
+      } else {
+        terminarLlamada("Llamando…", true);
+      }
     } catch (err) {
+      limpiarTemporizadores();
       setEstado("error");
       setMensaje(err instanceof Error ? err.message : "Error desconocido");
+      setTimeout(() => {
+        setEstado("idle");
+        setMensaje("");
+      }, 3500);
     }
   }
 
@@ -63,72 +167,69 @@ export function PanelTelefono({
     return texto.includes(busqueda.toLowerCase());
   });
 
+  const enLlamada = estado === "marcando" || estado === "en_curso";
+
   return (
-    <>
-      {/* Botón circular flotante */}
-      {!abierto && (
-        <button
-          type="button"
-          onClick={() => setAbierto(true)}
-          aria-label="Abrir panel de llamadas"
-          className="ts-brand-button flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg shadow-indigo-500/40 transition-transform hover:scale-105"
-        >
-          <Phone size={20} />
-        </button>
-      )}
-
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 sm:bottom-8 sm:right-8">
       {abierto && (
-        <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl lg:w-72">
+        <div className="w-[19rem] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 ring-1 ring-black/5">
           {/* Encabezado */}
-          <div className="flex items-center justify-between bg-gradient-to-br from-slate-900 to-indigo-950 px-4 py-3">
-            <span className="text-sm font-medium text-white">
-              {modo === "elegir" ? "Nueva llamada" : modo === "ia" ? "Llamada con IA" : "Llamada normal"}
-            </span>
-            <button type="button" onClick={cerrarTodo} className="text-slate-400 hover:text-white" aria-label="Cerrar">
-              <X size={16} />
-            </button>
-          </div>
-
-          {modo === "elegir" ? (
-            <div className="flex flex-col gap-2 p-4">
+          <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4 py-4">
+            <div className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-indigo-500/20 blur-2xl" />
+            <div className="relative flex items-center justify-between">
+              <div>
+                <span className="block text-sm font-semibold text-white">Llamada normal</span>
+                {enLlamada && (
+                  <span className="mt-0.5 flex items-center gap-1.5 text-xs text-emerald-300">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    </span>
+                    {estado === "marcando" ? "Marcando…" : formatCronometro(segundos)}
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
-                onClick={() => setModo("ia")}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50/50"
+                onClick={cerrarTodo}
+                disabled={enLlamada}
+                className="text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                aria-label="Cerrar"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white">
-                  <Bot size={16} />
-                </span>
-                <span>
-                  <span className="block text-sm font-medium text-slate-800">Llamada con IA</span>
-                  <span className="block text-xs text-slate-500">El agente contesta y lleva la conversación.</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setModo("normal")}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-left hover:border-indigo-300 hover:bg-indigo-50/50"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                  <User size={16} />
-                </span>
-                <span>
-                  <span className="block text-sm font-medium text-slate-800">Llamada normal</span>
-                  <span className="block text-xs text-slate-500">Conecta directo con un humano, sin IA.</span>
-                </span>
+                <X size={16} />
               </button>
             </div>
-          ) : (
-            <>
+          </div>
+
+          <>
+              {colas.length > 0 && (
+                <div className="px-4 pt-3">
+                  <select
+                    value={colaId}
+                    onChange={(e) => setColaId(e.target.value)}
+                    disabled={enLlamada}
+                    className="w-full rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
+                  >
+                    <option value="">Cola general (todos los agentes)</option>
+                    {colas.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Pantalla del "teléfono" */}
               <div className="px-4 py-4 text-center">
                 <input
                   value={numero}
                   onChange={(e) => setNumero(e.target.value.replace(/[^\d+*#]/g, ""))}
                   placeholder="Número"
-                  className="w-full bg-transparent text-center text-xl font-medium tracking-wide text-slate-800 placeholder:text-slate-300 focus:outline-none"
+                  disabled={enLlamada}
+                  className="w-full bg-transparent text-center text-2xl font-semibold tracking-wide text-slate-800 placeholder:text-slate-300 focus:outline-none disabled:text-slate-400"
                 />
-                {numero && (
+                {numero && !enLlamada && (
                   <button
                     type="button"
                     onClick={() => setNumero((n) => n.slice(0, -1))}
@@ -150,9 +251,10 @@ export function PanelTelefono({
                   <button
                     key={id}
                     type="button"
-                    onClick={() => setTab(id)}
+                    onClick={() => !enLlamada && setTab(id)}
+                    disabled={enLlamada}
                     className={
-                      "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors " +
+                      "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 " +
                       (tab === id ? "border-b-2 border-indigo-600 text-indigo-700" : "text-slate-400 hover:text-slate-600")
                     }
                   >
@@ -170,7 +272,8 @@ export function PanelTelefono({
                         key={t}
                         type="button"
                         onClick={() => setNumero((n) => n + t)}
-                        className="rounded-xl border border-slate-200 py-3 text-lg font-medium text-slate-700 hover:bg-slate-50 active:bg-slate-100"
+                        disabled={enLlamada}
+                        className="rounded-xl border border-slate-200 py-3 text-lg font-medium text-slate-700 transition-colors hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {t}
                       </button>
@@ -244,40 +347,54 @@ export function PanelTelefono({
               </div>
 
               <div className="border-t border-slate-100 p-3">
-                <div className="mb-2 flex justify-center">
+                {enLlamada ? (
                   <button
                     type="button"
-                    onClick={() => setModo("elegir")}
-                    className="text-xs text-slate-400 hover:text-indigo-600"
+                    onClick={colgar}
+                    disabled={colgando}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-red-500 to-red-600 py-2.5 text-sm font-medium text-white shadow shadow-red-500/30 transition-colors disabled:opacity-60"
                   >
-                    ← cambiar tipo de llamada
+                    {estado === "marcando" ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Marcando… (toca para cancelar)
+                      </>
+                    ) : (
+                      <>
+                        <PhoneOff size={16} />
+                        Colgar · {formatCronometro(segundos)}
+                      </>
+                    )}
                   </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => llamar(numero)}
-                  disabled={!numero || estado === "cargando"}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 py-2.5 text-sm font-medium text-white shadow shadow-emerald-500/30 disabled:opacity-50"
-                >
-                  <Phone size={16} />
-                  Llamar
-                </button>
-                {estado === "cargando" && (
-                  <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-indigo-600">
-                    <Loader2 size={12} className="animate-spin" /> Originando llamada…
-                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => llamar(numero)}
+                    disabled={!numero}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 py-2.5 text-sm font-medium text-white shadow shadow-emerald-500/30 transition-colors disabled:from-slate-300 disabled:to-slate-300 disabled:opacity-60"
+                  >
+                    <Phone size={16} />
+                    Llamar
+                  </button>
                 )}
-                {estado === "ok" && (
-                  <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-green-600">
-                    <CheckCircle2 size={12} /> {mensaje}
-                  </p>
-                )}
+                {estado === "finalizada" && <p className="mt-2 text-center text-xs text-emerald-600">{mensaje}</p>}
                 {estado === "error" && <p className="mt-2 text-center text-xs text-red-600">{mensaje}</p>}
               </div>
-            </>
-          )}
+          </>
         </div>
       )}
-    </>
+
+      {/* Botón circular flotante */}
+      {!abierto && (
+        <button
+          type="button"
+          onClick={() => setAbierto(true)}
+          aria-label="Abrir panel de llamadas"
+          className="ts-brand-button relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg shadow-indigo-500/40 transition-transform hover:scale-105 active:scale-95"
+        >
+          <Phone size={22} />
+        </button>
+      )}
+    </div>
   );
 }

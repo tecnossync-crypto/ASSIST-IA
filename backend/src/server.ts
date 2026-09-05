@@ -8,6 +8,7 @@ config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), "../../.e
 import Fastify from "fastify";
 import formbody from "@fastify/formbody";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import { healthRoutes } from "./routes/health.js";
 import { webhooksTwilioRoutes } from "./routes/webhooks-twilio.js";
 import { internalRoutes } from "./routes/internal.js";
@@ -18,6 +19,11 @@ import { campanasRoutes } from "./routes/campanas.js";
 import { resumenRoutes } from "./routes/resumen.js";
 import { contactosRoutes } from "./routes/contactos.js";
 import { flujosTrabajoRoutes } from "./routes/flujos-trabajo.js";
+import { agentesRoutes } from "./routes/agentes.js";
+import { colasRoutes } from "./routes/colas.js";
+import { authRoutes } from "./routes/auth.js";
+import { auditoriaRoutes } from "./routes/auditoria.js";
+import { monitoreoRoutes } from "./routes/monitoreo.js";
 import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
 
 const app = Fastify({ logger: true });
@@ -25,6 +31,8 @@ const app = Fastify({ logger: true });
 // Twilio manda webhooks como application/x-www-form-urlencoded.
 await app.register(formbody);
 await app.register(cors, { origin: true });
+// Límite generoso: 5 min de audio a buena calidad no debería pasar de ~30MB.
+await app.register(multipart, { limits: { fileSize: 30 * 1024 * 1024 } });
 
 await app.register(healthRoutes);
 await app.register(webhooksTwilioRoutes);
@@ -36,6 +44,11 @@ await app.register(campanasRoutes);
 await app.register(resumenRoutes);
 await app.register(contactosRoutes);
 await app.register(flujosTrabajoRoutes);
+await app.register(agentesRoutes);
+await app.register(colasRoutes);
+await app.register(authRoutes);
+await app.register(auditoriaRoutes);
+await app.register(monitoreoRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 

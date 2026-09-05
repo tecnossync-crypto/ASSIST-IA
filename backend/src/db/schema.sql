@@ -9,15 +9,20 @@ CREATE TABLE empresas (
     twilio_account_sid  TEXT,
     twilio_auth_token_enc TEXT,        -- encriptado a nivel de aplicación, nunca en claro
     twilio_phone_number TEXT UNIQUE,
+    twilio_api_key_sid  TEXT, -- para generar tokens de voz del navegador (softphone)
+    twilio_api_key_secret_enc TEXT, -- encriptado igual que twilio_auth_token_enc
     guion_agente        JSONB NOT NULL DEFAULT '{}'::jsonb, -- saludo, qué resuelve, cuándo transfiere
     horario_atencion    JSONB NOT NULL DEFAULT '{}'::jsonb,
     numeros_transferencia JSONB NOT NULL DEFAULT '[]'::jsonb,
-    voz_agente          TEXT, -- id de voz TTS de ConversationRelay (ej. "en-US-Neural2-A"); null = voz por defecto de Twilio
+    voz_agente          TEXT, -- nombre de voz TTS (ej. "Pedro-Neural"); null = voz por defecto de Twilio
+    tts_provider        TEXT, -- "google" | "amazon" | "elevenlabs" — requerido junto con voz_agente
+    elevenlabs_api_key_enc TEXT, -- encriptado igual que twilio_auth_token_enc; para clonar voz
     campos_personalizados JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{nombre, descripcion}] que el agente debe recolectar y guardar en datos_llamada
     etiquetas_disponibles JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{nombre, color}] catálogo de etiquetas para contactos
     duracion_maxima_llamada_segundos INTEGER NOT NULL DEFAULT 600, -- el voice-server corta la llamada al llegar acá
     timeout_timbrado_segundos INTEGER NOT NULL DEFAULT 30, -- cuánto espera Twilio antes de "no contesta" en salientes
     tiempo_respuesta_segundos NUMERIC NOT NULL DEFAULT 0, -- pausa artificial antes de que el bot responda
+    enrutamiento_llamadas JSONB NOT NULL DEFAULT '{"modo":"todos","turno_actual":0}'::jsonb, -- cómo repartir llamadas entre agentes del ejecutable de call center: todos | round_robin | disponibilidad
     activa              BOOLEAN NOT NULL DEFAULT true,
     creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -27,12 +32,46 @@ CREATE TABLE usuarios (
     empresa_id      UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
     nombre          TEXT NOT NULL,
     email           TEXT NOT NULL,
-    password_hash   TEXT NOT NULL,
+    password_hash   TEXT, -- login completo pendiente; por ahora los agentes entran con `pin` desde el ejecutable
+    pin             TEXT, -- código corto de acceso al ejecutable de call center
     rol             TEXT NOT NULL DEFAULT 'operador', -- admin | operador
     telefono_transferencia TEXT,
+    disponible      BOOLEAN NOT NULL DEFAULT false, -- lo marca el ejecutable al conectarse/desconectarse
+    ultima_conexion TIMESTAMPTZ,
     creado_en       TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (empresa_id, email)
 );
+
+CREATE UNIQUE INDEX idx_usuarios_empresa_pin ON usuarios(empresa_id, pin) WHERE pin IS NOT NULL;
+
+-- Colas de atención: grupos de agentes (ej. "Ventas", "Soporte"), cada una
+-- con su propio modo de reparto (todos | round_robin | disponibilidad).
+CREATE TABLE colas (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id      UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    nombre          TEXT NOT NULL,
+    enrutamiento    JSONB NOT NULL DEFAULT '{"modo":"todos","turno_actual":0}'::jsonb,
+    creado_en       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_colas_empresa ON colas(empresa_id);
+
+ALTER TABLE usuarios ADD COLUMN cola_id UUID REFERENCES colas(id) ON DELETE SET NULL;
+ALTER TABLE llamadas ADD COLUMN cola_id UUID REFERENCES colas(id);
+
+-- Registro de auditoría: qué cambió en Configuración, cuándo, y quién lo hizo.
+CREATE TABLE auditoria (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empresa_id      UUID NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+    usuario_id      UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+    usuario_nombre  TEXT NOT NULL,
+    accion          TEXT NOT NULL,
+    entidad         TEXT NOT NULL,
+    detalle         JSONB NOT NULL DEFAULT '{}'::jsonb,
+    creado_en       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_auditoria_empresa ON auditoria(empresa_id, creado_en DESC);
 
 CREATE TABLE contactos (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -62,7 +101,10 @@ CREATE TABLE llamadas (
     duracion_segundos   INTEGER,
     costo_estimado_usd  NUMERIC(10, 4),
     iniciada_en         TIMESTAMPTZ NOT NULL DEFAULT now(),
-    finalizada_en       TIMESTAMPTZ
+    finalizada_en       TIMESTAMPTZ,
+    conferencia_nombre  TEXT, -- nombre de la conferencia de Twilio (llamadas "normales"), para poder unir al admin a escuchar/intervenir
+    agente_call_sid     TEXT, -- pierna del agente que contestó
+    agentes_call_sids   TEXT[] NOT NULL DEFAULT '{}' -- todas las piernas de agente marcadas, para cancelar las que no contestaron
 );
 
 CREATE INDEX idx_llamadas_empresa ON llamadas(empresa_id, iniciada_en DESC);
@@ -86,6 +128,7 @@ CREATE TABLE transcripciones (
     resumen_solicitud TEXT,
     resumen_resultado TEXT,
     accion_pendiente TEXT,
+    satisfaccion    TEXT CHECK (satisfaccion IN ('positiva', 'neutral', 'negativa')), -- clasificada por el bot, basada solo en la transcripción
     creado_en       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

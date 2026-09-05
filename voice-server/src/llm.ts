@@ -150,6 +150,7 @@ export interface ResumenLlamada {
   solicitud: string;
   resultado: string;
   accionPendiente: string;
+  satisfaccion: "positiva" | "neutral" | "negativa" | null;
 }
 
 /**
@@ -173,12 +174,16 @@ export async function generarResumen(
           role: "system",
           content:
             `Resumes llamadas telefónicas de atención al cliente de "${nombreEmpresa}". Responde ÚNICAMENTE con un ` +
-            'objeto JSON con las claves "motivo", "solicitud", "resultado" y "accionPendiente" (string cada una, ' +
-            "en español, una frase corta).\n\n" +
+            'objeto JSON con las claves "motivo", "solicitud", "resultado", "accionPendiente" (string cada una, ' +
+            'en español, una frase corta) y "satisfaccion" ("positiva", "neutral" o "negativa").\n\n' +
             "REGLA ESTRICTA: básate solo en lo que literalmente dice la transcripción. Si la llamada es muy corta, " +
             "ambigua, o no queda claro el motivo real, usa \"\" (string vacío) en ese campo — NUNCA inventes un " +
             "tema, industria o necesidad que no esté explícitamente en el texto. Una sola palabra ambigua del " +
-            'cliente (ej. un saludo, una interjección) no es motivo suficiente para inferir un tema completo.',
+            "cliente (ej. un saludo, una interjección) no es motivo suficiente para inferir un tema completo.\n\n" +
+            'Para "satisfaccion": clasifica el TONO del cliente tal como se ve en el texto (quejas, frustración o ' +
+            'palabras negativas = "negativa"; agradecimiento, acuerdo o resolución clara = "positiva"; todo lo ' +
+            'demás, incluida una llamada demasiado corta para saber = "neutral"). No la infieras del resultado de ' +
+            "la llamada si el cliente no expresó nada — usa \"neutral\" por defecto.",
         },
         { role: "user", content: `Transcripción:\n${transcripcionPlano}` },
       ],
@@ -188,11 +193,13 @@ export async function generarResumen(
     if (!texto) return null;
 
     const json = JSON.parse(texto);
+    const satisfaccionesValidas = ["positiva", "neutral", "negativa"];
     return {
       motivo: json.motivo ?? "",
       solicitud: json.solicitud ?? "",
       resultado: json.resultado ?? "",
       accionPendiente: json.accionPendiente ?? "",
+      satisfaccion: satisfaccionesValidas.includes(json.satisfaccion) ? json.satisfaccion : null,
     };
   } catch (err) {
     console.error("Error generando resumen de llamada:", err);

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Phone, Megaphone, Users, Settings } from "lucide-react";
+import { LayoutDashboard, Phone, Megaphone, Users, Settings, LogOut } from "lucide-react";
+import { cerrarSesionAction } from "@/app/logout/actions";
 
 const ITEMS = [
   { href: "/", label: "Resumen", Icon: LayoutDashboard },
@@ -12,8 +13,14 @@ const ITEMS = [
   { href: "/configuracion", label: "Configuración", Icon: Settings },
 ];
 
-export function Sidebar() {
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
+export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | null }) {
   const pathname = usePathname();
+  const items = sesion?.rol === "admin" ? ITEMS : ITEMS.filter((i) => i.href !== "/configuracion");
 
   return (
     <aside className="flex h-full w-60 flex-shrink-0 flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950">
@@ -28,7 +35,7 @@ export function Sidebar() {
       </Link>
 
       <nav className="flex flex-col gap-0.5 px-3">
-        {ITEMS.map(({ href, label, Icon }) => {
+        {items.map(({ href, label, Icon }) => {
           const activo = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
@@ -46,7 +53,30 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto px-5 py-4 text-xs text-slate-500">Plataforma de Voz IA</div>
+      <div className="mt-auto px-4 py-4">
+        {sesion && (
+          <div className="mb-3 flex items-center gap-2.5 border-t border-white/10 pt-3">
+            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-xs font-bold text-white">
+              {iniciales(sesion.nombre)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-white">{sesion.nombre}</p>
+              <p className="text-[11px] capitalize text-slate-400">{sesion.rol}</p>
+            </div>
+            <form action={cerrarSesionAction}>
+              <button
+                type="submit"
+                aria-label="Cerrar sesión"
+                title="Cerrar sesión"
+                className="text-slate-400 hover:text-white"
+              >
+                <LogOut size={14} />
+              </button>
+            </form>
+          </div>
+        )}
+        <p className="px-1 text-xs text-slate-500">Plataforma de Voz IA</p>
+      </div>
     </aside>
   );
 }

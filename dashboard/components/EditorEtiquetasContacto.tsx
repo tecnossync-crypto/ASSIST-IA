@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, CheckCircle2 } from "lucide-react";
-import { guardarEtiquetasAction } from "@/app/contactos/[id]/actions";
+import { guardarEtiquetasAction } from "@/app/(app)/contactos/[id]/actions";
 import { EtiquetaChip } from "./EtiquetaChip";
+import { OverlayGuardando } from "./OverlayGuardando";
 import type { EtiquetaDisponible } from "@/lib/api";
 
 export function EditorEtiquetasContacto({
@@ -44,7 +44,8 @@ export function EditorEtiquetasContacto({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="relative flex flex-col gap-3">
+      <OverlayGuardando estado={guardando ? "guardando" : guardado ? "ok" : null} />
       <div className="flex flex-wrap gap-2">
         {catalogo.map((et) => {
           const activa = seleccionadas.includes(et.nombre);
@@ -60,25 +61,15 @@ export function EditorEtiquetasContacto({
           );
         })}
       </div>
-      <div className="flex items-center gap-3">
+      <div>
         <button
           type="button"
           onClick={guardar}
           disabled={guardando}
           className="ts-brand-button w-fit rounded-md px-3 py-1.5 text-xs font-medium text-white shadow shadow-indigo-500/30 disabled:opacity-60"
         >
-          {guardando ? "Guardando…" : "Guardar etiquetas"}
+          Guardar etiquetas
         </button>
-        {guardando && (
-          <span className="flex items-center gap-1 text-xs text-indigo-600">
-            <Loader2 size={12} className="animate-spin" /> Aplicando…
-          </span>
-        )}
-        {!guardando && guardado && (
-          <span className="flex items-center gap-1 text-xs text-green-600">
-            <CheckCircle2 size={12} /> Guardado correctamente.
-          </span>
-        )}
       </div>
     </div>
   );

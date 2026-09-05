@@ -1,10 +1,18 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
-import { twimlConnectVoiceAgent, twimlDialHumano, twimlColgar, twimlLlamadaNormal } from "../lib/twiml.js";
+import {
+  twimlConnectVoiceAgent,
+  twimlDialHumano,
+  twimlColgar,
+  twimlEsperarConferencia,
+  twimlUnirseConferenciaComoAgente,
+} from "../lib/twiml.js";
+import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
 import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
 import { reprogramarOFallar } from "../jobs/dispatcher-campanas.js";
 import { asegurarContacto } from "../lib/contactos.js";
 import { ejecutarFlujosTrabajo } from "../lib/flujos-trabajo.js";
+import { elegirAgentesParaLlamada } from "../lib/agentes.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -22,8 +30,8 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     app.log.info({ callSid, from, to }, "Llamada entrante recibida");
 
     // TODO: resolver empresa_id real a partir de `to` (número Twilio del cliente).
-    const empresa = await pool.query<{ id: string; voz_agente: string | null }>(
-      "SELECT id, voz_agente FROM empresas WHERE twilio_phone_number = $1 LIMIT 1",
+    const empresa = await pool.query<{ id: string; voz_agente: string | null; tts_provider: string | null }>(
+      "SELECT id, voz_agente, tts_provider FROM empresas WHERE twilio_phone_number = $1 LIMIT 1",
       [to]
     );
 
@@ -35,7 +43,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       return;
     }
 
-    const { id: empresaId, voz_agente: voz } = empresa.rows[0];
+    const { id: empresaId, voz_agente: voz, tts_provider: ttsProvider } = empresa.rows[0];
 
     await pool.query(
       `INSERT INTO llamadas (empresa_id, call_sid, direccion, numero_origen, numero_destino, estado)
@@ -50,7 +58,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     if (!voiceWsUrl) throw new Error("VOICE_WS_URL no está configurado");
     if (!publicBaseUrl) throw new Error("PUBLIC_BASE_URL no está configurado");
 
-    const twiml = twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid, voz, publicBaseUrl });
+    const twiml = twimlConnectVoiceAgent({ voiceWsUrl, empresaId, callSid, voz, ttsProvider, publicBaseUrl });
     reply.type("text/xml").send(twiml);
   });
 
@@ -93,8 +101,8 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       if (!voiceWsUrl) throw new Error("VOICE_WS_URL no está configurado");
       if (!publicBaseUrl) throw new Error("PUBLIC_BASE_URL no está configurado");
 
-      const voz = await pool.query<{ voz_agente: string | null }>(
-        "SELECT voz_agente FROM empresas WHERE id = $1",
+      const voz = await pool.query<{ voz_agente: string | null; tts_provider: string | null }>(
+        "SELECT voz_agente, tts_provider FROM empresas WHERE id = $1",
         [empresaId]
       );
 
@@ -104,6 +112,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           empresaId,
           callSid,
           voz: voz.rows[0]?.voz_agente ?? null,
+          ttsProvider: voz.rows[0]?.tts_provider ?? null,
           campanaContactoId,
           publicBaseUrl,
         })
@@ -112,18 +121,141 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   );
 
   // "Llamada normal": el cliente contesta y se conecta directo con un
-  // humano, sin pasar por la IA. destino viaja en la query string porque
-  // nosotros armamos esta URL al crear la llamada.
-  app.post<{ Querystring: { destino?: string } }>("/webhooks/twilio/voice-normal", async (req, reply) => {
-    const { destino } = req.query;
-    const publicBaseUrl = process.env.PUBLIC_BASE_URL;
+  // humano SIN salir de la plataforma — se marca al/los softphone(s) de
+  // los agentes disponibles (dashboard web o ejecutable de escritorio),
+  // según el enrutamiento configurado por la empresa (todos | round_robin |
+  // disponibilidad). empresaId viaja en la query string porque nosotros
+  // armamos esta URL al crear la llamada.
+  app.post<{ Querystring: { empresaId?: string; colaId?: string } }>(
+    "/webhooks/twilio/voice-normal",
+    async (req, reply) => {
+      const { empresaId, colaId } = req.query;
+      const body = req.body as Record<string, string>;
+      const publicBaseUrl = process.env.PUBLIC_BASE_URL;
 
-    if (!destino || !publicBaseUrl) {
-      reply.type("text/xml").send(twimlColgar());
-      return;
+      if (!empresaId || !publicBaseUrl) {
+        reply.type("text/xml").send(twimlColgar());
+        return;
+      }
+
+      // Deja rastro en `llamadas` igual que cualquier otra (con IA o
+      // saliente), así el panel de teléfono la puede monitorear y aparece en
+      // el historial (con la cola que la atendió, si aplica). La conferencia
+      // se nombra con el id de la llamada — el cliente entra a esperar ahí
+      // (ver twimlEsperarConferencia); esto es lo que permite que un admin se
+      // pueda unir después a escuchar/intervenir sin tocar la pierna original.
+      const llamada = await pool.query<{ id: string }>(
+        `INSERT INTO llamadas (empresa_id, call_sid, direccion, numero_origen, numero_destino, estado, cola_id)
+         VALUES ($1, $2, 'saliente', $3, $4, 'en_curso', $5)
+         ON CONFLICT (call_sid) DO UPDATE SET call_sid = EXCLUDED.call_sid
+         RETURNING id`,
+        [empresaId, body.CallSid, body.From, body.To, colaId ?? null]
+      );
+      const llamadaId = llamada.rows[0].id;
+      const conferenciaNombre = `llamada-${llamadaId}`;
+      await asegurarContacto(empresaId, body.To);
+
+      const identidadesAgentes = await elegirAgentesParaLlamada(empresaId, colaId);
+      if (identidadesAgentes.length === 0) {
+        app.log.warn({ empresaId, colaId }, "Llamada normal sin agentes disponibles");
+        reply
+          .type("text/xml")
+          .send(twimlColgar("En este momento no hay agentes disponibles. Por favor intente más tarde."));
+        return;
+      }
+
+      const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
+      if (!twilioEmpresa) {
+        reply.type("text/xml").send(twimlColgar());
+        return;
+      }
+
+      // Marca a todos los agentes elegidos a la vez (uno solo si el modo es
+      // round_robin/disponibilidad): cada pierna, al contestar, entra a la
+      // MISMA conferencia y la arranca — la primera en entrar gana, y
+      // /webhooks/twilio/conferencia-evento cancela las demás.
+      const agenteUrl = `${publicBaseUrl}/webhooks/twilio/conferencia-agente?conferencia=${encodeURIComponent(conferenciaNombre)}`;
+      const callSidsAgentes = await Promise.all(
+        identidadesAgentes.map((identidad) =>
+          twilioEmpresa.client.calls
+            .create({
+              to: `client:${identidad}`,
+              from: twilioEmpresa.fromNumber,
+              url: agenteUrl,
+              method: "POST",
+              timeout: twilioEmpresa.timeoutTimbrado,
+            })
+            .then((c) => c.sid)
+            .catch((err) => {
+              app.log.warn({ err, identidad }, "No se pudo marcar a un agente para llamada normal");
+              return null;
+            })
+        )
+      );
+
+      await pool.query(
+        `UPDATE llamadas SET conferencia_nombre = $2, agentes_call_sids = $3 WHERE id = $1`,
+        [llamadaId, conferenciaNombre, callSidsAgentes.filter((s): s is string => Boolean(s))]
+      );
+
+      reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl }));
     }
+  );
 
-    reply.type("text/xml").send(twimlLlamadaNormal({ numeroTransferencia: destino, publicBaseUrl }));
+  // TwiML que contesta cada pierna de agente marcada arriba: la mete a la
+  // misma conferencia donde espera el cliente.
+  app.post<{ Querystring: { conferencia?: string } }>(
+    "/webhooks/twilio/conferencia-agente",
+    async (req, reply) => {
+      const { conferencia } = req.query;
+      const publicBaseUrl = process.env.PUBLIC_BASE_URL;
+      if (!conferencia || !publicBaseUrl) {
+        reply.type("text/xml").send(twimlColgar());
+        return;
+      }
+      reply.type("text/xml").send(twimlUnirseConferenciaComoAgente({ conferenciaNombre: conferencia, publicBaseUrl }));
+    }
+  );
+
+  // Cuando el primer agente entra a la conferencia, cancela las piernas de
+  // los demás agentes que todavía estén timbrando (mismo comportamiento que
+  // "el primero que conteste se la queda" del <Dial> con varios <Client>).
+  app.post("/webhooks/twilio/conferencia-evento", async (req, reply) => {
+    reply.send({ ok: true }); // responder ya, el resto corre aparte
+
+    const body = req.body as Record<string, string>;
+    const evento = body.StatusCallbackEvent;
+    const friendlyName = body.FriendlyName; // "llamada-<id>"
+    const callSid = body.CallSid;
+    if (evento !== "participant-join" || !friendlyName?.startsWith("llamada-") || !callSid) return;
+
+    const llamadaId = friendlyName.slice("llamada-".length);
+    const llamada = await pool.query<{ empresa_id: string; agentes_call_sids: string[]; agente_call_sid: string | null }>(
+      "SELECT empresa_id, agentes_call_sids, agente_call_sid FROM llamadas WHERE id = $1",
+      [llamadaId]
+    );
+    const row = llamada.rows[0];
+    if (!row || !row.agentes_call_sids.includes(callSid)) return; // es el cliente entrando, no un agente
+
+    if (row.agente_call_sid) return; // ya había un agente conectado, nada que hacer
+
+    await pool.query("UPDATE llamadas SET agente_call_sid = $2, estado = 'en_curso' WHERE id = $1", [
+      llamadaId,
+      callSid,
+    ]);
+
+    const twilioEmpresa = await clienteTwilioEmpresa(row.empresa_id);
+    if (!twilioEmpresa) return;
+
+    const otrasPiernas = row.agentes_call_sids.filter((sid) => sid !== callSid);
+    await Promise.all(
+      otrasPiernas.map((sid) =>
+        twilioEmpresa.client
+          .calls(sid)
+          .update({ status: "completed" })
+          .catch(() => {}) // ya contestada, ya colgada, etc. — no importa
+      )
+    );
   });
 
   // Se ejecuta cuando ConversationRelay termina (el agente mandó "end" o la
