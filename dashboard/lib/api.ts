@@ -263,11 +263,18 @@ export async function loginAgentePin(pin: string): Promise<{ usuarioId: string; 
   return res.json();
 }
 
-export async function marcarPresenciaAgente(usuarioId: string, disponible: boolean): Promise<void> {
+export type EstadoPresencia = "disponible" | "descanso" | "desconectado";
+
+export async function marcarPresenciaAgente(
+  usuarioId: string,
+  opcion: boolean | { estado: EstadoPresencia }
+): Promise<void> {
+  const body =
+    typeof opcion === "boolean" ? { usuarioId, disponible: opcion } : { usuarioId, estado: opcion.estado };
   const res = await fetch(new URL("/api/agentes/presencia", BACKEND_URL), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ usuarioId, disponible }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Error actualizando presencia: HTTP ${res.status}`);
 }
@@ -533,6 +540,7 @@ export interface Agente {
   cola_id: string | null;
   cola_nombre: string | null;
   tiene_acceso_dashboard: boolean;
+  estado_presencia: EstadoPresencia;
 }
 
 export interface Cola {
@@ -553,7 +561,7 @@ export async function listarAgentes(): Promise<Agente[]> {
 
 export async function obtenerAgentePropio(
   usuarioId: string
-): Promise<{ id: string; nombre: string; disponible: boolean } | null> {
+): Promise<{ id: string; nombre: string; disponible: boolean; estado_presencia: EstadoPresencia } | null> {
   const res = await fetch(new URL(`/api/agentes/${usuarioId}`, BACKEND_URL), { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`Error obteniendo agente: HTTP ${res.status}`);

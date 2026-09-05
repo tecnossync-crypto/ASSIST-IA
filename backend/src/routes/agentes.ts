@@ -1,7 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { pool } from "../db/pool.js";
-import { loginConPin, marcarDisponibilidad } from "../lib/agentes.js";
+import { loginConPin, marcarDisponibilidad, marcarEstadoPresencia, type EstadoPresencia } from "../lib/agentes.js";
+
+const ESTADOS_PRESENCIA_VALIDOS: EstadoPresencia[] = ["disponible", "descanso", "desconectado"];
 
 /** Roles válidos de un usuario: admin (todo), supervisor (todo excepto
  *  Configuración) y operador (agente, solo su cola + softphone). */
@@ -22,7 +24,7 @@ export async function agentesRoutes(app: FastifyInstance) {
     }
 
     const result = await pool.query(
-      `SELECT u.id, u.nombre, u.email, u.rol, u.pin, u.disponible, u.ultima_conexion,
+      `SELECT u.id, u.nombre, u.email, u.rol, u.pin, u.disponible, u.estado_presencia, u.ultima_conexion,
               u.cola_id, c.nombre AS cola_nombre, (u.password_hash IS NOT NULL) AS tiene_acceso_dashboard
        FROM usuarios u
        LEFT JOIN colas c ON c.id = u.cola_id
@@ -32,12 +34,12 @@ export async function agentesRoutes(app: FastifyInstance) {
     reply.send({ agentes: result.rows });
   });
 
-  // Estado propio de un usuario (nombre + si está disponible ahora mismo) —
-  // lo usa el botón de estado del dashboard (arriba a la derecha).
+  // Estado propio de un usuario (nombre + estado de presencia actual) — lo
+  // usa el botón de estado del dashboard (arriba a la derecha).
   app.get<{ Params: { id: string } }>("/api/agentes/:id", async (req, reply) => {
     const { id } = req.params;
     const result = await pool.query(
-      "SELECT id, nombre, email, rol, disponible FROM usuarios WHERE id = $1",
+      "SELECT id, nombre, email, rol, disponible, estado_presencia FROM usuarios WHERE id = $1",
       [id]
     );
     if (result.rows.length === 0) {
@@ -146,16 +148,33 @@ export async function agentesRoutes(app: FastifyInstance) {
     }
   );
 
-  // El ejecutable llama esto al conectarse (disponible=true), al desconectarse
-  // o cuando el agente cambia su switch de disponibilidad manualmente.
-  app.post<{ Body: { usuarioId: string; disponible: boolean } }>("/api/agentes/presencia", async (req, reply) => {
-    const { usuarioId, disponible } = req.body;
-    if (!usuarioId || typeof disponible !== "boolean") {
-      reply.code(400).send({ error: "usuarioId y disponible son requeridos" });
-      return;
-    }
+  // El ejecutable/softphone llama esto al conectarse (disponible=true) o al
+  // desconectarse (disponible=false). El botón de estado del dashboard llama
+  // esto mismo pero con `estado` (disponible | descanso | desconectado) para
+  // poder distinguir "en pausa" de "desconectado del todo".
+  app.post<{ Body: { usuarioId: string; disponible?: boolean; estado?: EstadoPresencia } }>(
+    "/api/agentes/presencia",
+    async (req, reply) => {
+      const { usuarioId, disponible, estado } = req.body;
+      if (!usuarioId) {
+        reply.code(400).send({ error: "usuarioId es requerido" });
+        return;
+      }
 
-    await marcarDisponibilidad(usuarioId, disponible);
-    reply.send({ ok: true });
-  });
+      if (estado !== undefined) {
+        if (!ESTADOS_PRESENCIA_VALIDOS.includes(estado)) {
+          reply.code(400).send({ error: "estado inválido" });
+          return;
+        }
+        await marcarEstadoPresencia(usuarioId, estado);
+      } else if (typeof disponible === "boolean") {
+        await marcarDisponibilidad(usuarioId, disponible);
+      } else {
+        reply.code(400).send({ error: "disponible o estado son requeridos" });
+        return;
+      }
+
+      reply.send({ ok: true });
+    }
+  );
 }

@@ -25,11 +25,26 @@ export async function loginConPin(empresaId: string, pin: string): Promise<Agent
   return result.rows[0] ?? null;
 }
 
+export type EstadoPresencia = "disponible" | "descanso" | "desconectado";
+
 /** El ejecutable llama esto al conectarse/desconectarse (o al cambiar su switch de disponible). */
 export async function marcarDisponibilidad(usuarioId: string, disponible: boolean): Promise<void> {
   await pool.query(
-    "UPDATE usuarios SET disponible = $2, ultima_conexion = now() WHERE id = $1",
-    [usuarioId, disponible]
+    "UPDATE usuarios SET disponible = $2, estado_presencia = $3, ultima_conexion = now() WHERE id = $1",
+    [usuarioId, disponible, disponible ? "disponible" : "desconectado"]
+  );
+}
+
+/**
+ * Botón de estado del dashboard (Disponible / En descanso / No disponible).
+ * `disponible` (el único campo que lee la regla de asignación de llamadas)
+ * solo queda true en "disponible" — tanto "descanso" como "desconectado"
+ * lo dejan fuera del reparto, la diferencia es puramente informativa.
+ */
+export async function marcarEstadoPresencia(usuarioId: string, estado: EstadoPresencia): Promise<void> {
+  await pool.query(
+    "UPDATE usuarios SET disponible = $2, estado_presencia = $3, ultima_conexion = now() WHERE id = $1",
+    [usuarioId, estado === "disponible", estado]
   );
 }
 

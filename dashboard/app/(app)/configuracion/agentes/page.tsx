@@ -13,6 +13,12 @@ const ETIQUETAS_ROL: Record<string, string> = {
   operador: "Agente",
 };
 
+const ESTADO_PRESENCIA: Record<string, { etiqueta: string; punto: string }> = {
+  disponible: { etiqueta: "Disponible ahora", punto: "fill-emerald-500 text-emerald-500" },
+  descanso: { etiqueta: "En descanso", punto: "fill-amber-500 text-amber-500" },
+  desconectado: { etiqueta: "Desconectado", punto: "fill-slate-300 text-slate-300" },
+};
+
 export default async function AgentesPage() {
   const [agentes, colas, empresa] = await Promise.all([listarAgentes(), listarColas(), obtenerEmpresa()]);
   const modoActual = empresa.enrutamiento_llamadas?.modo ?? "todos";
@@ -106,10 +112,7 @@ export default async function AgentesPage() {
             className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4"
           >
             <div className="flex items-center gap-3">
-              <Circle
-                size={9}
-                className={a.disponible ? "fill-emerald-500 text-emerald-500" : "fill-slate-300 text-slate-300"}
-              />
+              <Circle size={9} className={(ESTADO_PRESENCIA[a.estado_presencia] ?? ESTADO_PRESENCIA.desconectado).punto} />
               <div>
                 <p className="text-sm font-medium text-slate-800">
                   {a.nombre}{" "}
@@ -120,7 +123,8 @@ export default async function AgentesPage() {
                 <p className="text-xs text-slate-500">
                   {a.email} · {a.pin ? `PIN ${a.pin}` : "sin PIN"} ·{" "}
                   {a.tiene_acceso_dashboard ? "acceso dashboard" : "sin acceso dashboard"} ·{" "}
-                  {a.cola_nombre ?? "Sin cola"} · {a.disponible ? "Disponible ahora" : "Desconectado"}
+                  {a.cola_nombre ?? "Sin cola"} ·{" "}
+                  {(ESTADO_PRESENCIA[a.estado_presencia] ?? ESTADO_PRESENCIA.desconectado).etiqueta}
                 </p>
               </div>
             </div>

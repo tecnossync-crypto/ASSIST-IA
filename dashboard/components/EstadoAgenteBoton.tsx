@@ -2,31 +2,36 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Loader2 } from "lucide-react";
+import type { EstadoPresencia } from "@/lib/api";
 
 interface OpcionEstado {
-  valor: boolean;
+  valor: EstadoPresencia;
   etiqueta: string;
   colorPunto: string;
 }
 
 const OPCIONES: OpcionEstado[] = [
-  { valor: true, etiqueta: "Disponible", colorPunto: "bg-emerald-500" },
-  { valor: false, etiqueta: "No disponible", colorPunto: "bg-slate-400" },
+  { valor: "disponible", etiqueta: "Disponible", colorPunto: "bg-emerald-500" },
+  { valor: "descanso", etiqueta: "En descanso", colorPunto: "bg-amber-500" },
+  { valor: "desconectado", etiqueta: "No disponible", colorPunto: "bg-slate-400" },
 ];
 
 // Botón de estado (arriba a la derecha, en todas las páginas): cada usuario
-// marca si está disponible para recibir llamadas ahora mismo. Es el mismo
-// campo `disponible` que ya usa toda la regla de asignación (round robin,
-// menos llamadas, último operador, etc.) — así que cambiarlo aquí afecta de
-// inmediato a quién le pueden tocar las próximas llamadas.
+// marca si está disponible, en descanso, o no disponible para recibir
+// llamadas ahora mismo. "Disponible" es el único de los tres que deja
+// disponible = true en la base — el mismo campo que ya usa toda la regla de
+// asignación (round robin, menos llamadas, último operador, etc.), así que
+// "descanso" y "no disponible" quedan igual de afuera del reparto; la
+// diferencia entre esos dos es solo para que se entienda por qué el agente
+// no está tomando llamadas (pausa vs. desconectado del todo).
 export function EstadoAgenteBoton({
   usuarioId,
-  disponibleInicial,
+  estadoInicial,
 }: {
   usuarioId: string;
-  disponibleInicial: boolean;
+  estadoInicial: EstadoPresencia;
 }) {
-  const [disponible, setDisponible] = useState(disponibleInicial);
+  const [estado, setEstado] = useState<EstadoPresencia>(estadoInicial);
   const [abierto, setAbierto] = useState(false);
   const [cargando, setCargando] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -39,27 +44,27 @@ export function EstadoAgenteBoton({
     return () => document.removeEventListener("mousedown", cerrarSiFuera);
   }, []);
 
-  async function elegir(valor: boolean) {
+  async function elegir(valor: EstadoPresencia) {
     setAbierto(false);
-    if (valor === disponible) return;
-    const anterior = disponible;
-    setDisponible(valor);
+    if (valor === estado) return;
+    const anterior = estado;
+    setEstado(valor);
     setCargando(true);
     try {
       const res = await fetch("/api/agentes/presencia", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ usuarioId, disponible: valor }),
+        body: JSON.stringify({ usuarioId, estado: valor }),
       });
       if (!res.ok) throw new Error();
     } catch {
-      setDisponible(anterior); // revertir si el backend no confirmó
+      setEstado(anterior); // revertir si el backend no confirmó
     } finally {
       setCargando(false);
     }
   }
 
-  const actual = OPCIONES.find((o) => o.valor === disponible) ?? OPCIONES[1];
+  const actual = OPCIONES.find((o) => o.valor === estado) ?? OPCIONES[2];
 
   return (
     <div ref={ref} className="relative">
@@ -81,14 +86,14 @@ export function EstadoAgenteBoton({
         <div className="absolute right-0 z-50 mt-1.5 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
           {OPCIONES.map((o) => (
             <button
-              key={String(o.valor)}
+              key={o.valor}
               type="button"
               onClick={() => elegir(o.valor)}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
             >
               <span className={`h-2 w-2 rounded-full ${o.colorPunto}`} />
               {o.etiqueta}
-              {o.valor === disponible && <span className="ml-auto text-indigo-600">✓</span>}
+              {o.valor === estado && <span className="ml-auto text-indigo-600">✓</span>}
             </button>
           ))}
         </div>
