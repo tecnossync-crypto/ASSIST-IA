@@ -3,6 +3,8 @@ import { PanelTelefono } from "@/components/PanelTelefono";
 import { Softphone } from "@/components/Softphone";
 import { EstadoAgenteBoton } from "@/components/EstadoAgenteBoton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AgenteSoftphoneProvider } from "@/components/AgenteSoftphoneContext";
+import { ConexionAgenteHeader } from "@/components/ConexionAgenteHeader";
 import { listarContactos, listarLlamadas, listarColas, obtenerAgentePropio } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
 
@@ -23,19 +25,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   return (
-    <div className="flex h-full">
-      <Sidebar sesion={sesion} />
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <div className="sticky top-0 z-40 flex items-center justify-end gap-3 border-b border-edge bg-surface/80 px-6 py-2.5 backdrop-blur">
-          {agentePropio && (
-            <EstadoAgenteBoton usuarioId={agentePropio.id} estadoInicial={agentePropio.estado_presencia} />
-          )}
-          <ThemeToggle />
+    <AgenteSoftphoneProvider>
+      <div className="flex h-full">
+        <Sidebar sesion={sesion} />
+        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+          <div className="sticky top-0 z-40 flex items-center justify-end gap-3 border-b border-edge bg-surface/80 px-6 py-2.5 backdrop-blur">
+            {agentePropio && (
+              <EstadoAgenteBoton usuarioId={agentePropio.id} estadoInicial={agentePropio.estado_presencia} />
+            )}
+            <ConexionAgenteHeader />
+            <ThemeToggle />
+          </div>
+          <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
         </div>
-        <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
+        <PanelTelefono contactos={contactos} recientes={recientes} colas={colas} />
+        <Softphone />
       </div>
-      <PanelTelefono contactos={contactos} recientes={recientes} colas={colas} />
-      <Softphone />
-    </div>
+    </AgenteSoftphoneProvider>
   );
 }
