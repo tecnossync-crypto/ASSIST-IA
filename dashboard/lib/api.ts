@@ -162,7 +162,9 @@ export interface CampoPersonalizado {
 }
 
 /** ej. "Número de póliza" -> "numero_de_poliza". Usado como valor por defecto
- * de api_name cuando no se define uno manual. */
+ * de api_name cuando no se define uno manual (a partir del nombre visible,
+ * no de lo que el usuario esté escribiendo a mano en el campo api_name —
+ * para eso usa sanearApiName, que no recorta guiones bajos al final). */
 export function generarApiName(nombre: string): string {
   return nombre
     .normalize("NFD")
@@ -170,6 +172,22 @@ export function generarApiName(nombre: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
+}
+
+/**
+ * Saneo liviano para cuando el usuario ESCRIBE el api_name directamente
+ * (no cuando se autogenera del nombre): solo baja a minúsculas y cambia lo
+ * que no sea a-z/0-9/_ por "_", sin recortar guiones bajos al final. Recortar
+ * al final rompía escribir un api_name con "_" a mano — cada vez que se
+ * tecleaba "_" quedaba al final del texto en ese instante y se borraba solo,
+ * así que nunca se podía completar algo como "numero_de_poliza".
+ */
+export function sanearApiName(valor: string): string {
+  return valor
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_");
 }
 
 export interface EtiquetaDisponible {
