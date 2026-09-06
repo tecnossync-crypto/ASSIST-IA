@@ -6,7 +6,7 @@ const SECCIONES = [
     href: "/configuracion/empresa",
     Icon: Building2,
     titulo: "Empresa",
-    descripcion: "Nombre y número(s) de transferencia.",
+    descripcion: "Nombre de la empresa y datos generales.",
   },
   {
     href: "/configuracion/ia",
