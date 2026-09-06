@@ -57,7 +57,25 @@ wss.on("connection", (ws) => {
           const webhookLlamadaId = msg.customParameters?.webhookLlamadaId;
           const numeroCliente = msg.customParameters?.numeroCliente;
           session = new ConversationSession(msg.callSid, empresaId, campanaContactoId, webhookLlamadaId, numeroCliente);
-          await session.inicializar();
+
+          try {
+            await session.inicializar();
+          } catch (err) {
+            // Si esto falla (no encuentra la config del webhook/campaña, la
+            // IA no responde, etc.) antes NO se avisaba nada — la llamada se
+            // quedaba conectada en silencio total hasta que alguien colgara
+            // por cansancio. Ahora se le dice algo al cliente y se cuelga
+            // en vez de dejarlo escuchando nada.
+            console.error(`[${msg.callSid}] Error inicializando la sesión (setup):`, err);
+            enviar(ws, {
+              type: "text",
+              token: "Disculpe, en este momento no podemos atender su llamada. Por favor intente más tarde.",
+              last: true,
+            });
+            enviar(ws, { type: "end" });
+            ws.close();
+            return;
+          }
 
           const saludo = session.saludoInicial();
           session.registrarTurnoAgente(saludo);
