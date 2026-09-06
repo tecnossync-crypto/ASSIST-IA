@@ -5,6 +5,7 @@ import { EstadoDashboardBoton } from "@/components/EstadoDashboardBoton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AgenteSoftphoneProvider } from "@/components/AgenteSoftphoneContext";
 import { ConexionAgenteHeader } from "@/components/ConexionAgenteHeader";
+import { LlamadasExternasWidget } from "@/components/LlamadasExternasWidget";
 import { listarContactos, listarLlamadas, listarColas, obtenerAgentePropio } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
 
@@ -40,6 +41,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <PanelTelefono contactos={contactos} recientes={recientes} colas={colas} />
         <Softphone />
+        <LlamadasExternasWidget />
       </div>
     </AgenteSoftphoneProvider>
   );

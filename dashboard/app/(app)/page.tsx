@@ -1,40 +1,85 @@
 import Link from "next/link";
-import { PlayCircle, PhoneIncoming, PhoneOutgoing, PhoneCall, Forward, Megaphone, CheckCircle2 } from "lucide-react";
-import { obtenerResumen, listarLlamadas } from "@/lib/api";
+import {
+  PlayCircle,
+  PhoneIncoming,
+  PhoneOutgoing,
+  PhoneCall,
+  Forward,
+  Megaphone,
+  CheckCircle2,
+  Circle,
+} from "lucide-react";
+import { obtenerResumen, listarLlamadas, obtenerTiempoConectado, type RangoFecha } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
-import { formatFechaHoraCorta, formatDuracion, etiquetaEstado } from "@/lib/format";
+import { formatFechaHoraCorta, formatDuracion, formatDuracionLarga, etiquetaEstado } from "@/lib/format";
 import { GraficoLlamadasSemana } from "@/components/GraficoLlamadasSemana";
 import { DonaSatisfaccion } from "@/components/DonaSatisfaccion";
 
 const TARJETAS = [
-  { key: "llamadas_hoy", label: "Llamadas hoy", Icon: PhoneCall, color: "text-indigo-600 bg-indigo-50" },
-  { key: "entrantes_hoy", label: "Entrantes hoy", Icon: PhoneIncoming, color: "text-sky-600 bg-sky-50" },
-  { key: "salientes_hoy", label: "Salientes hoy", Icon: PhoneOutgoing, color: "text-violet-600 bg-violet-50" },
+  { key: "llamadas_hoy", label: "Llamadas", Icon: PhoneCall, color: "text-indigo-600 bg-indigo-50" },
+  { key: "entrantes_hoy", label: "Entrantes", Icon: PhoneIncoming, color: "text-sky-600 bg-sky-50" },
+  { key: "salientes_hoy", label: "Salientes", Icon: PhoneOutgoing, color: "text-violet-600 bg-violet-50" },
   { key: "llamadas_activas", label: "En curso ahora", Icon: PhoneCall, color: "text-emerald-600 bg-emerald-50" },
-  { key: "transferidas_hoy", label: "Transferidas hoy", Icon: Forward, color: "text-amber-600 bg-amber-50" },
+  { key: "transferidas_hoy", label: "Transferidas", Icon: Forward, color: "text-amber-600 bg-amber-50" },
   { key: "campanas_activas", label: "Campañas activas", Icon: Megaphone, color: "text-rose-600 bg-rose-50" },
 ] as const;
 
-export default async function ResumenPage() {
+const RANGOS: { valor: RangoFecha; etiqueta: string }[] = [
+  { valor: "hoy", etiqueta: "Hoy" },
+  { valor: "ayer", etiqueta: "Ayer" },
+  { valor: "semana", etiqueta: "Esta semana" },
+  { valor: "semana_pasada", etiqueta: "Semana pasada" },
+  { valor: "mes", etiqueta: "Este mes" },
+];
+
+export default async function ResumenPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ rango?: string }>;
+}) {
+  const { rango: rangoParam } = await searchParams;
+  const rango: RangoFecha = (RANGOS.some((r) => r.valor === rangoParam) ? rangoParam : "hoy") as RangoFecha;
+
   const sesion = await obtenerSesion();
   // Un agente (rol operador) solo ve los números y últimas llamadas de su
   // propia cola.
   const colaId = sesion?.rol === "operador" ? sesion?.colaId : undefined;
   const esOperadorSinCola = sesion?.rol === "operador" && !sesion?.colaId;
+  // Tiempo conectado por agente: solo admin/supervisor lo ven — implica
+  // asomarse a la actividad de TODO el equipo, no solo la propia.
+  const veTiempoConectado = sesion?.rol === "admin" || sesion?.rol === "supervisor";
 
-  const [resumen, ultimas] = await Promise.all([
-    obtenerResumen(colaId),
+  const [resumen, ultimas, tiempoConectado] = await Promise.all([
+    obtenerResumen(colaId, rango),
     esOperadorSinCola ? Promise.resolve([]) : listarLlamadas({ limite: 6, colaId }),
+    veTiempoConectado ? obtenerTiempoConectado(rango).catch(() => []) : Promise.resolve([]),
   ]);
 
   const totalHoy = Number(resumen.llamadas_hoy);
   const tasaExito = totalHoy > 0 ? Math.round((Number(resumen.completadas_hoy) / totalHoy) * 100) : null;
+  const etiquetaRango = RANGOS.find((r) => r.valor === rango)?.etiqueta ?? "Hoy";
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold">Resumen</h1>
-        <p className="text-sm text-muted">Estado general de la línea, hoy.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Resumen</h1>
+          <p className="text-sm text-muted">Estado general de la línea — {etiquetaRango.toLowerCase()}.</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5 rounded-lg border border-edge bg-surface p-1">
+          {RANGOS.map((r) => (
+            <Link
+              key={r.valor}
+              href={r.valor === "hoy" ? "/" : `/?rango=${r.valor}`}
+              className={
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors " +
+                (rango === r.valor ? "ts-brand-button text-white shadow shadow-indigo-500/30" : "text-muted hover:bg-surface-2")
+              }
+            >
+              {r.etiqueta}
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* KPIs */}
@@ -58,7 +103,7 @@ export default async function ResumenPage() {
             {tasaExito !== null && (
               <span className="flex items-center gap-1 text-xs text-emerald-600">
                 <CheckCircle2 size={13} />
-                {tasaExito}% completadas hoy
+                {tasaExito}% completadas — {etiquetaRango.toLowerCase()}
               </span>
             )}
           </div>
@@ -70,6 +115,50 @@ export default async function ResumenPage() {
           <DonaSatisfaccion datos={resumen.satisfaccion} />
         </section>
       </div>
+
+      {/* Tiempo conectado por agente (solo admin/supervisor) */}
+      {veTiempoConectado && (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold text-ink-2">Tiempo conectado por agente — {etiquetaRango.toLowerCase()}</h2>
+          <div className="overflow-hidden rounded-lg border border-edge bg-surface">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-2 text-left text-muted">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Agente</th>
+                  <th className="px-4 py-2 font-medium">Estado ahora</th>
+                  <th className="px-4 py-2 font-medium">Tiempo conectado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-edge">
+                {tiempoConectado.map((a) => (
+                  <tr key={a.id} className="hover:bg-surface-2">
+                    <td className="px-4 py-3 text-ink">{a.nombre}</td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1.5 text-xs">
+                        <Circle
+                          size={8}
+                          className={a.conectado_ahora ? "fill-emerald-500 text-emerald-500" : "fill-slate-300 text-slate-300"}
+                        />
+                        {a.conectado_ahora ? "Conectado" : "Desconectado"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-ink-2">
+                      {formatDuracionLarga(Number(a.segundos_conectado))}
+                    </td>
+                  </tr>
+                ))}
+                {tiempoConectado.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center text-muted">
+                      Sin datos de conexión todavía.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* Últimas llamadas */}
       <div className="flex items-center justify-between">

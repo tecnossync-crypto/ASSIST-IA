@@ -46,6 +46,28 @@ export async function listarLlamadasActivas(): Promise<LlamadaActiva[]> {
   return data.llamadas;
 }
 
+export interface LlamadaExterna {
+  id: string;
+  call_sid: string;
+  numero_destino: string;
+  estado: string;
+  origen_externo: string;
+  iniciada_en: string;
+  finalizada_en: string | null;
+  agente_usuario_id: string | null;
+}
+
+// "Click-to-call" pedidas por webhook desde una plataforma de terceros — ver
+// POST /api/webhooks/llamar-agente (Configuración → Integraciones).
+export async function listarLlamadasExternas(): Promise<LlamadaExterna[]> {
+  const url = new URL("/api/llamadas/externas", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando llamadas externas: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.llamadas;
+}
+
 export interface LlamadaDetalle {
   llamada: {
     id: string;
@@ -360,7 +382,10 @@ export async function iniciarCampana(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Error iniciando campaña: HTTP ${res.status}`);
 }
 
+export type RangoFecha = "hoy" | "ayer" | "semana" | "semana_pasada" | "mes";
+
 export interface Resumen {
+  rango: RangoFecha;
   llamadas_hoy: string;
   llamadas_activas: string;
   transferidas_hoy: string;
@@ -379,13 +404,32 @@ export interface Resumen {
   llamadas_por_dia: { dia: string; entrantes: string; salientes: string }[];
 }
 
-export async function obtenerResumen(colaId?: string | null): Promise<Resumen> {
+export async function obtenerResumen(colaId?: string | null, rango?: RangoFecha): Promise<Resumen> {
   const url = new URL("/api/resumen", BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
   if (colaId) url.searchParams.set("colaId", colaId);
+  if (rango) url.searchParams.set("rango", rango);
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Error obteniendo resumen: HTTP ${res.status}`);
   return res.json();
+}
+
+export interface TiempoConectadoAgente {
+  id: string;
+  nombre: string;
+  rol: string;
+  conectado_ahora: boolean;
+  segundos_conectado: string;
+}
+
+export async function obtenerTiempoConectado(rango?: RangoFecha): Promise<TiempoConectadoAgente[]> {
+  const url = new URL("/api/agentes/tiempo-conectado", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  if (rango) url.searchParams.set("rango", rango);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo tiempo conectado: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.agentes;
 }
 
 export async function pausarCampana(id: string): Promise<void> {

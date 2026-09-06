@@ -68,6 +68,46 @@ export default async function IntegracionesPage() {
       <section className="rounded-lg border border-edge bg-surface p-5">
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
           <Webhook size={16} className="text-indigo-600" />
+          API para "click to call" (conecta con un agente humano, no la IA)
+        </div>
+        <p className="mb-4 text-xs text-muted">
+          Para cuando tu CRM u otra plataforma tenga su propio botón de "Llamar" — al presionarlo, esa
+          plataforma le pega a esta URL y la llamada se conecta directo con uno de tus agentes disponibles
+          (el mismo reparto configurado en Configuración → Agentes), igual que si hubieran marcado desde el
+          panel de teléfono del dashboard. Aparece en vivo en el mini panel "Llamadas externas" (abajo a la
+          izquierda) mientras está en curso.
+        </p>
+
+        <div className="overflow-x-auto rounded-md bg-slate-900 p-3">
+          <pre className="text-xs text-slate-100">
+            <code>{`curl -X POST ${backendPublicUrl}/api/webhooks/llamar-agente \\
+  -H "content-type: application/json" \\
+  -H "x-api-key: TU_API_KEY" \\
+  -d '{
+    "numero": "+18095551234",
+    "colaId": "opcional, id de una cola de Configuración → Agentes",
+    "origen": "mi-crm"
+  }'`}</code>
+          </pre>
+        </div>
+        <ul className="mt-3 space-y-1 text-xs text-muted">
+          <li>
+            <span className="font-mono text-ink-2">numero</span> — requerido, el teléfono a llamar (con código de país).
+          </li>
+          <li>
+            <span className="font-mono text-ink-2">colaId</span> — opcional. Si no lo mandas, reparte entre
+            todos los agentes según el "Reparto general".
+          </li>
+          <li>
+            <span className="font-mono text-ink-2">origen</span> — opcional, se muestra en el mini panel para
+            identificar de dónde vino la llamada (ej. "zoho", "mi-sitio").
+          </li>
+        </ul>
+      </section>
+
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+          <Webhook size={16} className="text-indigo-600" />
           API para actualizar datos de un contacto
         </div>
         <p className="mb-4 text-xs text-muted">

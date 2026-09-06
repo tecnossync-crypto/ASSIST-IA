@@ -10,6 +10,28 @@ import { urlFirmadaGrabacion } from "../lib/storage.js";
  * sin resolver eso primero.
  */
 export async function llamadasRoutes(app: FastifyInstance) {
+  // Para el widget "llamadas externas" (arriba en el dashboard): llamadas
+  // normales (con agente humano) que originó un webhook de una plataforma de
+  // terceros (click-to-call), no el panel de teléfono. Ventana corta —es un
+  // mini panel de actividad reciente, no un reporte.
+  app.get<{ Querystring: { empresaId?: string } }>("/api/llamadas/externas", async (req, reply) => {
+    const { empresaId } = req.query;
+    if (!empresaId) {
+      reply.code(400).send({ error: "empresaId es requerido" });
+      return;
+    }
+
+    const result = await pool.query(
+      `SELECT id, call_sid, numero_destino, estado, origen_externo, iniciada_en, finalizada_en, agente_usuario_id
+       FROM llamadas
+       WHERE empresa_id = $1 AND origen_externo IS NOT NULL AND iniciada_en >= now() - interval '30 minutes'
+       ORDER BY iniciada_en DESC
+       LIMIT 10`,
+      [empresaId]
+    );
+    reply.send({ llamadas: result.rows });
+  });
+
   app.get<{
     Querystring: {
       empresaId?: string;

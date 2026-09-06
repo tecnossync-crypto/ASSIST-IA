@@ -87,6 +87,78 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
     }
   );
 
+  // "Click-to-call" desde una plataforma de terceros: en vez de que conteste
+  // la IA (como /api/webhooks/llamadas), esta pide una llamada NORMAL — el
+  // cliente se conecta directo con un agente humano de la plataforma, igual
+  // que si alguien hubiera marcado desde el panel de teléfono del dashboard.
+  // Reusa exactamente el mismo flujo de conferencia (voice-normal +
+  // iniciarConferenciaConAgentes), solo que el número lo origina un webhook
+  // externo en vez del botón "Llamar" del dashboard.
+  app.post<{
+    Body: { numero: string; colaId?: string; origen?: string };
+    Headers: { "x-api-key"?: string };
+  }>(
+    "/api/webhooks/llamar-agente",
+    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
+    async (req, reply) => {
+      const apiKey = req.headers["x-api-key"];
+      if (!apiKey) {
+        reply.code(401).send({ error: "Falta el header x-api-key" });
+        return;
+      }
+
+      const empresa = await empresaPorApiKey(apiKey);
+      if (!empresa) {
+        reply.code(401).send({ error: "API key inválido" });
+        return;
+      }
+      const empresaId = empresa.id;
+
+      const { numero, colaId, origen } = req.body ?? {};
+      if (!numero || typeof numero !== "string" || !/^\+?[\d\s()-]{7,}$/.test(numero)) {
+        reply.code(400).send({ error: "numero es requerido y debe ser un teléfono válido (ej. +18095551234)" });
+        return;
+      }
+
+      const publicBaseUrl = process.env.PUBLIC_BASE_URL;
+      if (!publicBaseUrl) {
+        reply.code(500).send({ error: "PUBLIC_BASE_URL no está configurado" });
+        return;
+      }
+
+      const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
+      if (!twilioEmpresa) {
+        reply.code(400).send({ error: "La empresa no tiene credenciales Twilio configuradas" });
+        return;
+      }
+
+      await asegurarContacto(empresaId, numero);
+
+      const params = new URLSearchParams({ empresaId });
+      if (colaId) params.set("colaId", colaId);
+      params.set("origenExterno", origen?.trim() || "externo");
+
+      try {
+        const call = await twilioEmpresa.client.calls.create({
+          to: numero,
+          from: twilioEmpresa.fromNumber,
+          url: `${publicBaseUrl}/webhooks/twilio/voice-normal?${params.toString()}`,
+          method: "POST",
+          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
+          statusCallbackMethod: "POST",
+          statusCallbackEvent: ["completed"],
+          timeout: twilioEmpresa.timeoutTimbrado,
+        });
+
+        app.log.info({ callSid: call.sid, numero, origen }, "Llamada a agente originada vía webhook externo");
+        reply.send({ ok: true, callSid: call.sid });
+      } catch (err) {
+        app.log.error({ err, numero }, "Error originando llamada a agente vía webhook externo");
+        reply.code(502).send({ error: "No se pudo originar la llamada", detalle: String(err) });
+      }
+    }
+  );
+
   // Para que una plataforma externa (Zoho u otra) empuje datos de un
   // contacto hacia acá — ej. cuando algo cambia del lado de ellos. Las
   // claves de "datos" son los api_name configurados en Configuración →

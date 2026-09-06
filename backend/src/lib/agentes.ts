@@ -27,12 +27,37 @@ export async function loginConPin(empresaId: string, pin: string): Promise<Agent
 
 export type EstadoPresencia = "disponible" | "descanso" | "desconectado";
 
+/**
+ * Abre/cierra la sesión de "tiempo conectado" en usuarios_conexiones.
+ * "Conectado" = disponible o en descanso (sigue en línea, solo pausado) —
+ * pasar de uno a otro NO abre/cierra nada, solo entrar/salir del todo.
+ */
+async function sincronizarSesionConexion(usuarioId: string, estado: EstadoPresencia): Promise<void> {
+  if (estado === "desconectado") {
+    await pool.query(
+      `UPDATE usuarios_conexiones SET desconectado_en = now()
+       WHERE usuario_id = $1 AND desconectado_en IS NULL`,
+      [usuarioId]
+    );
+    return;
+  }
+  const abierta = await pool.query(
+    "SELECT 1 FROM usuarios_conexiones WHERE usuario_id = $1 AND desconectado_en IS NULL",
+    [usuarioId]
+  );
+  if (abierta.rows.length === 0) {
+    await pool.query("INSERT INTO usuarios_conexiones (usuario_id) VALUES ($1)", [usuarioId]);
+  }
+}
+
 /** El ejecutable llama esto al conectarse/desconectarse (o al cambiar su switch de disponible). */
 export async function marcarDisponibilidad(usuarioId: string, disponible: boolean): Promise<void> {
+  const estado: EstadoPresencia = disponible ? "disponible" : "desconectado";
   await pool.query(
     "UPDATE usuarios SET disponible = $2, estado_presencia = $3, ultima_conexion = now() WHERE id = $1",
-    [usuarioId, disponible, disponible ? "disponible" : "desconectado"]
+    [usuarioId, disponible, estado]
   );
+  await sincronizarSesionConexion(usuarioId, estado);
 }
 
 /**
@@ -46,6 +71,7 @@ export async function marcarEstadoPresencia(usuarioId: string, estado: EstadoPre
     "UPDATE usuarios SET disponible = $2, estado_presencia = $3, ultima_conexion = now() WHERE id = $1",
     [usuarioId, estado === "disponible", estado]
   );
+  await sincronizarSesionConexion(usuarioId, estado);
 }
 
 export type ModoEnrutamiento = "todos" | "round_robin" | "disponibilidad" | "menos_llamadas" | "ultimo_operador";

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { pool } from "../db/pool.js";
 import { loginConPin, marcarDisponibilidad, marcarEstadoPresencia, type EstadoPresencia } from "../lib/agentes.js";
+import { RANGOS_FECHA, rangoFechaValido } from "../lib/rangos-fecha.js";
 
 const ESTADOS_PRESENCIA_VALIDOS: EstadoPresencia[] = ["disponible", "descanso", "desconectado"];
 
@@ -145,6 +146,46 @@ export async function agentesRoutes(app: FastifyInstance) {
       }
 
       reply.send({ usuarioId: agente.id, nombre: agente.nombre, rol: agente.rol });
+    }
+  );
+
+  // "Tiempo de línea activo" por agente en el intervalo elegido — cuánto
+  // tiempo estuvo conectado (disponible o en descanso) cada usuario, y si
+  // sigue conectado ahora mismo. Suma el solapamiento de cada sesión de
+  // usuarios_conexiones con el rango pedido (incluida la sesión abierta, si
+  // el rango llega hasta "ahora").
+  app.get<{ Querystring: { empresaId?: string; rango?: string } }>(
+    "/api/agentes/tiempo-conectado",
+    async (req, reply) => {
+      const { empresaId } = req.query;
+      if (!empresaId) {
+        reply.code(400).send({ error: "empresaId es requerido" });
+        return;
+      }
+      const rango = rangoFechaValido(req.query.rango);
+      const { desdeSQL, hastaSQL } = RANGOS_FECHA[rango];
+
+      const result = await pool.query(
+        `SELECT u.id, u.nombre, u.rol,
+                (u.estado_presencia <> 'desconectado') AS conectado_ahora,
+                COALESCE(SUM(
+                  GREATEST(0, EXTRACT(EPOCH FROM (
+                    LEAST(COALESCE(c.desconectado_en, now()), ${hastaSQL}) -
+                    GREATEST(c.conectado_en, ${desdeSQL})
+                  )))
+                ), 0)::bigint AS segundos_conectado
+         FROM usuarios u
+         LEFT JOIN usuarios_conexiones c
+           ON c.usuario_id = u.id
+           AND c.conectado_en < ${hastaSQL}
+           AND COALESCE(c.desconectado_en, now()) > ${desdeSQL}
+         WHERE u.empresa_id = $1
+         GROUP BY u.id, u.nombre, u.rol, u.estado_presencia
+         ORDER BY u.nombre`,
+        [empresaId]
+      );
+
+      reply.send({ rango, agentes: result.rows });
     }
   );
 

@@ -140,10 +140,10 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   // según el enrutamiento configurado por la empresa (todos | round_robin |
   // disponibilidad). empresaId viaja en la query string porque nosotros
   // armamos esta URL al crear la llamada.
-  app.post<{ Querystring: { empresaId?: string; colaId?: string } }>(
+  app.post<{ Querystring: { empresaId?: string; colaId?: string; origenExterno?: string } }>(
     "/webhooks/twilio/voice-normal",
     async (req, reply) => {
-      const { empresaId, colaId } = req.query;
+      const { empresaId, colaId, origenExterno } = req.query;
       const body = req.body as Record<string, string>;
       const publicBaseUrl = process.env.PUBLIC_BASE_URL;
 
@@ -158,12 +158,15 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       // se nombra con el id de la llamada — el cliente entra a esperar ahí
       // (ver twimlEsperarConferencia); esto es lo que permite que un admin se
       // pueda unir después a escuchar/intervenir sin tocar la pierna original.
+      // origenExterno viaja acá cuando la disparó un webhook de una
+      // plataforma de terceros (click-to-call), no el dashboard — así el
+      // widget de "llamadas externas" la puede distinguir.
       const llamada = await pool.query<{ id: string }>(
-        `INSERT INTO llamadas (empresa_id, call_sid, direccion, numero_origen, numero_destino, estado, cola_id)
-         VALUES ($1, $2, 'saliente', $3, $4, 'en_curso', $5)
+        `INSERT INTO llamadas (empresa_id, call_sid, direccion, numero_origen, numero_destino, estado, cola_id, origen_externo)
+         VALUES ($1, $2, 'saliente', $3, $4, 'en_curso', $5, $6)
          ON CONFLICT (call_sid) DO UPDATE SET call_sid = EXCLUDED.call_sid
          RETURNING id`,
-        [empresaId, body.CallSid, body.From, body.To, colaId ?? null]
+        [empresaId, body.CallSid, body.From, body.To, colaId ?? null, origenExterno ?? null]
       );
       const llamadaId = llamada.rows[0].id;
       const conferenciaNombre = `llamada-${llamadaId}`;
