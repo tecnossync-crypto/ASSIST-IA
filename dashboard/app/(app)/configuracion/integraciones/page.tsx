@@ -154,9 +154,19 @@ export default async function IntegracionesPage() {
                   <span className="text-xs text-muted">{formatFechaHora(s.creado_en)}</span>
                 </div>
                 <pre className="overflow-x-auto rounded-md bg-surface-2 p-2 text-xs text-ink-2">
-                  <code>{JSON.stringify(s.body, null, 2)}</code>
+                  <code>
+                    {typeof s.body?.crudo === "string"
+                      ? s.body.crudo || "(vacío)"
+                      : JSON.stringify(s.body, null, 2)}
+                  </code>
                 </pre>
                 {s.error && <p className="mt-1 text-xs text-red-600">{s.error}</p>}
+                {typeof s.body?.crudo === "string" && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Esto no llegó como JSON válido — revisa comillas sin escapar, comas de más, o variables sin
+                    reemplazar del lado de tu plataforma.
+                  </p>
+                )}
               </div>
             ))}
           </div>

@@ -10,6 +10,13 @@ interface CampoPersonalizado {
   api_name?: string;
 }
 
+const MARCA_JSON_INVALIDO = "__json_invalido__";
+
+/** true si el body vino marcado como JSON inválido por el parser de abajo. */
+function esJsonInvalido(body: unknown): body is { [MARCA_JSON_INVALIDO]: true; crudo: string } {
+  return typeof body === "object" && body !== null && MARCA_JSON_INVALIDO in body;
+}
+
 /**
  * Webhook público para que plataformas externas (un CRM, un e-commerce, un
  * sistema de tickets, etc.) pidan que la plataforma llame a un cliente con
@@ -18,6 +25,22 @@ interface CampoPersonalizado {
  * pensado para exponerse a internet.
  */
 export async function webhooksExternosRoutes(app: FastifyInstance) {
+  // Por defecto, si el body no es JSON válido pero el content-type dice que
+  // sí, Fastify responde un 400 genérico (FST_ERR_CTP_INVALID_JSON_BODY)
+  // ANTES de que la ruta llegue a correr — así que nunca queda registrado en
+  // "Solicitudes recibidas", justo cuando más hace falta verlo (una
+  // plataforma como Zoho mandando un JSON mal armado). Se reemplaza el
+  // parser SOLO para estas rutas (Fastify encapsula por plugin/register) para
+  // que el body inválido llegue igual al handler y se pueda registrar con un
+  // mensaje útil, en vez de perderse en un error genérico.
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+    try {
+      done(null, JSON.parse(body as string));
+    } catch {
+      done(null, { [MARCA_JSON_INVALIDO]: true, crudo: body as string });
+    }
+  });
+
   app.post<{
     Body: { numero: string; prompt?: string; origen?: string };
     Headers: { "x-api-key"?: string; "x-prueba-interna"?: string };
@@ -41,6 +64,19 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         return;
       }
       const empresaId = empresa.id;
+
+      if (esJsonInvalido(req.body)) {
+        await registrarWebhookRecibido({
+          empresaId,
+          endpoint: "llamadas",
+          body: { crudo: req.body.crudo },
+          ok: false,
+          error: "El body no es JSON válido",
+          esPrueba,
+        });
+        reply.code(400).send({ error: "El body no es JSON válido", crudo: req.body.crudo });
+        return;
+      }
 
       const { numero, prompt, origen } = req.body ?? {};
       if (!numero || typeof numero !== "string" || !/^\+?[\d\s()-]{7,}$/.test(numero)) {
@@ -129,6 +165,19 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         return;
       }
       const empresaId = empresa.id;
+
+      if (esJsonInvalido(req.body)) {
+        await registrarWebhookRecibido({
+          empresaId,
+          endpoint: "llamar-agente",
+          body: { crudo: req.body.crudo },
+          ok: false,
+          error: "El body no es JSON válido",
+          esPrueba,
+        });
+        reply.code(400).send({ error: "El body no es JSON válido", crudo: req.body.crudo });
+        return;
+      }
 
       const { numero, colaId, origen } = req.body ?? {};
       if (!numero || typeof numero !== "string" || !/^\+?[\d\s()-]{7,}$/.test(numero)) {
@@ -228,6 +277,19 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       }
       const empresaId = empresa.id;
 
+      if (esJsonInvalido(req.body)) {
+        await registrarWebhookRecibido({
+          empresaId,
+          endpoint: "contactos",
+          body: { crudo: req.body.crudo },
+          ok: false,
+          error: "El body no es JSON válido",
+          esPrueba,
+        });
+        reply.code(400).send({ error: "El body no es JSON válido", crudo: req.body.crudo });
+        return;
+      }
+
       const { numero, datos } = req.body ?? {};
       if (!numero || typeof numero !== "string") {
         const error = "numero es requerido";
@@ -296,6 +358,25 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       const empresa = await empresaPorApiKey(apiKey);
       if (!empresa) {
         reply.code(401).send({ error: "API key inválido" });
+        return;
+      }
+
+      // Acá especialmente: si el JSON viene mal armado, es justo lo que esta
+      // URL existe para detectar — se registra igual (con el texto crudo) en
+      // vez de devolver un 400 genérico sin contexto.
+      if (esJsonInvalido(req.body)) {
+        await registrarWebhookRecibido({
+          empresaId: empresa.id,
+          endpoint: "prueba",
+          body: { crudo: req.body.crudo },
+          ok: false,
+          error: "El body no es JSON válido",
+        });
+        reply.code(400).send({
+          error: "El body no es JSON válido",
+          crudo: req.body.crudo,
+          pista: "Revisa comillas sin escapar, comas de más, o variables de la plataforma que no se hayan reemplazado.",
+        });
         return;
       }
 
