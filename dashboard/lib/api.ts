@@ -520,7 +520,7 @@ export async function actualizarPropietarioContacto(id: string, propietarioUsuar
 
 export interface WebhookRecibido {
   id: string;
-  endpoint: "llamar-agente" | "llamadas" | "contactos";
+  endpoint: "llamar-agente" | "llamadas" | "contactos" | "prueba";
   body: Record<string, unknown>;
   ok: boolean;
   error: string | null;

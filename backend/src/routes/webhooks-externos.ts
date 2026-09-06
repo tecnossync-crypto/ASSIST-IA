@@ -277,6 +277,33 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
     }
   );
 
+  // URL de prueba: NO origina ninguna llamada ni toca ningún contacto — solo
+  // recibe y registra lo que le manden, para que la plataforma de terceros
+  // pueda apuntar acá mientras se configura el mapeo de campos, y en
+  // Configuración → Integraciones se vea exactamente qué llegó (con qué
+  // nombres de campo, qué formato, etc.) antes de cambiar la URL a la real
+  // (/llamar-agente, /llamadas o /contactos).
+  app.post<{ Body: unknown; Headers: { "x-api-key"?: string } }>(
+    "/api/webhooks/prueba",
+    { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
+    async (req, reply) => {
+      const apiKey = req.headers["x-api-key"];
+      if (!apiKey) {
+        reply.code(401).send({ error: "Falta el header x-api-key" });
+        return;
+      }
+
+      const empresa = await empresaPorApiKey(apiKey);
+      if (!empresa) {
+        reply.code(401).send({ error: "API key inválido" });
+        return;
+      }
+
+      await registrarWebhookRecibido({ empresaId: empresa.id, endpoint: "prueba", body: req.body, ok: true });
+      reply.send({ ok: true, mensaje: "Recibido — revisa Configuración → Integraciones para ver el detalle.", recibido: req.body });
+    }
+  );
+
   // Para que Configuración → Integraciones muestre las últimas solicitudes
   // que llegaron a los 3 webhooks de arriba (reales o de prueba) — así se
   // puede verificar qué mandó de verdad la plataforma de terceros antes de

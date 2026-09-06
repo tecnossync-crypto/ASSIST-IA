@@ -9,6 +9,7 @@ const ETIQUETAS_ENDPOINT: Record<string, string> = {
   "llamar-agente": "Llamar a un agente",
   llamadas: "Llamar con IA",
   contactos: "Actualizar contacto",
+  prueba: "URL de prueba",
 };
 
 const PROXIMAMENTE = [
@@ -34,6 +35,37 @@ export default async function IntegracionesPage() {
         titulo="Integraciones"
         descripcion="Conecta la plataforma con tus otras herramientas."
       />
+
+      <section className="rounded-lg border border-indigo-200 bg-indigo-50/40 p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+          <FlaskConical size={16} className="text-indigo-600" />
+          URL de prueba (empieza por acá)
+        </div>
+        <p className="mb-4 text-xs text-muted">
+          Antes de conectar tu CRM o plataforma a una de las URLs "reales" de abajo, apúntala primero a
+          <strong> esta</strong>. No origina ninguna llamada ni toca ningún contacto — solo recibe lo que le
+          manden y queda registrado en "Solicitudes recibidas" (más abajo en esta página), para que veas
+          exactamente qué nombres de campo y qué formato manda tu plataforma. Cuando confirmes que se ve
+          bien, cambia la URL en tu plataforma por la que necesites de verdad (llamar-agente, llamadas o
+          contactos).
+        </p>
+
+        <div className="overflow-x-auto rounded-md bg-slate-900 p-3">
+          <pre className="text-xs text-slate-100">
+            <code>{`curl -X POST ${backendPublicUrl}/api/webhooks/prueba \\
+  -H "content-type: application/json" \\
+  -H "x-api-key: TU_API_KEY" \\
+  -d '{
+    "cualquier_campo": "el valor que sea",
+    "numero": "+18095551234"
+  }'`}</code>
+          </pre>
+        </div>
+        <p className="mt-3 text-xs text-muted">
+          Manda lo que quieras probar, con los nombres de campo que use tu plataforma — no valida nada,
+          solo lo guarda para que lo revises.
+        </p>
+      </section>
 
       <section className="rounded-lg border border-edge bg-surface p-5">
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">

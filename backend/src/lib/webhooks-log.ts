@@ -8,7 +8,7 @@ import { pool } from "../db/pool.js";
  */
 export async function registrarWebhookRecibido(opts: {
   empresaId: string;
-  endpoint: "llamar-agente" | "llamadas" | "contactos";
+  endpoint: "llamar-agente" | "llamadas" | "contactos" | "prueba";
   body: unknown;
   ok: boolean;
   error?: string;
