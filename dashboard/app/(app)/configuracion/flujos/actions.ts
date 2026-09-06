@@ -16,15 +16,30 @@ export async function crearFlujoAction(formData: FormData) {
   const disparador = String(formData.get("disparador") ?? "") as DisparadorFlujo;
   const accion = String(formData.get("accion") ?? "") as AccionFlujo;
   const etiqueta = String(formData.get("etiqueta") ?? "").trim();
+  const etiquetaDisparador = String(formData.get("etiqueta_disparador") ?? "").trim();
   const tipo = String(formData.get("tipo") ?? "").trim();
   const descripcion = String(formData.get("descripcion") ?? "").trim();
+  const modoLlamada = String(formData.get("modo_llamada") ?? "inmediato").trim();
+  const fechaLlamada = String(formData.get("fecha_llamada") ?? "").trim();
 
   if (!nombre || !disparador || !accion) return;
 
-  const accionDatos: Record<string, string> =
-    accion === "agregar_etiqueta" ? { etiqueta } : { tipo: tipo || "seguimiento", descripcion };
+  const disparadorDatos: Record<string, string> =
+    disparador === "etiqueta_agregada" ? { etiqueta: etiquetaDisparador } : {};
 
-  await crearFlujoTrabajo({ nombre, disparador, accion, accionDatos });
+  if (disparador === "etiqueta_agregada" && !etiquetaDisparador) return;
+
+  let accionDatos: Record<string, string>;
+  if (accion === "agregar_etiqueta") {
+    accionDatos = { etiqueta };
+  } else if (accion === "llamar_contacto") {
+    if (modoLlamada === "programada" && !fechaLlamada) return; // sin fecha no tiene sentido crearla
+    accionDatos = modoLlamada === "programada" ? { modo: "programada", fecha: fechaLlamada } : { modo: "inmediato" };
+  } else {
+    accionDatos = { tipo: tipo || "seguimiento", descripcion };
+  }
+
+  await crearFlujoTrabajo({ nombre, disparador, disparadorDatos, accion, accionDatos });
   revalidatePath("/configuracion/flujos");
   await auditar("crear", "flujo_trabajo", { nombre, disparador, accion });
 }

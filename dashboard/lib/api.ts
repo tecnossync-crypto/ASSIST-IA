@@ -594,15 +594,20 @@ export async function importarContactos(
   return res.json();
 }
 
-export type DisparadorFlujo = "llamada_completada" | "llamada_no_contesta" | "llamada_transferida";
-export type AccionFlujo = "agregar_etiqueta" | "crear_solicitud";
+export type DisparadorFlujo =
+  | "llamada_completada"
+  | "llamada_no_contesta"
+  | "llamada_transferida"
+  | "etiqueta_agregada";
+export type AccionFlujo = "agregar_etiqueta" | "crear_solicitud" | "llamar_contacto";
 
 export interface FlujoTrabajo {
   id: string;
   nombre: string;
   disparador: DisparadorFlujo;
+  disparador_datos: { etiqueta?: string };
   accion: AccionFlujo;
-  accion_datos: { etiqueta?: string; tipo?: string; descripcion?: string };
+  accion_datos: { etiqueta?: string; tipo?: string; descripcion?: string; modo?: "inmediato" | "programada"; fecha?: string };
   activo: boolean;
   creado_en: string;
 }
@@ -619,6 +624,7 @@ export async function listarFlujosTrabajo(): Promise<FlujoTrabajo[]> {
 export async function crearFlujoTrabajo(data: {
   nombre: string;
   disparador: DisparadorFlujo;
+  disparadorDatos?: Record<string, string>;
   accion: AccionFlujo;
   accionDatos: Record<string, string>;
 }): Promise<void> {

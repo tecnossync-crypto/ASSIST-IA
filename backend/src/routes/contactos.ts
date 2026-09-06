@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
+import { ejecutarFlujosPorEtiquetasNuevas } from "../lib/flujos-trabajo.js";
 
 /**
  * API de lectura del módulo de contactos: el perfil acumulado de cada
@@ -128,14 +129,30 @@ export async function contactosRoutes(app: FastifyInstance) {
       const { id } = req.params;
       const { etiquetas } = req.body;
 
-      const result = await pool.query(
-        `UPDATE contactos SET etiquetas = $2, actualizado_en = now() WHERE id = $1 RETURNING id`,
-        [id, etiquetas ?? []]
+      // Se lee ANTES de actualizar para saber cuáles etiquetas son
+      // realmente nuevas en esta guardada — así una regla "se agrega la
+      // etiqueta X" no se vuelve a disparar cada vez que se guarda sin
+      // cambios, solo la primera vez que esa etiqueta aparece.
+      const anterior = await pool.query<{ empresa_id: string; numero: string; etiquetas: string[] }>(
+        "SELECT empresa_id, numero, etiquetas FROM contactos WHERE id = $1",
+        [id]
       );
-      if (result.rows.length === 0) {
+      if (anterior.rows.length === 0) {
         reply.code(404).send({ error: "no encontrado" });
         return;
       }
+      const { empresa_id: empresaId, numero, etiquetas: etiquetasAnteriores } = anterior.rows[0];
+
+      await pool.query(`UPDATE contactos SET etiquetas = $2, actualizado_en = now() WHERE id = $1`, [
+        id,
+        etiquetas ?? [],
+      ]);
+
+      const etiquetasNuevas = (etiquetas ?? []).filter((e) => !etiquetasAnteriores.includes(e));
+      if (etiquetasNuevas.length > 0) {
+        await ejecutarFlujosPorEtiquetasNuevas({ empresaId, contactoId: id, numero, etiquetasNuevas });
+      }
+
       reply.send({ ok: true });
     }
   );

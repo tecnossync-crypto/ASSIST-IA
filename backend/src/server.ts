@@ -30,6 +30,7 @@ import { webhooksExternosRoutes } from "./routes/webhooks-externos.js";
 import { almacenamientoRoutes } from "./routes/almacenamiento.js";
 import { integracionesNubeRoutes } from "./routes/integraciones-nube.js";
 import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
+import { procesarTickLlamadasProgramadas } from "./jobs/dispatcher-flujos.js";
 import { limpiarGrabacionesVencidas } from "./jobs/limpiar-grabaciones.js";
 
 const app = Fastify({ logger: true });
@@ -100,6 +101,15 @@ if (publicBaseUrl) {
     });
   }, TICK_MS);
   app.log.info(`Despachador de campañas activo cada ${TICK_MS}ms`);
+
+  // Llamadas programadas por flujos de trabajo ("se agrega una etiqueta" →
+  // llamar en tal fecha/hora) — reusa el mismo intervalo que las campañas,
+  // no hace falta uno más fino para esto.
+  setInterval(() => {
+    procesarTickLlamadasProgramadas().catch((err) => {
+      app.log.error(err, "Error en tick del despachador de llamadas programadas");
+    });
+  }, TICK_MS);
 } else {
   app.log.warn("PUBLIC_BASE_URL no configurado: despachador de campañas deshabilitado");
 }

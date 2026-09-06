@@ -16,7 +16,7 @@ export async function flujosTrabajoRoutes(app: FastifyInstance) {
     }
 
     const result = await pool.query(
-      `SELECT id, nombre, disparador, accion, accion_datos, activo, creado_en
+      `SELECT id, nombre, disparador, disparador_datos, accion, accion_datos, activo, creado_en
        FROM flujos_trabajo WHERE empresa_id = $1 ORDER BY creado_en DESC`,
       [empresaId]
     );
@@ -28,11 +28,12 @@ export async function flujosTrabajoRoutes(app: FastifyInstance) {
       empresaId: string;
       nombre: string;
       disparador: string;
+      disparadorDatos?: Record<string, string>;
       accion: string;
       accionDatos: Record<string, string>;
     };
   }>("/api/flujos-trabajo", async (req, reply) => {
-    const { empresaId, nombre, disparador, accion, accionDatos } = req.body;
+    const { empresaId, nombre, disparador, disparadorDatos, accion, accionDatos } = req.body;
 
     if (!empresaId || !nombre || !disparador || !accion) {
       reply.code(400).send({ error: "empresaId, nombre, disparador y accion son requeridos" });
@@ -40,9 +41,9 @@ export async function flujosTrabajoRoutes(app: FastifyInstance) {
     }
 
     const result = await pool.query<{ id: string }>(
-      `INSERT INTO flujos_trabajo (empresa_id, nombre, disparador, accion, accion_datos)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [empresaId, nombre, disparador, accion, JSON.stringify(accionDatos ?? {})]
+      `INSERT INTO flujos_trabajo (empresa_id, nombre, disparador, disparador_datos, accion, accion_datos)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [empresaId, nombre, disparador, JSON.stringify(disparadorDatos ?? {}), accion, JSON.stringify(accionDatos ?? {})]
     );
     reply.send({ ok: true, id: result.rows[0].id });
   });
