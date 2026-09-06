@@ -1,13 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { obtenerContacto, obtenerEmpresa } from "@/lib/api";
+import { obtenerContacto, obtenerEmpresa, listarAgentes } from "@/lib/api";
 import { formatFechaHora, formatDuracion, etiquetaEstado } from "@/lib/format";
 import { EditorEtiquetasContacto } from "@/components/EditorEtiquetasContacto";
 import { EditorDatosContacto } from "@/components/EditorDatosContacto";
+import { SelectorPropietarioContacto } from "@/components/SelectorPropietarioContacto";
 
 export default async function ContactoDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [data, empresa] = await Promise.all([obtenerContacto(id).catch(() => null), obtenerEmpresa()]);
+  const [data, empresa, agentes] = await Promise.all([
+    obtenerContacto(id).catch(() => null),
+    obtenerEmpresa(),
+    listarAgentes().catch(() => []),
+  ]);
   if (!data) notFound();
 
   const { contacto, llamadas } = data;
@@ -27,6 +32,19 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
           {contacto.numero} · última actividad {formatFechaHora(contacto.actualizado_en)}
         </p>
       </div>
+
+      <section className="rounded-lg border border-edge bg-surface p-4">
+        <h2 className="mb-3 text-sm font-semibold text-ink-2">Propietario</h2>
+        <SelectorPropietarioContacto
+          contactoId={contacto.id}
+          agentes={agentes}
+          valorInicial={
+            contacto.propietario_usuario_id
+              ? { id: contacto.propietario_usuario_id, nombre: contacto.propietario_nombre ?? "" }
+              : null
+          }
+        />
+      </section>
 
       <section className="rounded-lg border border-edge bg-surface p-4">
         <h2 className="mb-3 text-sm font-semibold text-ink-2">Etiquetas</h2>

@@ -402,6 +402,8 @@ export interface ContactoResumen {
   etiquetas: string[];
   creado_en: string;
   actualizado_en: string;
+  propietario_usuario_id: string | null;
+  propietario_nombre: string | null;
 }
 
 export interface ContactoDetalle {
@@ -415,10 +417,11 @@ export interface ContactoDetalle {
   }[];
 }
 
-export async function listarContactos(q?: string): Promise<ContactoResumen[]> {
+export async function listarContactos(q?: string, propietarioId?: string): Promise<ContactoResumen[]> {
   const url = new URL("/api/contactos", BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
   if (q) url.searchParams.set("q", q);
+  if (propietarioId) url.searchParams.set("propietarioId", propietarioId);
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Error listando contactos: HTTP ${res.status}`);
   const data = await res.json();
@@ -457,6 +460,18 @@ export async function actualizarDatosContacto(id: string, datos: Record<string, 
     body: JSON.stringify({ datos }),
   });
   if (!res.ok) throw new Error(`Error actualizando datos: HTTP ${res.status}`);
+}
+
+export async function actualizarPropietarioContacto(id: string, propietarioUsuarioId: string | null): Promise<void> {
+  const res = await fetch(new URL(`/api/contactos/${id}/propietario`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ propietarioUsuarioId }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error actualizando propietario: HTTP ${res.status}`);
+  }
 }
 
 export async function importarContactos(

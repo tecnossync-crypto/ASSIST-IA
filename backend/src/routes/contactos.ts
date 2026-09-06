@@ -9,26 +9,38 @@ import { pool } from "../db/pool.js";
  */
 export async function contactosRoutes(app: FastifyInstance) {
   app.get<{
-    Querystring: { empresaId?: string; q?: string; etiqueta?: string; limite?: string; offset?: string };
+    Querystring: {
+      empresaId?: string;
+      q?: string;
+      etiqueta?: string;
+      propietarioId?: string;
+      limite?: string;
+      offset?: string;
+    };
   }>("/api/contactos", async (req, reply) => {
-      const { empresaId, q, etiqueta, limite, offset } = req.query;
+      const { empresaId, q, etiqueta, propietarioId, limite, offset } = req.query;
       if (!empresaId) {
         reply.code(400).send({ error: "empresaId es requerido" });
         return;
       }
 
-      const condiciones = ["empresa_id = $1"];
+      const condiciones = ["c.empresa_id = $1"];
       const valores: unknown[] = [empresaId];
 
       if (q) {
         valores.push(`%${q}%`);
         const idx = valores.length;
-        condiciones.push(`(numero ILIKE $${idx} OR nombre ILIKE $${idx} OR apellido ILIKE $${idx})`);
+        condiciones.push(`(c.numero ILIKE $${idx} OR c.nombre ILIKE $${idx} OR c.apellido ILIKE $${idx})`);
       }
 
       if (etiqueta) {
         valores.push(etiqueta);
-        condiciones.push(`$${valores.length} = ANY(etiquetas)`);
+        condiciones.push(`$${valores.length} = ANY(c.etiquetas)`);
+      }
+
+      if (propietarioId) {
+        valores.push(propietarioId);
+        condiciones.push(`c.propietario_usuario_id = $${valores.length}`);
       }
 
       const lim = Math.min(parseInt(limite ?? "50", 10) || 50, 200);
@@ -36,10 +48,12 @@ export async function contactosRoutes(app: FastifyInstance) {
       valores.push(lim, off);
 
       const result = await pool.query(
-        `SELECT id, numero, nombre, apellido, datos, etiquetas, creado_en, actualizado_en
-         FROM contactos
+        `SELECT c.id, c.numero, c.nombre, c.apellido, c.datos, c.etiquetas, c.creado_en, c.actualizado_en,
+                c.propietario_usuario_id, u.nombre AS propietario_nombre
+         FROM contactos c
+         LEFT JOIN usuarios u ON u.id = c.propietario_usuario_id
          WHERE ${condiciones.join(" AND ")}
-         ORDER BY actualizado_en DESC
+         ORDER BY c.actualizado_en DESC
          LIMIT $${valores.length - 1} OFFSET $${valores.length}`,
         valores
       );
@@ -146,12 +160,49 @@ export async function contactosRoutes(app: FastifyInstance) {
     }
   );
 
+  // Propietario del contacto (reparto de cartera entre el equipo) — el
+  // usuario debe pertenecer a la MISMA empresa que el contacto, si no se
+  // podría asignar un contacto a alguien de otro cliente de la plataforma.
+  app.put<{ Params: { id: string }; Body: { propietarioUsuarioId: string | null } }>(
+    "/api/contactos/:id/propietario",
+    async (req, reply) => {
+      const { id } = req.params;
+      const { propietarioUsuarioId } = req.body;
+
+      if (propietarioUsuarioId) {
+        const valido = await pool.query(
+          `SELECT 1 FROM contactos c
+           JOIN usuarios u ON u.empresa_id = c.empresa_id
+           WHERE c.id = $1 AND u.id = $2`,
+          [id, propietarioUsuarioId]
+        );
+        if (valido.rows.length === 0) {
+          reply.code(400).send({ error: "El usuario no pertenece a la misma empresa que el contacto" });
+          return;
+        }
+      }
+
+      const result = await pool.query(
+        `UPDATE contactos SET propietario_usuario_id = $2, actualizado_en = now() WHERE id = $1 RETURNING id`,
+        [id, propietarioUsuarioId]
+      );
+      if (result.rows.length === 0) {
+        reply.code(404).send({ error: "no encontrado" });
+        return;
+      }
+      reply.send({ ok: true });
+    }
+  );
+
   app.get<{ Params: { id: string } }>("/api/contactos/:id", async (req, reply) => {
     const { id } = req.params;
 
     const contacto = await pool.query(
-      `SELECT id, empresa_id, numero, nombre, apellido, notas, datos, etiquetas, creado_en, actualizado_en
-       FROM contactos WHERE id = $1`,
+      `SELECT c.id, c.empresa_id, c.numero, c.nombre, c.apellido, c.notas, c.datos, c.etiquetas,
+              c.creado_en, c.actualizado_en, c.propietario_usuario_id, u.nombre AS propietario_nombre
+       FROM contactos c
+       LEFT JOIN usuarios u ON u.id = c.propietario_usuario_id
+       WHERE c.id = $1`,
       [id]
     );
     if (contacto.rows.length === 0) {

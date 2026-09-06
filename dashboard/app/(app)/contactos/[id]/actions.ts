@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { actualizarEtiquetasContacto, actualizarDatosContacto } from "@/lib/api";
+import { actualizarEtiquetasContacto, actualizarDatosContacto, actualizarPropietarioContacto } from "@/lib/api";
+import { auditar } from "@/lib/session";
 
 export async function guardarEtiquetasAction(formData: FormData) {
   const contactoId = String(formData.get("contactoId"));
@@ -33,4 +34,14 @@ export async function guardarDatosContactoAction(formData: FormData) {
   await actualizarDatosContacto(contactoId, datos);
   revalidatePath(`/contactos/${contactoId}`);
   revalidatePath("/contactos");
+}
+
+export async function guardarPropietarioAction(formData: FormData) {
+  const contactoId = String(formData.get("contactoId"));
+  const propietarioUsuarioId = String(formData.get("propietarioUsuarioId") ?? "").trim() || null;
+
+  await actualizarPropietarioContacto(contactoId, propietarioUsuarioId);
+  revalidatePath(`/contactos/${contactoId}`);
+  revalidatePath("/contactos");
+  await auditar("actualizar", "contacto_propietario", { contactoId, propietarioUsuarioId });
 }
