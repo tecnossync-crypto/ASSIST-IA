@@ -20,16 +20,11 @@ function formatCronometro(segundos: number): string {
   return `${m}:${s}`;
 }
 
-export function PanelTelefono({
-  contactos,
-  recientes,
-  colas,
-}: {
-  contactos: ContactoResumen[];
-  recientes: LlamadaResumen[];
-  colas: Cola[];
-}) {
+export function PanelTelefono() {
   const router = useRouter();
+  const [contactos, setContactos] = useState<ContactoResumen[]>([]);
+  const [recientes, setRecientes] = useState<LlamadaResumen[]>([]);
+  const [colas, setColas] = useState<Cola[]>([]);
   const [abierto, setAbierto] = useState(false);
   const [tab, setTab] = useState<Tab>("marcar");
   const [numero, setNumero] = useState("");
@@ -53,6 +48,26 @@ export function PanelTelefono({
 
   useEffect(() => () => limpiarTemporizadores(), []);
 
+  async function cargarDatos() {
+    try {
+      const res = await fetch("/api/panel/datos", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setContactos(data.contactos ?? []);
+      setRecientes(data.recientes ?? []);
+      setColas(data.colas ?? []);
+    } catch {
+      // silencioso: el panel simplemente queda con lo que ya tenía
+    }
+  }
+
+  // Se pide una vez al montar (no bloquea el layout ni el resto de la
+  // página — el botón flotante ya se ve, los datos llegan un instante
+  // después) y de nuevo cada vez que se abre, por si cambió algo.
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
   function cerrarTodo() {
     if (estado === "marcando" || estado === "en_curso") return; // no cerrar en medio de una llamada
     setAbierto(false);
@@ -73,6 +88,7 @@ export function PanelTelefono({
     setEstado(ok ? "finalizada" : "error");
     setMensaje(msg);
     router.refresh();
+    cargarDatos();
     setTimeout(() => {
       setEstado("idle");
       setMensaje("");
@@ -388,7 +404,10 @@ export function PanelTelefono({
       {!abierto && (
         <button
           type="button"
-          onClick={() => setAbierto(true)}
+          onClick={() => {
+            setAbierto(true);
+            cargarDatos();
+          }}
           aria-label="Abrir panel de llamadas"
           className="ts-brand-button relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg shadow-indigo-500/40 transition-transform hover:scale-105 active:scale-95"
         >
