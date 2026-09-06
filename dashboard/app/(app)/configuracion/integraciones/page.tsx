@@ -1,7 +1,15 @@
-import { Plug, Webhook, Database, Sparkles } from "lucide-react";
-import { obtenerEmpresa } from "@/lib/api";
+import { Plug, Webhook, Database, Sparkles, FlaskConical, Inbox } from "lucide-react";
+import { obtenerEmpresa, listarWebhooksRecientes } from "@/lib/api";
+import { formatFechaHora } from "@/lib/format";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { ApiKeyManager } from "@/components/ApiKeyManager";
+import { ProbadorWebhooks } from "@/components/ProbadorWebhooks";
+
+const ETIQUETAS_ENDPOINT: Record<string, string> = {
+  "llamar-agente": "Llamar a un agente",
+  llamadas: "Llamar con IA",
+  contactos: "Actualizar contacto",
+};
 
 const PROXIMAMENTE = [
   { nombre: "HubSpot", descripcion: "Sincroniza contactos y dispara llamadas desde tus flujos de HubSpot." },
@@ -13,7 +21,10 @@ const PROXIMAMENTE = [
 ];
 
 export default async function IntegracionesPage() {
-  const empresa = await obtenerEmpresa();
+  const [empresa, solicitudes] = await Promise.all([
+    obtenerEmpresa(),
+    listarWebhooksRecientes().catch(() => []),
+  ]);
   const backendPublicUrl = process.env.NEXT_PUBLIC_BACKEND_PUBLIC_URL || "https://TU-DOMINIO-BACKEND";
 
   return (
@@ -63,6 +74,61 @@ export default async function IntegracionesPage() {
             dónde vino la solicitud.
           </li>
         </ul>
+      </section>
+
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+          <FlaskConical size={16} className="text-indigo-600" />
+          Probar antes de conectar tu plataforma
+        </div>
+        <p className="mb-4 text-xs text-muted">
+          Manda una solicitud real a cualquiera de los 3 webhooks de acá abajo, con tu propio API key, para
+          verificar que responde bien antes de apuntar tu CRM o plataforma de verdad. Queda registrada igual
+          que una solicitud real, en "Solicitudes recibidas" más abajo.
+        </p>
+        <ProbadorWebhooks />
+      </section>
+
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+          <Inbox size={16} className="text-indigo-600" />
+          Solicitudes recibidas recientemente
+        </div>
+        <p className="mb-4 text-xs text-muted">
+          Lo que de verdad llegó a estos webhooks (de tu plataforma o de la prueba de arriba) — así puedes
+          verificar los parámetros exactos que manda tu integración antes de darla por buena. Recarga la
+          página para actualizar.
+        </p>
+        {solicitudes.length === 0 ? (
+          <p className="text-sm text-muted">Todavía no ha llegado ninguna solicitud.</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-edge">
+            {solicitudes.map((s) => (
+              <div key={s.id} className="py-3">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                    {ETIQUETAS_ENDPOINT[s.endpoint] ?? s.endpoint}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      s.ok ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {s.ok ? "OK" : "Error"}
+                  </span>
+                  {s.es_prueba && (
+                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">Prueba manual</span>
+                  )}
+                  <span className="text-xs text-muted">{formatFechaHora(s.creado_en)}</span>
+                </div>
+                <pre className="overflow-x-auto rounded-md bg-surface-2 p-2 text-xs text-ink-2">
+                  <code>{JSON.stringify(s.body, null, 2)}</code>
+                </pre>
+                {s.error && <p className="mt-1 text-xs text-red-600">{s.error}</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="rounded-lg border border-edge bg-surface p-5">

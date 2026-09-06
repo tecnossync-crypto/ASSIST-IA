@@ -518,6 +518,49 @@ export async function actualizarPropietarioContacto(id: string, propietarioUsuar
   }
 }
 
+export interface WebhookRecibido {
+  id: string;
+  endpoint: "llamar-agente" | "llamadas" | "contactos";
+  body: Record<string, unknown>;
+  ok: boolean;
+  error: string | null;
+  es_prueba: boolean;
+  creado_en: string;
+}
+
+// Bitácora de qué llegó a los webhooks públicos (Configuración →
+// Integraciones → "Probar antes de conectar").
+export async function listarWebhooksRecientes(): Promise<WebhookRecibido[]> {
+  const url = new URL("/api/webhooks/recientes", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando solicitudes recibidas: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.solicitudes;
+}
+
+export type EndpointWebhookPrueba = "llamar-agente" | "llamadas" | "contactos";
+
+// Dispara una solicitud REAL contra nuestro propio webhook (con el api_key
+// real de la empresa, server-side, nunca expuesto al navegador) para que se
+// pueda probar sin depender de tener ya lista la plataforma de terceros.
+export async function probarWebhook(
+  endpoint: EndpointWebhookPrueba,
+  payload: Record<string, unknown>
+): Promise<{ status: number; body: unknown }> {
+  const empresa = await obtenerEmpresa();
+  if (!empresa.api_key) {
+    throw new Error("Genera un API key primero (arriba en esta misma página).");
+  }
+  const res = await fetch(new URL(`/api/webhooks/${endpoint}`, BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": empresa.api_key, "x-prueba-interna": "1" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json().catch(() => ({}));
+  return { status: res.status, body };
+}
+
 export async function importarContactos(
   contactos: { numero: string; nombre?: string; apellido?: string; datos?: Record<string, string> }[]
 ): Promise<{ insertados: number; actualizados: number }> {

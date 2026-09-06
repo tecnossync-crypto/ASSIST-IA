@@ -3,6 +3,7 @@ import { pool } from "../db/pool.js";
 import { empresaPorApiKey } from "../lib/api-keys.js";
 import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
 import { asegurarContacto, upsertContacto } from "../lib/contactos.js";
+import { registrarWebhookRecibido } from "../lib/webhooks-log.js";
 
 interface CampoPersonalizado {
   nombre: string;
@@ -19,7 +20,7 @@ interface CampoPersonalizado {
 export async function webhooksExternosRoutes(app: FastifyInstance) {
   app.post<{
     Body: { numero: string; prompt?: string; origen?: string };
-    Headers: { "x-api-key"?: string };
+    Headers: { "x-api-key"?: string; "x-prueba-interna"?: string };
   }>(
     "/api/webhooks/llamadas",
     // Límite por IP: además de evitar fuerza bruta del API key, frena el
@@ -28,6 +29,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
     { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (req, reply) => {
       const apiKey = req.headers["x-api-key"];
+      const esPrueba = req.headers["x-prueba-interna"] === "1";
       if (!apiKey) {
         reply.code(401).send({ error: "Falta el header x-api-key" });
         return;
@@ -42,7 +44,9 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
 
       const { numero, prompt, origen } = req.body ?? {};
       if (!numero || typeof numero !== "string" || !/^\+?[\d\s()-]{7,}$/.test(numero)) {
-        reply.code(400).send({ error: "numero es requerido y debe ser un teléfono válido (ej. +18095551234)" });
+        const error = "numero es requerido y debe ser un teléfono válido (ej. +18095551234)";
+        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: false, error, esPrueba });
+        reply.code(400).send({ error });
         return;
       }
 
@@ -54,7 +58,9 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
 
       const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
       if (!twilioEmpresa) {
-        reply.code(400).send({ error: "La empresa no tiene credenciales Twilio configuradas" });
+        const error = "La empresa no tiene credenciales Twilio configuradas";
+        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: false, error, esPrueba });
+        reply.code(400).send({ error });
         return;
       }
 
@@ -79,9 +85,18 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         });
 
         app.log.info({ callSid: call.sid, numero, origen }, "Llamada originada vía webhook externo");
+        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: true, esPrueba });
         reply.send({ ok: true, callSid: call.sid, id: llamadaWebhookId });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada vía webhook externo");
+        await registrarWebhookRecibido({
+          empresaId,
+          endpoint: "llamadas",
+          body: req.body,
+          ok: false,
+          error: String(err),
+          esPrueba,
+        });
         reply.code(502).send({ error: "No se pudo originar la llamada", detalle: String(err) });
       }
     }
@@ -96,12 +111,13 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
   // externo en vez del botón "Llamar" del dashboard.
   app.post<{
     Body: { numero: string; colaId?: string; origen?: string };
-    Headers: { "x-api-key"?: string };
+    Headers: { "x-api-key"?: string; "x-prueba-interna"?: string };
   }>(
     "/api/webhooks/llamar-agente",
     { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (req, reply) => {
       const apiKey = req.headers["x-api-key"];
+      const esPrueba = req.headers["x-prueba-interna"] === "1";
       if (!apiKey) {
         reply.code(401).send({ error: "Falta el header x-api-key" });
         return;
@@ -116,7 +132,16 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
 
       const { numero, colaId, origen } = req.body ?? {};
       if (!numero || typeof numero !== "string" || !/^\+?[\d\s()-]{7,}$/.test(numero)) {
-        reply.code(400).send({ error: "numero es requerido y debe ser un teléfono válido (ej. +18095551234)" });
+        const error = "numero es requerido y debe ser un teléfono válido (ej. +18095551234)";
+        await registrarWebhookRecibido({
+          empresaId,
+          endpoint: "llamar-agente",
+          body: req.body,
+          ok: false,
+          error,
+          esPrueba,
+        });
+        reply.code(400).send({ error });
         return;
       }
 
@@ -128,7 +153,16 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
 
       const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
       if (!twilioEmpresa) {
-        reply.code(400).send({ error: "La empresa no tiene credenciales Twilio configuradas" });
+        const error = "La empresa no tiene credenciales Twilio configuradas";
+        await registrarWebhookRecibido({
+          empresaId,
+          endpoint: "llamar-agente",
+          body: req.body,
+          ok: false,
+          error,
+          esPrueba,
+        });
+        reply.code(400).send({ error });
         return;
       }
 
@@ -151,9 +185,18 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         });
 
         app.log.info({ callSid: call.sid, numero, origen }, "Llamada a agente originada vía webhook externo");
+        await registrarWebhookRecibido({ empresaId, endpoint: "llamar-agente", body: req.body, ok: true, esPrueba });
         reply.send({ ok: true, callSid: call.sid });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada a agente vía webhook externo");
+        await registrarWebhookRecibido({
+          empresaId,
+          endpoint: "llamar-agente",
+          body: req.body,
+          ok: false,
+          error: String(err),
+          esPrueba,
+        });
         reply.code(502).send({ error: "No se pudo originar la llamada", detalle: String(err) });
       }
     }
@@ -166,12 +209,13 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
   // traduce o edita el nombre del campo después.
   app.post<{
     Body: { numero: string; datos: Record<string, string> };
-    Headers: { "x-api-key"?: string };
+    Headers: { "x-api-key"?: string; "x-prueba-interna"?: string };
   }>(
     "/api/webhooks/contactos",
     { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
     async (req, reply) => {
       const apiKey = req.headers["x-api-key"];
+      const esPrueba = req.headers["x-prueba-interna"] === "1";
       if (!apiKey) {
         reply.code(401).send({ error: "Falta el header x-api-key" });
         return;
@@ -186,11 +230,15 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
 
       const { numero, datos } = req.body ?? {};
       if (!numero || typeof numero !== "string") {
-        reply.code(400).send({ error: "numero es requerido" });
+        const error = "numero es requerido";
+        await registrarWebhookRecibido({ empresaId, endpoint: "contactos", body: req.body, ok: false, error, esPrueba });
+        reply.code(400).send({ error });
         return;
       }
       if (!datos || typeof datos !== "object") {
-        reply.code(400).send({ error: "datos es requerido (objeto con claves = api_name)" });
+        const error = "datos es requerido (objeto con claves = api_name)";
+        await registrarWebhookRecibido({ empresaId, endpoint: "contactos", body: req.body, ok: false, error, esPrueba });
+        reply.code(400).send({ error });
         return;
       }
 
@@ -217,7 +265,41 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         aplicados.push(apiName);
       }
 
+      await registrarWebhookRecibido({
+        empresaId,
+        endpoint: "contactos",
+        body: req.body,
+        ok: true,
+        error: ignorados.length > 0 ? `Ignorados (sin api_name configurado): ${ignorados.join(", ")}` : undefined,
+        esPrueba,
+      });
       reply.send({ ok: true, aplicados, ignorados });
+    }
+  );
+
+  // Para que Configuración → Integraciones muestre las últimas solicitudes
+  // que llegaron a los 3 webhooks de arriba (reales o de prueba) — así se
+  // puede verificar qué mandó de verdad la plataforma de terceros antes de
+  // dar la integración por buena.
+  app.get<{ Querystring: { empresaId?: string; limite?: string } }>(
+    "/api/webhooks/recientes",
+    async (req, reply) => {
+      const { empresaId, limite } = req.query;
+      if (!empresaId) {
+        reply.code(400).send({ error: "empresaId es requerido" });
+        return;
+      }
+      const lim = Math.min(parseInt(limite ?? "20", 10) || 20, 50);
+
+      const result = await pool.query(
+        `SELECT id, endpoint, body, ok, error, es_prueba, creado_en
+         FROM webhooks_recibidos
+         WHERE empresa_id = $1
+         ORDER BY creado_en DESC
+         LIMIT $2`,
+        [empresaId, lim]
+      );
+      reply.send({ solicitudes: result.rows });
     }
   );
 }
