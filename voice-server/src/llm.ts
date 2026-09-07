@@ -38,6 +38,11 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
     : null;
 
   return [
+    // No condicional al guion: si el prompt_personalizado de la empresa no
+    // menciona el idioma, el modelo puede terminar respondiendo en inglés
+    // (le pasó a un cliente real) — esto va siempre, sin depender de lo que
+    // haya escrito la empresa.
+    "Responde SIEMPRE en español (nunca en inglés ni otro idioma), sin importar en qué idioma te hablen.",
     base,
     "En cuanto el cliente te dé su nombre y apellido, guárdalos con registrar_dato (campo \"nombre\" y campo " +
       '"apellido", por separado). Esto siempre aplica, para todo cliente.',
