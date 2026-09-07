@@ -21,7 +21,7 @@ export default async function ContactosPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold">Contactos</h1>
           <p className="text-sm text-muted">Perfil acumulado de cada cliente, a partir de lo que dice en sus llamadas.</p>
@@ -54,7 +54,8 @@ export default async function ContactosPage({
       </form>
 
       <div className="overflow-hidden rounded-lg border border-edge bg-surface">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-surface-2 text-left text-muted">
             <tr>
               <th className="px-4 py-2 font-medium">Nombre</th>
@@ -113,6 +114,7 @@ export default async function ContactosPage({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

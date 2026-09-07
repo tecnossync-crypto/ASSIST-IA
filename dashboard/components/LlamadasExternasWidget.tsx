@@ -46,7 +46,7 @@ export function LlamadasExternasWidget() {
   const hayActivas = llamadas.some((l) => l.estado === "en_curso");
 
   return (
-    <div className="fixed bottom-6 left-6 z-50 w-72 overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl shadow-slate-900/20">
+    <div className="fixed bottom-6 left-3 z-50 w-[calc(100vw-1.5rem)] max-w-72 overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl shadow-slate-900/20 sm:left-6 sm:w-72">
       <div className="flex items-center justify-between gap-2 bg-gradient-to-br from-indigo-600 to-violet-700 px-4 py-2.5">
         <div className="flex items-center gap-2 text-sm font-medium text-white">
           <Radio size={14} className={hayActivas ? "animate-pulse" : ""} />

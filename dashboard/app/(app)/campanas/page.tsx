@@ -104,7 +104,8 @@ export default async function CampanasPage() {
       </details>
 
       <div className="overflow-hidden rounded-lg border border-edge bg-surface">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="bg-surface-2 text-left text-muted">
             <tr>
               <th className="px-4 py-2 font-medium">Nombre</th>
@@ -158,6 +159,7 @@ export default async function CampanasPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -71,7 +71,8 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
       <section>
         <h2 className="mb-2 text-sm font-semibold text-ink-2">Historial de llamadas</h2>
         <div className="overflow-hidden rounded-lg border border-edge bg-surface">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] text-sm">
             <thead className="bg-surface-2 text-left text-muted">
               <tr>
                 <th className="px-4 py-2 font-medium">Fecha</th>
@@ -102,6 +103,7 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </section>
     </div>

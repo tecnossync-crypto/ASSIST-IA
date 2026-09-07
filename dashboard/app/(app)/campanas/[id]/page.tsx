@@ -109,7 +109,8 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
       )}
 
       <div className="overflow-hidden rounded-lg border border-edge bg-surface">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
           <thead className="bg-surface-2 text-left text-muted">
             <tr>
               <th className="px-4 py-2 font-medium">Número</th>
@@ -156,6 +157,7 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

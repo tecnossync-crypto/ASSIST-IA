@@ -107,7 +107,7 @@ export function Softphone() {
   if (!enLlamada) return null;
 
   return (
-    <div className="fixed bottom-28 right-6 z-[60] w-72 overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl shadow-slate-900/20 sm:right-8">
+    <div className="fixed bottom-28 right-3 left-3 z-[60] w-auto max-w-72 overflow-hidden rounded-2xl border border-edge bg-surface shadow-2xl shadow-slate-900/20 sm:left-auto sm:right-8 sm:w-72">
       <div className="flex items-center gap-3 bg-gradient-to-br from-emerald-600 to-emerald-700 px-4 py-3">
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
           <PhoneIncoming size={16} className={estadoLlamada === "sonando" ? "animate-pulse" : ""} />

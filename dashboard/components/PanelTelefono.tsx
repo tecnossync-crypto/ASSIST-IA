@@ -186,9 +186,9 @@ export function PanelTelefono() {
   const enLlamada = estado === "marcando" || estado === "en_curso";
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 sm:bottom-8 sm:right-8">
+    <div className="fixed inset-x-3 bottom-6 z-50 flex flex-col items-end gap-3 sm:inset-x-auto sm:bottom-8 sm:right-8">
       {abierto && (
-        <div className="w-[19rem] overflow-hidden rounded-3xl border border-edge bg-surface shadow-2xl shadow-slate-900/20 ring-1 ring-black/5">
+        <div className="w-full max-w-[19rem] overflow-hidden rounded-3xl border border-edge bg-surface shadow-2xl shadow-slate-900/20 ring-1 ring-black/5 sm:w-[19rem]">
           {/* Encabezado */}
           <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4 py-4">
             <div className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-indigo-500/20 blur-2xl" />
