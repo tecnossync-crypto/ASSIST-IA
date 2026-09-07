@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { ejecutarFlujosPorEtiquetasNuevas } from "../lib/flujos-trabajo.js";
+import { normalizarNumero } from "../lib/telefono.js";
 
 /**
  * API de lectura del módulo de contactos: el perfil acumulado de cada
@@ -92,7 +93,7 @@ export async function contactosRoutes(app: FastifyInstance) {
            datos = contactos.datos || EXCLUDED.datos,
            actualizado_en = now()
          RETURNING (xmax = 0) AS es_nuevo`,
-        [empresaId, c.numero, c.nombre ?? null, c.apellido ?? null, JSON.stringify(c.datos ?? {})]
+        [empresaId, normalizarNumero(c.numero), c.nombre ?? null, c.apellido ?? null, JSON.stringify(c.datos ?? {})]
       );
       if (result.rows[0]?.es_nuevo) insertados++;
       else actualizados++;

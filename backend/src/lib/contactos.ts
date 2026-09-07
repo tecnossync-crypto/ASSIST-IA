@@ -1,4 +1,5 @@
 import { pool } from "../db/pool.js";
+import { normalizarNumero } from "./telefono.js";
 
 const CAMPOS_DEDICADOS = new Set(["nombre", "apellido"]);
 
@@ -8,7 +9,8 @@ const CAMPOS_DEDICADOS = new Set(["nombre", "apellido"]);
  * poder buscarlos/mostrarlos fácil); cualquier otro campo (los
  * personalizados de cada empresa) va al JSONB `datos`.
  */
-export async function upsertContacto(empresaId: string, numero: string, campo: string, valor: string) {
+export async function upsertContacto(empresaId: string, numeroCrudo: string, campo: string, valor: string) {
+  const numero = normalizarNumero(numeroCrudo);
   const campoNormalizado = campo.trim().toLowerCase();
 
   if (campoNormalizado === "nombre") {
@@ -49,7 +51,8 @@ export async function upsertContacto(empresaId: string, numero: string, campo: s
  * agente todavía no haya capturado ningún dato de él (ej. apenas contestó
  * el teléfono). Así toda llamada deja rastro en el módulo de contactos.
  */
-export async function asegurarContacto(empresaId: string, numero: string) {
+export async function asegurarContacto(empresaId: string, numeroCrudo: string) {
+  const numero = normalizarNumero(numeroCrudo);
   await pool.query(
     `INSERT INTO contactos (empresa_id, numero) VALUES ($1, $2)
      ON CONFLICT (empresa_id, numero) DO NOTHING`,
