@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { actualizarEtiquetasContacto, actualizarDatosContacto, actualizarPropietarioContacto } from "@/lib/api";
+import {
+  actualizarEtiquetasContacto,
+  actualizarDatosContacto,
+  actualizarPropietarioContacto,
+  eliminarContacto,
+} from "@/lib/api";
 import { auditar } from "@/lib/session";
 
 export async function guardarEtiquetasAction(formData: FormData) {
@@ -44,4 +49,16 @@ export async function guardarPropietarioAction(formData: FormData) {
   revalidatePath(`/contactos/${contactoId}`);
   revalidatePath("/contactos");
   await auditar("actualizar", "contacto_propietario", { contactoId, propietarioUsuarioId });
+}
+
+// Sin redirect() acá a propósito: BotonEliminarContacto (cliente) atrapa
+// cualquier error de esta acción para mostrar el mensaje inline — un
+// redirect() lanzado desde dentro de ese try/catch se leería como un error
+// aunque el borrado sí funcionara. La navegación de vuelta a /contactos la
+// hace el propio componente cliente con router.push después de que esto
+// resuelva bien.
+export async function eliminarContactoAction(contactoId: string) {
+  await eliminarContacto(contactoId);
+  revalidatePath("/contactos");
+  await auditar("eliminar", "contacto", { contactoId });
 }

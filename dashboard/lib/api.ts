@@ -524,6 +524,14 @@ export async function actualizarDatosContacto(id: string, datos: Record<string, 
   if (!res.ok) throw new Error(`Error actualizando datos: HTTP ${res.status}`);
 }
 
+export async function eliminarContacto(id: string): Promise<void> {
+  const res = await fetch(new URL(`/api/contactos/${id}`, BACKEND_URL), { method: "DELETE" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error eliminando contacto: HTTP ${res.status}`);
+  }
+}
+
 export async function actualizarPropietarioContacto(id: string, propietarioUsuarioId: string | null): Promise<void> {
   const res = await fetch(new URL(`/api/contactos/${id}/propietario`, BACKEND_URL), {
     method: "PUT",

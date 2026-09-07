@@ -5,6 +5,8 @@ import { formatFechaHora } from "@/lib/format";
 import { ImportarContactos } from "@/components/ImportarContactos";
 import { AgregarContactoModal } from "@/components/AgregarContactoModal";
 import { EtiquetaChip } from "@/components/EtiquetaChip";
+import { BotonAccion } from "@/components/BotonAccion";
+import { eliminarContactoAction } from "./[id]/actions";
 
 export default async function ContactosPage({
   searchParams,
@@ -61,6 +63,7 @@ export default async function ContactosPage({
               <th className="px-4 py-2 font-medium">Etiquetas</th>
               <th className="px-4 py-2 font-medium">Otros datos</th>
               <th className="px-4 py-2 font-medium">Última actividad</th>
+              <th className="px-4 py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-edge">
@@ -89,12 +92,21 @@ export default async function ContactosPage({
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-muted">{formatFechaHora(c.actualizado_en)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <BotonAccion
+                      accion={eliminarContactoAction.bind(null, c.id)}
+                      mensajeExito="Eliminado."
+                      mensajeConfirmar={`¿Eliminar el contacto "${nombreCompleto}"? Esto no se puede deshacer.`}
+                    >
+                      Eliminar
+                    </BotonAccion>
+                  </td>
                 </tr>
               );
             })}
             {contactos.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted">
                   No hay contactos todavía.
                 </td>
               </tr>

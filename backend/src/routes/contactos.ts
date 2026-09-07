@@ -157,6 +157,19 @@ export async function contactosRoutes(app: FastifyInstance) {
     }
   );
 
+  // Elimina el perfil del contacto. El historial de llamadas se conserva
+  // (contacto_id queda en NULL — numero_origen/numero_destino ya viven en la
+  // propia fila de llamadas, así que no se pierde nada del historial real).
+  app.delete<{ Params: { id: string } }>("/api/contactos/:id", async (req, reply) => {
+    const { id } = req.params;
+    const result = await pool.query("DELETE FROM contactos WHERE id = $1 RETURNING id", [id]);
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: "no encontrado" });
+      return;
+    }
+    reply.send({ ok: true });
+  });
+
   // Notas libres que el agente del ejecutable de escritorio deja durante o
   // después de la llamada (seguimiento, próximos pasos, etc.).
   app.put<{ Params: { id: string }; Body: { notas: string } }>(

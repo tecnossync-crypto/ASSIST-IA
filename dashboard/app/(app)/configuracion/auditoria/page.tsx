@@ -32,7 +32,7 @@ export default async function AuditoriaPage() {
   const registros = await listarAuditoria();
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <ConfiguracionHeader
         Icon={History}
         titulo="Auditoría"
@@ -66,9 +66,7 @@ export default async function AuditoriaPage() {
                     <td className="whitespace-nowrap px-4 py-3 text-ink-2">
                       {ETIQUETAS_ENTIDAD[r.entidad] ?? r.entidad}
                     </td>
-                    <td className="max-w-xs truncate px-4 py-3 text-xs text-muted">
-                      {resumenDetalle(r.entidad, r.detalle)}
-                    </td>
+                    <td className="px-4 py-3 text-xs text-muted">{resumenDetalle(r.entidad, r.detalle)}</td>
                   </tr>
                 );
               })}

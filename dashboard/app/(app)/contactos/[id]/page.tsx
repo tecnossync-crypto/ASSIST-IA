@@ -5,6 +5,7 @@ import { formatFechaHora, formatDuracion, etiquetaEstado } from "@/lib/format";
 import { EditorEtiquetasContacto } from "@/components/EditorEtiquetasContacto";
 import { EditorDatosContacto } from "@/components/EditorDatosContacto";
 import { SelectorPropietarioContacto } from "@/components/SelectorPropietarioContacto";
+import { BotonEliminarContacto } from "@/components/BotonEliminarContacto";
 
 export default async function ContactoDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,11 +27,14 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
         </Link>
       </div>
 
-      <div>
-        <h1 className="text-xl font-semibold">{nombreCompleto}</h1>
-        <p className="text-sm text-muted">
-          {contacto.numero} · última actividad {formatFechaHora(contacto.actualizado_en)}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">{nombreCompleto}</h1>
+          <p className="text-sm text-muted">
+            {contacto.numero} · última actividad {formatFechaHora(contacto.actualizado_en)}
+          </p>
+        </div>
+        <BotonEliminarContacto contactoId={contacto.id} nombre={nombreCompleto} />
       </div>
 
       <section className="rounded-lg border border-edge bg-surface p-4">
