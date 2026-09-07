@@ -30,7 +30,11 @@ export default async function IaConfigPage() {
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div className="flex flex-col gap-1">
               <span className="text-sm font-medium text-ink-2">Voz del agente</span>
-              <SelectorVoz defaultValue={empresa.voz_agente} defaultProvider={empresa.tts_provider} />
+              <SelectorVoz
+                key={`${empresa.voz_agente ?? ""}::${empresa.tts_provider ?? ""}`}
+                defaultValue={empresa.voz_agente}
+                defaultProvider={empresa.tts_provider}
+              />
             </div>
 
             <div className="flex flex-col gap-1">
