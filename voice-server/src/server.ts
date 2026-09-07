@@ -137,11 +137,15 @@ wss.on("connection", (ws) => {
             resultado = { textoRespuesta: "Disculpe, tuve un problema técnico. ¿Puede repetir eso, por favor?" };
           }
 
+          console.log(`[ws] respuesta generada: "${resultado.textoRespuesta}"`);
+
           const pausaMs = session.tiempoRespuestaSegundos() * 1000;
           if (pausaMs > 0) await new Promise((r) => setTimeout(r, pausaMs));
 
           if (resultado.textoRespuesta) {
             enviar(ws, { type: "text", token: resultado.textoRespuesta, last: true });
+          } else {
+            console.error(`[${session.callSid}] correrTurno devolvió texto vacío — no se envió nada al cliente`);
           }
 
           if (resultado.transferSolicitada) {
