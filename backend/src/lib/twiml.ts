@@ -38,8 +38,12 @@ export function twimlConnectVoiceAgent(opts: {
   // en un combo por defecto incompatible: contestaba con un mensaje de error
   // en inglés y colgaba a los pocos segundos. Con un default explícito en
   // español, esa combinación siempre es válida.
+  // "es-MX-Neural2-A" (el default que se puso antes) probablemente no existe
+  // como voz real de Google — el mismo error seguía pasando. Se usa
+  // "es-US-Neural2-A", que es la MISMA voz ya verificada y ofrecida como
+  // primera opción del catálogo en Configuración → IA (components/SelectorVoz.tsx).
   const ttsProviderFinal = ttsProvider || "google";
-  const vozFinal = voz || "es-MX-Neural2-A";
+  const vozFinal = voz || "es-US-Neural2-A";
   const vozAttr = ` ttsProvider="${ttsProviderFinal}" voice="${vozFinal}"`;
 
   // Sin esto, Twilio reconoce lo que dice el cliente asumiendo inglés
