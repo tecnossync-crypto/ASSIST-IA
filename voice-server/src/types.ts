@@ -49,6 +49,9 @@ export interface EmpresaConfig {
   campos_personalizados?: { nombre: string; descripcion?: string }[];
   duracion_maxima_llamada_segundos?: number;
   tiempo_respuesta_segundos?: number;
+  // Departamentos/colas configurados (Configuración → Agentes) — el bot
+  // puede elegir a cuál transferir según de qué se trate la llamada.
+  colas?: { id: string; nombre: string }[];
 }
 
 export interface TurnoConversacion {

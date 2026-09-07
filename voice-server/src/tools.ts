@@ -13,14 +13,22 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       name: "transferir_a_humano",
       description:
         "Transfiere la llamada a un agente humano disponible. Úsala solo cuando el cliente lo pida " +
-        "explícitamente, esté molesto/insatisfecho, o el caso esté fuera de lo que el guion cubre. " +
-        "Después de llamarla, despídete brevemente porque la llamada va a transferirse.",
+        "explícitamente, esté molesto/insatisfecho, no tengas la información que necesita, o el caso esté " +
+        "fuera de lo que el guion cubre. Después de llamarla, despídete brevemente porque la llamada va a " +
+        "transferirse.",
       parameters: {
         type: "object",
         properties: {
           motivo: {
             type: "string",
             description: "Motivo breve de la transferencia, para que el humano tenga contexto.",
+          },
+          colaId: {
+            type: "string",
+            description:
+              "El id EXACTO (no el nombre) del departamento al que corresponde transferir, tomado de la lista " +
+              "de departamentos disponibles en tus instrucciones. Si no hay uno claramente indicado para este " +
+              "caso, o solo hay uno configurado, omite este campo — se reparte entre todos los agentes.",
           },
         },
         required: ["motivo"],
@@ -88,10 +96,13 @@ export async function ejecutarTool(
   switch (toolName) {
     case "transferir_a_humano": {
       const motivo = String(input.motivo ?? "");
-      // Ya no se le pide un número al bot: a qué agente cae la llamada lo
-      // decide el enrutamiento de la cola/empresa (round_robin, por
-      // disponibilidad, etc.) en el momento — ver post-relay en el backend.
-      await marcarTransferencia(callSid);
+      const colaId = input.colaId ? String(input.colaId) : undefined;
+      // A qué agente cae la llamada dentro de esa cola lo decide el
+      // enrutamiento configurado (round_robin, por disponibilidad, etc.) en
+      // el momento — ver post-relay en el backend. colaId es opcional: si
+      // el modelo no lo manda (o manda un id que no existe/es de otra
+      // empresa), el backend simplemente lo ignora y reparte entre todos.
+      await marcarTransferencia(callSid, colaId);
       return {
         resultText: "Transferencia marcada.",
         transferSolicitada: { motivo },

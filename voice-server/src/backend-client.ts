@@ -48,8 +48,11 @@ export async function getEmpresaConfigDeWebhook(llamadaWebhookId: string): Promi
   return (await res.json()) as EmpresaConfig;
 }
 
-export async function marcarTransferencia(callSid: string) {
-  await internalFetch(`/internal/llamadas/${callSid}/transferir`, { method: "POST" });
+export async function marcarTransferencia(callSid: string, colaId?: string) {
+  await internalFetch(`/internal/llamadas/${callSid}/transferir`, {
+    method: "POST",
+    body: JSON.stringify({ colaId }),
+  });
 }
 
 export async function guardarTranscripcion(

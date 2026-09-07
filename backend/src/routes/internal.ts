@@ -4,6 +4,16 @@ import { requireInternalKey } from "../lib/internal-auth.js";
 import { upsertContacto } from "../lib/contactos.js";
 import { aplicarVariablesContacto } from "../lib/variables-prompt.js";
 
+/** Colas/departamentos de la empresa, para que el bot pueda elegir a cuál
+ *  transferir según de qué se trate (ver herramienta transferir_a_humano). */
+async function obtenerColasParaPrompt(empresaId: string): Promise<{ id: string; nombre: string }[]> {
+  const result = await pool.query<{ id: string; nombre: string }>(
+    "SELECT id, nombre FROM colas WHERE empresa_id = $1 ORDER BY creado_en",
+    [empresaId]
+  );
+  return result.rows;
+}
+
 /**
  * Endpoints que solo llama el voice-server (nunca Twilio, nunca el dashboard).
  * El voice-server no toca Postgres directamente: pasa por aquí para que toda
@@ -20,21 +30,41 @@ export async function internalRoutes(app: FastifyInstance) {
   // agentes disponibles (mismo enrutamiento que "llamada normal") cuando
   // ConversationRelay termine y TwiML caiga al <Redirect>. Todo se maneja
   // dentro de la plataforma — ya no hay número externo de respaldo.
-  app.post<{ Params: { callSid: string } }>("/internal/llamadas/:callSid/transferir", async (req, reply) => {
-    const { callSid } = req.params;
+  //
+  // colaId (opcional): a qué departamento corresponde, si el bot pudo
+  // identificarlo (ver herramienta transferir_a_humano) — post-relay usa
+  // el cola_id de la llamada para decidir qué agentes marcar. Se valida
+  // que la cola sea de la MISMA empresa antes de aceptarla.
+  app.post<{ Params: { callSid: string }; Body: { colaId?: string } }>(
+    "/internal/llamadas/:callSid/transferir",
+    async (req, reply) => {
+      const { callSid } = req.params;
+      const { colaId } = req.body ?? {};
 
-    const result = await pool.query(
-      `UPDATE llamadas SET transferida = true, estado = 'transferida' WHERE call_sid = $1 RETURNING id`,
-      [callSid]
-    );
+      if (colaId) {
+        const colaValida = await pool.query(
+          `SELECT 1 FROM llamadas l JOIN colas c ON c.empresa_id = l.empresa_id
+           WHERE l.call_sid = $1 AND c.id = $2`,
+          [callSid, colaId]
+        );
+        if (colaValida.rows.length > 0) {
+          await pool.query("UPDATE llamadas SET cola_id = $2 WHERE call_sid = $1", [callSid, colaId]);
+        }
+      }
 
-    if (result.rows.length === 0) {
-      reply.code(404).send({ error: "llamada no encontrada" });
-      return;
+      const result = await pool.query(
+        `UPDATE llamadas SET transferida = true, estado = 'transferida' WHERE call_sid = $1 RETURNING id`,
+        [callSid]
+      );
+
+      if (result.rows.length === 0) {
+        reply.code(404).send({ error: "llamada no encontrada" });
+        return;
+      }
+
+      reply.send({ ok: true });
     }
-
-    reply.send({ ok: true });
-  });
+  );
 
   // Guarda la transcripción completa + resumen generado por el LLM al
   // terminar la llamada.
@@ -183,14 +213,12 @@ export async function internalRoutes(app: FastifyInstance) {
       }
 
       const empresaRow = result.rows[0];
-      const guionConVariables = await aplicarVariablesContacto(
-        empresaRow.guion_agente,
-        empresaRow.campos_personalizados ?? [],
-        empresaId,
-        numero
-      );
+      const [guionConVariables, colas] = await Promise.all([
+        aplicarVariablesContacto(empresaRow.guion_agente, empresaRow.campos_personalizados ?? [], empresaId, numero),
+        obtenerColasParaPrompt(empresaId),
+      ]);
 
-      reply.send({ ...empresaRow, guion_agente: guionConVariables });
+      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas });
     }
   );
 
@@ -234,14 +262,12 @@ export async function internalRoutes(app: FastifyInstance) {
       const empresaRow = empresa.rows[0];
       const override = campana.rows[0]?.guion_override ?? {};
       const guionCombinado = { ...empresaRow.guion_agente, ...override };
-      const guionConVariables = await aplicarVariablesContacto(
-        guionCombinado,
-        empresaRow.campos_personalizados ?? [],
-        empresaId,
-        numero
-      );
+      const [guionConVariables, colas] = await Promise.all([
+        aplicarVariablesContacto(guionCombinado, empresaRow.campos_personalizados ?? [], empresaId, numero),
+        obtenerColasParaPrompt(empresaId),
+      ]);
 
-      reply.send({ ...empresaRow, guion_agente: guionConVariables });
+      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas });
     }
   );
 
@@ -280,14 +306,12 @@ export async function internalRoutes(app: FastifyInstance) {
       const guionCombinado = prompt
         ? { ...empresaRow.guion_agente, prompt_personalizado: prompt }
         : empresaRow.guion_agente;
-      const guionConVariables = await aplicarVariablesContacto(
-        guionCombinado,
-        empresaRow.campos_personalizados ?? [],
-        empresaId,
-        numero
-      );
+      const [guionConVariables, colas] = await Promise.all([
+        aplicarVariablesContacto(guionCombinado, empresaRow.campos_personalizados ?? [], empresaId, numero),
+        obtenerColasParaPrompt(empresaId),
+      ]);
 
-      reply.send({ ...empresaRow, guion_agente: guionConVariables });
+      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas });
     }
   );
 }

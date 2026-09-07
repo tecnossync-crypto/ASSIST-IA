@@ -37,6 +37,17 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
     ? campos.map((c) => (c.descripcion ? `${c.nombre} (${c.descripcion})` : c.nombre)).join(", ")
     : null;
 
+  // Departamentos/colas configurados por la empresa (Configuración →
+  // Agentes). Si hay más de uno, el modelo debe indicar cuál corresponde al
+  // usar transferir_a_humano; si solo hay uno o ninguno, no hace falta
+  // elegir (el backend reparte entre todos los agentes por defecto).
+  const colas = empresa.colas ?? [];
+  const listaColas =
+    colas.length > 1
+      ? `Departamentos disponibles para transferir (usa el "id" EXACTO, no el nombre, en el campo colaId de ` +
+        `transferir_a_humano): ${colas.map((c) => `"${c.nombre}" [id: ${c.id}]`).join(", ")}.`
+      : null;
+
   return [
     // No condicional al guion: si el prompt_personalizado de la empresa no
     // menciona el idioma, el modelo puede terminar respondiendo en inglés
@@ -52,6 +63,7 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
       : "",
     "Usa la herramienta registrar_solicitud en cuanto identifiques qué necesita el cliente.",
     "Usa la herramienta transferir_a_humano solo cuando corresponda según las reglas de arriba.",
+    listaColas,
     "Nunca inventes información que no tengas; si no sabes algo, dilo y ofrece transferir.",
   ]
     .filter(Boolean)
