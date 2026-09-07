@@ -42,7 +42,17 @@ export function twimlConnectVoiceAgent(opts: {
   // como voz real de Google — el mismo error seguía pasando. Se usa
   // "es-US-Neural2-A", que es la MISMA voz ya verificada y ofrecida como
   // primera opción del catálogo en Configuración → IA (components/SelectorVoz.tsx).
-  const ttsProviderFinal = ttsProvider || "google";
+  //
+  // OTRO bug encontrado: el catálogo (SelectorVoz.tsx) guarda el proveedor
+  // en minúscula ("google", "amazon", "elevenlabs"), pero Twilio documenta
+  // los valores válidos de ttsProvider como "Google" / "Amazon" /
+  // "ElevenLabs" (con mayúscula). Con la minúscula, Twilio no tira ningún
+  // error de validación al armar la llamada — pero la síntesis de voz
+  // fallaba en silencio: el texto se generaba bien (se veía en los logs) y
+  // nunca se escuchaba nada, ni el saludo inicial. Se normaliza acá,
+  // sin importar cómo haya quedado guardado en la base.
+  const PROVEEDORES_TTS: Record<string, string> = { google: "Google", amazon: "Amazon", elevenlabs: "ElevenLabs" };
+  const ttsProviderFinal = PROVEEDORES_TTS[(ttsProvider || "google").toLowerCase()] ?? "Google";
   const vozFinal = voz || "es-US-Neural2-A";
   const vozAttr = ` ttsProvider="${ttsProviderFinal}" voice="${vozFinal}"`;
 
