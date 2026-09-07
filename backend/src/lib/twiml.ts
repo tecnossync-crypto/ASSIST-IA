@@ -29,9 +29,18 @@ export function twimlConnectVoiceAgent(opts: {
 
   // ConversationRelay necesita "ttsProvider" y "voice" como atributos
   // SEPARADOS (ej. ttsProvider="amazon" voice="Pedro-Neural") — un solo
-  // string mezclado no es válido para Twilio. Si falta cualquiera de los
-  // dos, se omiten ambos y Twilio usa su voz por defecto.
-  const vozAttr = voz && ttsProvider ? ` ttsProvider="${ttsProvider}" voice="${voz}"` : "";
+  // string mezclado no es válido para Twilio. Si la empresa no configuró
+  // ninguno de los dos, se usa un default en español (Google es-MX) en vez
+  // de dejarlo vacío: según la documentación de Twilio, "Conversation Relay
+  // sends an error message ... and disconnects the call when you've
+  // specified an invalid combination of ... ttsProvider and voice" — con
+  // language="es-MX" puesto (ver abajo) pero SIN voz/ttsProvider, Twilio caía
+  // en un combo por defecto incompatible: contestaba con un mensaje de error
+  // en inglés y colgaba a los pocos segundos. Con un default explícito en
+  // español, esa combinación siempre es válida.
+  const ttsProviderFinal = ttsProvider || "google";
+  const vozFinal = voz || "es-MX-Neural2-A";
+  const vozAttr = ` ttsProvider="${ttsProviderFinal}" voice="${vozFinal}"`;
 
   // Sin esto, Twilio reconoce lo que dice el cliente asumiendo inglés
   // (en-US) por defecto — con un cliente hablando español, la transcripción
