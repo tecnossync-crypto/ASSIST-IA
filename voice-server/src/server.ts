@@ -114,7 +114,18 @@ wss.on("connection", (ws) => {
             return;
           }
 
-          const resultado = await session.procesarMensajeCliente(msg.voicePrompt);
+          // Red de seguridad extra: aunque correrTurno ya no debería tirar
+          // por un fallo de herramienta (ver llm.ts), si por cualquier otra
+          // razón esto falla (la API de OpenAI no responde, etc.), antes se
+          // perdía la respuesta completa y el cliente se quedaba callado
+          // sin ningún aviso. Ahora siempre se le dice algo.
+          let resultado: Awaited<ReturnType<typeof session.procesarMensajeCliente>>;
+          try {
+            resultado = await session.procesarMensajeCliente(msg.voicePrompt);
+          } catch (err) {
+            console.error(`[${session.callSid}] Error procesando el mensaje del cliente:`, err);
+            resultado = { textoRespuesta: "Disculpe, tuve un problema técnico. ¿Puede repetir eso, por favor?" };
+          }
 
           const pausaMs = session.tiempoRespuestaSegundos() * 1000;
           if (pausaMs > 0) await new Promise((r) => setTimeout(r, pausaMs));

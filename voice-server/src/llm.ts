@@ -131,7 +131,21 @@ export async function correrTurno(opts: {
         // argumentos mal formados del modelo; seguimos con input vacío
       }
 
-      const resultado = await ejecutarTool(callSid, toolCall.function.name, input);
+      // Si ejecutarTool tira una excepción (falla de red hacia el backend,
+      // etc.) SIN este try/catch, se perdía todo el turno: la excepción
+      // subía sin control y el cliente se quedaba sin ninguna respuesta —
+      // justo cuando acababa de dar un dato (registrar_dato es la
+      // herramienta que más se llama, así que era el momento más común para
+      // que pasara). Ahora un fallo de la herramienta se le informa al
+      // modelo como resultado (puede disculparse y seguir) en vez de
+      // tumbar el turno completo.
+      let resultado: Awaited<ReturnType<typeof ejecutarTool>>;
+      try {
+        resultado = await ejecutarTool(callSid, toolCall.function.name, input);
+      } catch (err) {
+        console.error(`[${callSid}] Error ejecutando tool "${toolCall.function.name}":`, err);
+        resultado = { resultText: "Error técnico guardando esto — discúlpate brevemente y continúa la conversación." };
+      }
       if (resultado.transferSolicitada) transferSolicitada = resultado.transferSolicitada;
 
       historial.push({
