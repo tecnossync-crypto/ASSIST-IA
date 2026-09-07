@@ -42,6 +42,16 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    // Temporal, para diagnosticar por qué a veces no llega nada cuando el
+    // cliente habla: registra CADA mensaje que entra por el WebSocket, sea
+    // cual sea su tipo (antes solo se logueaban errores, así que un "no pasó
+    // nada" no dejaba ningún rastro para saber si el problema es que Twilio
+    // nunca transcribe, o que llega algo y se descarta).
+    console.log(
+      `[ws] tipo=${msg.type}` +
+        (msg.type === "prompt" ? ` last=${msg.last} voicePrompt="${msg.voicePrompt}"` : "")
+    );
+
     try {
       switch (msg.type) {
         case "setup": {
