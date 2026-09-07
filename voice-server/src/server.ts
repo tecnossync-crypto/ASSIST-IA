@@ -25,10 +25,21 @@ const httpServer = createServer((req, res) => {
 const wss = new WebSocketServer({ server: httpServer, path: "/voice-stream" });
 
 function enviar(ws: WebSocket, mensaje: ConversationRelayOutgoing) {
-  ws.send(JSON.stringify(mensaje));
+  // ws.send() puede fallar en silencio (sin tirar excepción) si la conexión
+  // ya no está abierta, o emitir el error por el evento 'error' del socket
+  // en vez de por una excepción normal — ninguno de los dos se veía en los
+  // logs hasta ahora. Esto lo hace explícito.
+  console.log(`[ws] enviando readyState=${ws.readyState} mensaje=${JSON.stringify(mensaje).slice(0, 200)}`);
+  ws.send(JSON.stringify(mensaje), (err) => {
+    if (err) console.error("[ws] error enviando mensaje a ConversationRelay:", err);
+  });
 }
 
 wss.on("connection", (ws) => {
+  console.log("[ws] nueva conexión de ConversationRelay");
+  ws.on("error", (err) => console.error("[ws] error en el socket:", err));
+  ws.on("close", (code, reason) => console.log(`[ws] socket cerrado code=${code} reason=${reason}`));
+
   let session: ConversationSession | null = null;
   let finalizadaManualmente = false;
   let temporizadorLimite: NodeJS.Timeout | null = null;
