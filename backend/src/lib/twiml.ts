@@ -33,6 +33,13 @@ export function twimlConnectVoiceAgent(opts: {
   // dos, se omiten ambos y Twilio usa su voz por defecto.
   const vozAttr = voz && ttsProvider ? ` ttsProvider="${ttsProvider}" voice="${voz}"` : "";
 
+  // Sin esto, Twilio reconoce lo que dice el cliente asumiendo inglés
+  // (en-US) por defecto — con un cliente hablando español, la transcripción
+  // sale vacía o basura y el bot nunca recibe nada que responder (se queda
+  // "esperando" aunque el cliente sí esté hablando). es-MX cubre bien
+  // español latinoamericano en general.
+  const idiomaAttr = ` language="es-MX"`;
+
   // Si la llamada viene de una campaña, el voice-server la usa para pedir
   // el guion combinado (empresa + guion_override de la campaña). Si viene
   // de un webhook externo (Configuración → Integraciones → API), pide el
@@ -61,7 +68,7 @@ export function twimlConnectVoiceAgent(opts: {
     <Recording recordingStatusCallback="${publicBaseUrl}/webhooks/twilio/recording-status" />
   </Start>
   <Connect>
-    <ConversationRelay url="${voiceWsUrl}"${vozAttr}>
+    <ConversationRelay url="${voiceWsUrl}"${idiomaAttr}${vozAttr}>
       <Parameter name="empresaId" value="${empresaId}" />
       <Parameter name="callSid" value="${callSid}" />${parametroCampana}${parametroWebhook}${parametroNumeroCliente}
     </ConversationRelay>
