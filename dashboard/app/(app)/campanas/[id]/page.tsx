@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { obtenerCampana } from "@/lib/api";
-import { formatFechaHora } from "@/lib/format";
+import { obtenerCampana, obtenerReporteCampana } from "@/lib/api";
+import { formatFechaHora, formatDuracion } from "@/lib/format";
 import { iniciarCampanaAction, pausarCampanaAction } from "../actions";
 import { BotonAccion } from "@/components/BotonAccion";
+import { ProbarCampana } from "@/components/ProbarCampana";
 
 const ETIQUETAS_ESTADO_CONTACTO: Record<string, string> = {
   pendiente: "Pendiente",
@@ -14,10 +15,18 @@ const ETIQUETAS_ESTADO_CONTACTO: Record<string, string> = {
 
 export default async function CampanaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = await obtenerCampana(id).catch(() => null);
+  const [data, reporte] = await Promise.all([
+    obtenerCampana(id).catch(() => null),
+    obtenerReporteCampana(id).catch(() => null),
+  ]);
   if (!data) notFound();
 
   const { campana, contactos } = data;
+  const totalReporte = Number(reporte?.total ?? 0);
+  const evaluadas =
+    Number(reporte?.satisfaccion_positiva ?? 0) +
+    Number(reporte?.satisfaccion_neutral ?? 0) +
+    Number(reporte?.satisfaccion_negativa ?? 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -54,6 +63,50 @@ export default async function CampanaDetallePage({ params }: { params: Promise<{
           </BotonAccion>
         ) : null}
       </div>
+
+      <ProbarCampana campanaId={campana.id} />
+
+      {reporte && totalReporte > 0 && (
+        <div className="rounded-lg border border-edge bg-surface p-5">
+          <h2 className="mb-3 text-sm font-semibold text-ink">Reporte</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-muted">Completados</p>
+              <p className="text-lg font-semibold text-ink">
+                {reporte.completados}/{reporte.total}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted">Fallidos</p>
+              <p className="text-lg font-semibold text-ink">{reporte.fallidos}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted">Pendientes</p>
+              <p className="text-lg font-semibold text-ink">
+                {Number(reporte.pendientes) + Number(reporte.llamando)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted">Duración promedio</p>
+              <p className="text-lg font-semibold text-ink">
+                {formatDuracion(
+                  reporte.duracion_promedio_segundos ? Number(reporte.duracion_promedio_segundos) : null
+                )}
+              </p>
+            </div>
+          </div>
+          {evaluadas > 0 && (
+            <div className="mt-4 border-t border-edge pt-4">
+              <p className="mb-2 text-xs text-muted">Satisfacción (de {evaluadas} llamadas evaluadas)</p>
+              <div className="flex gap-4 text-sm">
+                <span className="text-emerald-700">Positiva: {reporte.satisfaccion_positiva}</span>
+                <span className="text-ink-2">Neutral: {reporte.satisfaccion_neutral}</span>
+                <span className="text-red-700">Negativa: {reporte.satisfaccion_negativa}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-lg border border-edge bg-surface">
         <table className="w-full text-sm">

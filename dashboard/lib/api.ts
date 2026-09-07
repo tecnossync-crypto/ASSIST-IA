@@ -455,6 +455,38 @@ export async function pausarCampana(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Error pausando campaña: HTTP ${res.status}`);
 }
 
+export async function probarCampana(id: string, numero: string): Promise<{ callSid: string }> {
+  const res = await fetch(new URL(`/api/campanas/${id}/probar`, BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ numero }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error originando llamada de prueba: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface CampanaReporte {
+  total: string;
+  completados: string;
+  fallidos: string;
+  pendientes: string;
+  llamando: string;
+  duracion_promedio_segundos: string | null;
+  satisfaccion_positiva: string;
+  satisfaccion_neutral: string;
+  satisfaccion_negativa: string;
+}
+
+export async function obtenerReporteCampana(id: string): Promise<CampanaReporte> {
+  const res = await fetch(new URL(`/api/campanas/${id}/reporte`, BACKEND_URL), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo reporte de campaña: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.reporte;
+}
+
 export interface ContactoResumen {
   id: string;
   numero: string;
