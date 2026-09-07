@@ -51,7 +51,15 @@ export function twimlConnectVoiceAgent(opts: {
   // sale vacía o basura y el bot nunca recibe nada que responder (se queda
   // "esperando" aunque el cliente sí esté hablando). es-MX cubre bien
   // español latinoamericano en general.
-  const idiomaAttr = ` language="es-MX"`;
+  //
+  // EL ERROR REAL (confirmado con el código 64101 de Twilio, ver Notifications
+  // de la llamada): "Incomplete value set in TwiML for language es-MX,
+  // ttsProvider/voice and transcriptionProvider/speechModel are all needed".
+  // O sea: en cuanto se pone `language`, Twilio EXIGE los 4 atributos juntos
+  // (ttsProvider+voice para hablar, transcriptionProvider+speechModel para
+  // entender) — faltaban estos dos últimos, por eso la llamada seguía
+  // fallando con los fixes anteriores (esos solo cubrían ttsProvider/voice).
+  const idiomaAttr = ` language="es-MX" transcriptionProvider="Google" speechModel="telephony"`;
 
   // Si la llamada viene de una campaña, el voice-server la usa para pedir
   // el guion combinado (empresa + guion_override de la campaña). Si viene
