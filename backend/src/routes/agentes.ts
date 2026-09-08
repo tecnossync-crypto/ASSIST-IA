@@ -92,10 +92,10 @@ export async function agentesRoutes(app: FastifyInstance) {
 
   app.put<{
     Params: { id: string };
-    Body: { nombre?: string; email?: string; pin?: string; rol?: string; colaId?: string | null };
+    Body: { nombre?: string; email?: string; pin?: string; rol?: string; colaId?: string | null; password?: string };
   }>("/api/agentes/:id", async (req, reply) => {
     const { id } = req.params;
-    const { nombre, email, pin, rol, colaId } = req.body;
+    const { nombre, email, pin, rol, colaId, password } = req.body;
     if (pin && !/^\d{4,6}$/.test(pin)) {
       reply.code(400).send({ error: "El PIN debe ser numérico, de 4 a 6 dígitos" });
       return;
@@ -104,6 +104,12 @@ export async function agentesRoutes(app: FastifyInstance) {
       reply.code(400).send({ error: "Rol inválido" });
       return;
     }
+    if (password && password.length < 8) {
+      reply.code(400).send({ error: "La contraseña debe tener al menos 8 caracteres" });
+      return;
+    }
+
+    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
 
     try {
       const result = await pool.query(
@@ -112,10 +118,20 @@ export async function agentesRoutes(app: FastifyInstance) {
            email = COALESCE($3, email),
            pin = COALESCE($4, pin),
            rol = COALESCE($5, rol),
-           cola_id = CASE WHEN $6::boolean THEN $7::uuid ELSE cola_id END
+           cola_id = CASE WHEN $6::boolean THEN $7::uuid ELSE cola_id END,
+           password_hash = COALESCE($8, password_hash)
          WHERE id = $1
          RETURNING id, nombre, email, rol, pin, cola_id`,
-        [id, nombre ?? null, email ? email.trim().toLowerCase() : null, pin ?? null, rol ?? null, colaId !== undefined, colaId || null]
+        [
+          id,
+          nombre ?? null,
+          email ? email.trim().toLowerCase() : null,
+          pin ?? null,
+          rol ?? null,
+          colaId !== undefined,
+          colaId || null,
+          passwordHash,
+        ]
       );
       if (result.rows.length === 0) {
         reply.code(404).send({ error: "no encontrado" });

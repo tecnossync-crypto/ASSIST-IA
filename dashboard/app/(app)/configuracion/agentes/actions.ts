@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import {
   crearAgente,
   eliminarAgente,
+  actualizarPasswordAgente,
   actualizarEnrutamiento,
   crearCola,
   actualizarEnrutamientoCola,
@@ -71,6 +72,32 @@ export async function eliminarAgenteAction(id: string) {
   await eliminarAgente(id);
   revalidatePath("/configuracion/agentes");
   await auditar("eliminar", "agente", { id });
+}
+
+export interface EstadoPassword {
+  error?: string;
+  ok?: boolean;
+}
+
+export async function cambiarPasswordAgenteAction(
+  id: string,
+  _prevState: EstadoPassword | null,
+  formData: FormData
+): Promise<EstadoPassword> {
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 8) {
+    return { error: "La contraseña debe tener al menos 8 caracteres." };
+  }
+
+  try {
+    await actualizarPasswordAgente(id, password);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error cambiando la contraseña." };
+  }
+
+  revalidatePath("/configuracion/agentes");
+  await auditar("actualizar", "agente_password", { id });
+  return { ok: true };
 }
 
 export async function actualizarEnrutamientoAction(formData: FormData) {

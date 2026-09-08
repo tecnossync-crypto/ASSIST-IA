@@ -5,6 +5,7 @@ import { EnrutamientoForm } from "@/components/EnrutamientoForm";
 import { ColaEnrutamientoSelect } from "@/components/ColaEnrutamientoSelect";
 import { BotonAccion } from "@/components/BotonAccion";
 import { NuevoAgenteForm } from "@/components/NuevoAgenteForm";
+import { CambiarPasswordAgente } from "@/components/CambiarPasswordAgente";
 import { eliminarAgenteAction, crearColaAction, eliminarColaAction } from "./actions";
 
 const ETIQUETAS_ROL: Record<string, string> = {
@@ -109,7 +110,7 @@ export default async function AgentesPage() {
         {agentes.map((a) => (
           <div
             key={a.id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-surface p-4"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-edge bg-surface p-4"
           >
             <div className="flex items-center gap-3">
               <Circle size={9} className={(ESTADO_PRESENCIA[a.estado_presencia] ?? ESTADO_PRESENCIA.desconectado).punto} />
@@ -128,13 +129,16 @@ export default async function AgentesPage() {
                 </p>
               </div>
             </div>
-            <BotonAccion
-              accion={eliminarAgenteAction.bind(null, a.id)}
-              mensajeExito="Eliminado."
-              mensajeConfirmar={`¿Eliminar al agente "${a.nombre}"?`}
-            >
-              Eliminar
-            </BotonAccion>
+            <div className="flex flex-wrap items-center gap-4">
+              {a.tiene_acceso_dashboard && <CambiarPasswordAgente id={a.id} nombre={a.nombre} />}
+              <BotonAccion
+                accion={eliminarAgenteAction.bind(null, a.id)}
+                mensajeExito="Eliminado."
+                mensajeConfirmar={`¿Eliminar al agente "${a.nombre}"?`}
+              >
+                Eliminar
+              </BotonAccion>
+            </div>
           </div>
         ))}
       </section>

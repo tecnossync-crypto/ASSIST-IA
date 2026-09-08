@@ -759,6 +759,18 @@ export async function eliminarAgente(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Error eliminando agente: HTTP ${res.status}`);
 }
 
+export async function actualizarPasswordAgente(id: string, password: string): Promise<void> {
+  const res = await fetch(new URL(`/api/agentes/${id}`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error actualizando la contraseña: HTTP ${res.status}`);
+  }
+}
+
 export async function loginUsuario(
   email: string,
   password: string
