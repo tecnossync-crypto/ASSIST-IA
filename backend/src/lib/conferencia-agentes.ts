@@ -46,11 +46,19 @@ export async function iniciarConferenciaConAgentes(opts: {
   // pierna, al contestar, entra a la MISMA conferencia y la arranca — la
   // primera en entrar gana, y conferencia-evento cancela las demás.
   const agenteUrl = `${publicBaseUrl}/webhooks/twilio/conferencia-agente?conferencia=${encodeURIComponent(conferenciaNombre)}`;
+  // ?autoContestar=true viaja como parámetro dentro del propio URI "client:"
+  // — Twilio lo expone como call.customParameters en el softphone del
+  // navegador (ver Softphone.tsx). Solo aplica cuando ES el agente que
+  // originó la llamada él mismo: no tiene sentido pedirle que "conteste" su
+  // propia llamada saliente — si la hizo, es porque ya sabe que quiere
+  // hablar con esa persona. El reparto normal (inbound/transferencias) sigue
+  // sonando y esperando a que el agente elija contestar, como siempre.
+  const destino = (identidad: string) => (usuarioIdDirecto ? `client:${identidad}?autoContestar=true` : `client:${identidad}`);
   const intentos = await Promise.all(
     identidadesAgentes.map((identidad) =>
       twilioEmpresa.client.calls
         .create({
-          to: `client:${identidad}`,
+          to: destino(identidad),
           from: twilioEmpresa.fromNumber,
           url: agenteUrl,
           method: "POST",

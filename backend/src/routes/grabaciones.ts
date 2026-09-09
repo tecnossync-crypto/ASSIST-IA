@@ -98,6 +98,15 @@ export async function grabacionesRoutes(app: FastifyInstance) {
     for (const g of grabaciones.rows) {
       try {
         const stream = await streamGrabacion(g.url_storage);
+        // Sin este listener, un error del stream de S3 a mitad de lectura
+        // (no al pedirlo — el await de arriba ya pasó, sino ya leyendo el
+        // audio) queda sin nadie escuchándolo. En Node, un stream que emite
+        // "error" sin listener tumba el proceso ENTERO, no solo este
+        // request — eso explica un 502 "de la nada" con el backend por lo
+        // demás sano.
+        stream.on("error", (err) => {
+          app.log.warn({ err, urlStorage: g.url_storage }, "Error leyendo una grabación durante la exportación, se omite");
+        });
         const fecha = new Date(g.creado_en).toISOString().slice(0, 10);
         const numero = (g.direccion === "entrante" ? g.numero_origen : g.numero_destino).replace(/[^\d+]/g, "");
         const nombreArchivo = `${fecha}_${numero}_${g.url_storage.split("/").pop()}`;

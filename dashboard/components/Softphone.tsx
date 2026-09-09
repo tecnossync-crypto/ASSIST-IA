@@ -61,10 +61,23 @@ export function Softphone() {
         device.on("incoming", (call) => {
           callRef.current = call;
           setNumeroEntrante(call.parameters.From ?? "Llamada entrante");
-          setEstadoLlamada("sonando");
 
           call.on("accept", () => setEstadoLlamada("en_curso"));
           call.on("disconnect", () => reiniciarEstadoLlamada());
+
+          // El backend marca esto SOLO cuando el que está recibiendo esta
+          // pierna es el mismo agente que originó la llamada él mismo
+          // (panel de teléfono → "llamar a este contacto") — ver
+          // conferencia-agentes.ts. No tiene sentido pedirle que "conteste"
+          // su propia llamada saliente, así que se conecta directo sin
+          // mostrar el botón de Contestar/Rechazar.
+          if (call.customParameters?.get("autoContestar") === "true") {
+            call.accept();
+            setEstadoLlamada("en_curso");
+            return;
+          }
+
+          setEstadoLlamada("sonando");
           call.on("cancel", () => reiniciarEstadoLlamada());
           call.on("reject", () => reiniciarEstadoLlamada());
         });
