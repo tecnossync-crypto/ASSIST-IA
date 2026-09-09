@@ -16,6 +16,17 @@ const SOLO_ADMIN = ["/configuracion", "/api/grabaciones", "/api/clonar-voz"];
 // nunca Configuración — por eso esta lista es aparte de SOLO_ADMIN.
 const ADMIN_O_SUPERVISOR = ["/supervision", "/api/monitoreo", "/api/supervision"];
 
+// Un operador (agente) solo debe ver su propia cola de llamadas y el
+// softphone — nada de Campañas ni Contactos (son vista/gestión de cartera,
+// no operación diaria de un agente individual). El prefijo cubre también
+// las rutas /api/campanas y /api/contactos propias del dashboard (proxies),
+// no solo las páginas.
+const NO_OPERADOR = ["/campanas", "/api/campanas", "/contactos", "/api/contactos"];
+// A dónde mandar a un operador que cae en una ruta que no le toca — "/"
+// (Resumen) tampoco es para operadores, así que no puede ser el destino del
+// redirect (sería un loop). Su vista natural es su propia cola de llamadas.
+const DESTINO_OPERADOR = "/llamadas";
+
 // Protege todo el dashboard (páginas Y rutas /api propias): sin sesión
 // válida, redirige a /login o responde 401/403 si es una API. Corre en
 // Edge, por eso lib/session.ts firma con Web Crypto (no node:crypto).
@@ -64,6 +75,18 @@ export async function middleware(req: NextRequest) {
     }
     const url = req.nextUrl.clone();
     url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  if (
+    sesion.rol === "operador" &&
+    (pathname === "/" || NO_OPERADOR.some((p) => pathname.startsWith(p)))
+  ) {
+    if (esApi) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = DESTINO_OPERADOR;
     return NextResponse.redirect(url);
   }
 

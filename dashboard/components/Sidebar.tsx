@@ -26,10 +26,18 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
   const pathname = usePathname();
   const { abierto, setAbierto } = useMobileNav();
   const esAdmin = sesion?.rol === "admin";
+  const esOperador = sesion?.rol === "operador";
   const veSupervision = sesion?.rol === "admin" || sesion?.rol === "supervisor";
+  // Un operador solo ve su propia cola de llamadas (Resumen, Campañas y
+  // Contactos son vista/gestión de cartera, no operación diaria de un
+  // agente individual — el middleware ya bloquea estas rutas por URL
+  // directa, esto es solo para no mostrarle un link a algo que no puede
+  // abrir).
   const items = (
     veSupervision ? [...ITEMS.slice(0, 2), ...ITEMS_SUPERVISION, ...ITEMS.slice(2)] : ITEMS
-  ).filter((i) => i.href !== "/configuracion" || esAdmin);
+  )
+    .filter((i) => i.href !== "/configuracion" || esAdmin)
+    .filter((i) => !esOperador || !["/", "/campanas", "/contactos"].includes(i.href));
 
   return (
     <>
