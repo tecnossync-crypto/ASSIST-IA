@@ -52,6 +52,11 @@ export interface EmpresaConfig {
   // Departamentos/colas configurados (Configuración → Agentes) — el bot
   // puede elegir a cuál transferir según de qué se trate la llamada.
   colas?: { id: string; nombre: string }[];
+  // Si ya conocemos a este cliente (llamada a/de un número ya guardado en
+  // Contactos), lo que ya sabemos de él — para que el bot lo salude por su
+  // nombre y NO vuelva a pedir datos que ya tiene (ver construirSystemPrompt
+  // en llm.ts). null si es la primera vez que hablamos con este número.
+  contacto_conocido?: { nombre: string | null; apellido: string | null; datos: Record<string, string> } | null;
 }
 
 export interface TurnoConversacion {

@@ -213,12 +213,12 @@ export async function internalRoutes(app: FastifyInstance) {
       }
 
       const empresaRow = result.rows[0];
-      const [guionConVariables, colas] = await Promise.all([
+      const [{ guion: guionConVariables, contacto: contactoConocido }, colas] = await Promise.all([
         aplicarVariablesContacto(empresaRow.guion_agente, empresaRow.campos_personalizados ?? [], empresaId, numero),
         obtenerColasParaPrompt(empresaId),
       ]);
 
-      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas });
+      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas, contacto_conocido: contactoConocido });
     }
   );
 
@@ -262,12 +262,12 @@ export async function internalRoutes(app: FastifyInstance) {
       const empresaRow = empresa.rows[0];
       const override = campana.rows[0]?.guion_override ?? {};
       const guionCombinado = { ...empresaRow.guion_agente, ...override };
-      const [guionConVariables, colas] = await Promise.all([
+      const [{ guion: guionConVariables, contacto: contactoConocido }, colas] = await Promise.all([
         aplicarVariablesContacto(guionCombinado, empresaRow.campos_personalizados ?? [], empresaId, numero),
         obtenerColasParaPrompt(empresaId),
       ]);
 
-      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas });
+      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas, contacto_conocido: contactoConocido });
     }
   );
 
@@ -306,12 +306,12 @@ export async function internalRoutes(app: FastifyInstance) {
       const guionCombinado = prompt
         ? { ...empresaRow.guion_agente, prompt_personalizado: prompt }
         : empresaRow.guion_agente;
-      const [guionConVariables, colas] = await Promise.all([
+      const [{ guion: guionConVariables, contacto: contactoConocido }, colas] = await Promise.all([
         aplicarVariablesContacto(guionCombinado, empresaRow.campos_personalizados ?? [], empresaId, numero),
         obtenerColasParaPrompt(empresaId),
       ]);
 
-      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas });
+      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas, contacto_conocido: contactoConocido });
     }
   );
 }

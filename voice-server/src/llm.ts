@@ -56,6 +56,36 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
         `transferir_a_humano): ${colas.map((c) => `"${c.nombre}" [id: ${c.id}]`).join(", ")}.`
       : null;
 
+  // Si ya conocemos a este cliente (llamada a/de un número que ya está en
+  // Contactos), esto le dice al bot explícitamente qué ya sabe y qué le
+  // falta — SIN depender de que la empresa haya escrito {{variables}} en su
+  // guion (antes, si no las usaba, el bot no tenía forma de enterarse de
+  // nada y volvía a preguntar todo desde cero cada vez).
+  const contacto = empresa.contacto_conocido;
+  const nombreConocido = contacto ? [contacto.nombre, contacto.apellido].filter(Boolean).join(" ") : "";
+  const datosConocidos: string[] = [];
+  const datosFaltantes: string[] = [];
+  for (const c of campos) {
+    const valor = contacto?.datos?.[c.nombre];
+    if (valor) datosConocidos.push(`${c.nombre}: ${valor}`);
+    else datosFaltantes.push(c.nombre);
+  }
+  const bloqueContacto = contacto
+    ? [
+        nombreConocido
+          ? `Ya sabes que este cliente se llama ${nombreConocido} — salúdalo por su nombre y NO le preguntes el nombre de nuevo.`
+          : "No tienes el nombre de este cliente todavía — pregúntaselo en algún momento natural de la llamada.",
+        datosConocidos.length
+          ? `Datos que YA TIENES guardados de este cliente (no se los vuelvas a pedir): ${datosConocidos.join(", ")}.`
+          : "",
+        datosFaltantes.length
+          ? `Datos que TODAVÍA necesitas pedirle: ${datosFaltantes.join(", ")}.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : null;
+
   return [
     // No condicional al guion: si el prompt_personalizado de la empresa no
     // menciona el idioma, el modelo puede terminar respondiendo en inglés
@@ -63,8 +93,10 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
     // haya escrito la empresa.
     "Responde SIEMPRE en español (nunca en inglés ni otro idioma), sin importar en qué idioma te hablen.",
     base,
-    "En cuanto el cliente te dé su nombre y apellido, guárdalos con registrar_dato (campo \"nombre\" y campo " +
-      '"apellido", por separado). Esto siempre aplica, para todo cliente.',
+    bloqueContacto,
+    "Si el cliente te da un nombre/apellido/dato DISTINTO al que ya tenías guardado (una corrección), guárdalo de " +
+      'nuevo con registrar_dato — el nuevo valor reemplaza al anterior. Fuera de eso, con datos que ya tienes no ' +
+      "hace falta llamar registrar_dato de nuevo.",
     listaCampos
       ? `Campos que esta empresa necesita que recolectes del cliente, además de lo anterior: ${listaCampos}. ` +
         "Usa la herramienta registrar_dato una vez por cada uno en cuanto el cliente te lo dé."

@@ -1,8 +1,15 @@
 import { pool } from "../db/pool.js";
+import { normalizarNumero } from "./telefono.js";
 
 interface CampoPersonalizado {
   nombre: string;
   api_name?: string;
+}
+
+export interface ContactoConocido {
+  nombre: string | null;
+  apellido: string | null;
+  datos: Record<string, string>;
 }
 
 // Campos del guion donde tiene sentido escribir {{variables}} — el resto
@@ -16,20 +23,29 @@ const CAMPOS_CON_VARIABLES = [
 ] as const;
 
 /**
- * Sustituye {{nombre}}, {{apellido}}, {{numero}} y {{api_name}} de cada
- * campo personalizado por los datos reales del contacto — cuando ya
- * sabemos quién es (llamada a un número que ya tenemos en Contactos). Si no
- * hay contacto o no hay numeroCliente, el guion se devuelve tal cual (con
- * las llaves {{...}} sin tocar, para no romper nada si alguien las usó a
- * propósito para otra cosa).
+ * Busca el contacto ya conocido para este número (si existe) y sustituye
+ * {{nombre}}, {{apellido}}, {{numero}} y {{api_name}} de cada campo
+ * personalizado en el guion por sus datos reales. También devuelve el
+ * contacto tal cual, para que el system prompt del bot (ver
+ * voice-server/src/llm.ts) le diga explícitamente qué ya sabe de este
+ * cliente — así funciona aunque la empresa NO haya usado {{variables}} en
+ * su guion. Si no hay contacto o no hay numeroCliente, se devuelve el
+ * guion tal cual (con las llaves {{...}} sin tocar) y contacto = null.
  */
 export async function aplicarVariablesContacto(
   guionAgente: Record<string, unknown>,
   camposPersonalizados: CampoPersonalizado[],
   empresaId: string,
   numeroCliente: string | null | undefined
-): Promise<Record<string, unknown>> {
-  if (!numeroCliente) return guionAgente;
+): Promise<{ guion: Record<string, unknown>; contacto: ContactoConocido | null }> {
+  if (!numeroCliente) return { guion: guionAgente, contacto: null };
+
+  // BUG que hacía que esto casi nunca encontrara al contacto: comparaba el
+  // número tal cual llegaba (de Twilio, o como se haya escrito a mano)
+  // contra lo guardado en `contactos.numero` SIN normalizar ninguno de los
+  // dos lados — bastaba una diferencia de formato (espacios, guiones, con/
+  // sin +1) para que la búsqueda fallara en silencio.
+  const numeroNormalizado = normalizarNumero(numeroCliente);
 
   const contacto = await pool.query<{
     nombre: string | null;
@@ -37,15 +53,15 @@ export async function aplicarVariablesContacto(
     datos: Record<string, string>;
   }>("SELECT nombre, apellido, datos FROM contactos WHERE empresa_id = $1 AND numero = $2", [
     empresaId,
-    numeroCliente,
+    numeroNormalizado,
   ]);
   const c = contacto.rows[0];
-  if (!c) return guionAgente;
+  if (!c) return { guion: guionAgente, contacto: null };
 
   const variables: Record<string, string> = {
     nombre: c.nombre ?? "",
     apellido: c.apellido ?? "",
-    numero: numeroCliente,
+    numero: numeroNormalizado,
   };
   for (const campo of camposPersonalizados) {
     if (campo.api_name) variables[campo.api_name] = c.datos?.[campo.nombre] ?? "";
@@ -64,5 +80,9 @@ export async function aplicarVariablesContacto(
       resultado[campo] = sustituir(valor);
     }
   }
-  return resultado;
+
+  return {
+    guion: resultado,
+    contacto: { nombre: c.nombre, apellido: c.apellido, datos: c.datos ?? {} },
+  };
 }

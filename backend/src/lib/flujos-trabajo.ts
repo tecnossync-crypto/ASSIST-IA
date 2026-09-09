@@ -1,5 +1,6 @@
 import { pool } from "../db/pool.js";
 import { iniciarLlamadaIA } from "./llamadas-ia.js";
+import { normalizarNumero } from "./telefono.js";
 
 export type Disparador = "llamada_completada" | "llamada_no_contesta" | "llamada_transferida";
 
@@ -38,7 +39,7 @@ export async function ejecutarFlujosTrabajo(opts: {
            DO UPDATE SET
              etiquetas = ARRAY(SELECT DISTINCT unnest(contactos.etiquetas || ARRAY[$3::text])),
              actualizado_en = now()`,
-          [empresaId, numeroCliente, flujo.accion_datos.etiqueta]
+          [empresaId, normalizarNumero(numeroCliente), flujo.accion_datos.etiqueta]
         );
       } else if (flujo.accion === "crear_solicitud") {
         await pool.query(
