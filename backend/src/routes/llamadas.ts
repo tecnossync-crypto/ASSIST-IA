@@ -108,10 +108,15 @@ export async function llamadasRoutes(app: FastifyInstance) {
       return;
     }
 
+    // conferencia_nombre distingue si ya hay una conferencia real (llamada
+    // normal desde el inicio, o una llamada de IA ya transferida a un
+    // humano — en ambos casos aplica el monitoreo por conferencia de
+    // siempre) de una llamada de IA que TODAVÍA está hablando con el bot
+    // (conferencia_nombre NULL — ver /api/llamadas/:id/escuchar-ia).
     const result = await pool.query(
       `SELECT
-         l.id, l.direccion, l.numero_origen, l.numero_destino, l.iniciada_en,
-         l.agente_call_sid, l.cola_id,
+         l.id, l.call_sid, l.direccion, l.numero_origen, l.numero_destino, l.iniciada_en,
+         l.agente_call_sid, l.conferencia_nombre, l.cola_id,
          c.nombre AS cola_nombre,
          u.id AS agente_id, u.nombre AS agente_nombre
        FROM llamadas l

@@ -88,6 +88,17 @@ export function twimlConnectVoiceAgent(opts: {
     ? `\n      <Parameter name="numeroCliente" value="${numeroCliente}" />`
     : "";
 
+  // Bifurca el audio crudo (cliente + voz del bot) al mismo voice-server,
+  // en un WebSocket aparte (/supervision-stream, no interfiere con
+  // ConversationRelay) — así un admin puede "escuchar en vivo" una llamada
+  // de IA todavía en curso con el bot, igual que ya se puede con una
+  // llamada normal (ver Supervisión → escuchar-ia). <Start> es un verbo
+  // aparte que no bloquea ni reemplaza al <Connect> de abajo — corren en
+  // paralelo. track="both_tracks" manda el audio del cliente y del bot por
+  // separado (msg.media.track), el navegador los mezcla al reproducir.
+  const streamSupervisionUrl = voiceWsUrl.replace(/\/voice-stream\/?$/, "/supervision-stream");
+  const parametroCallSidStream = `?callSid=${encodeURIComponent(callSid)}`;
+
   // <Record> deja constancia de la llamada completa; <Connect><ConversationRelay>
   // entrega el audio como texto por WebSocket a nuestro servidor de voz IA.
   // Cuando el voice-server manda {"type":"end"}, ConversationRelay termina y
@@ -97,6 +108,7 @@ export function twimlConnectVoiceAgent(opts: {
 <Response>
   <Start>
     <Recording recordingStatusCallback="${publicBaseUrl}/webhooks/twilio/recording-status" />
+    <Stream url="${streamSupervisionUrl}${parametroCallSidStream}" track="both_tracks" />
   </Start>
   <Connect>
     <ConversationRelay url="${voiceWsUrl}"${idiomaAttr}${vozAttr}>

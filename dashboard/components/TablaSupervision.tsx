@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PhoneIncoming, PhoneOutgoing, Radio } from "lucide-react";
+import { PhoneIncoming, PhoneOutgoing, Radio, Bot } from "lucide-react";
 import type { LlamadaActiva } from "@/lib/api";
 import { MonitoreoLlamada } from "./MonitoreoLlamada";
+import { MonitoreoLlamadaIA } from "./MonitoreoLlamadaIA";
 
 function formatDuracionEnVivo(iniciadaEn: string): string {
   const segundos = Math.max(0, Math.floor((Date.now() - new Date(iniciadaEn).getTime()) / 1000));
@@ -88,8 +89,12 @@ export function TablaSupervision({ llamadasIniciales }: { llamadasIniciales: Lla
                       </span>
                       {l.agente_nombre}
                     </span>
-                  ) : (
+                  ) : l.conferencia_nombre ? (
                     <span className="text-xs text-amber-600">Esperando que contesten…</span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-xs text-indigo-600">
+                      <Bot size={12} /> Con el bot
+                    </span>
                   )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-ink-2">
@@ -98,6 +103,8 @@ export function TablaSupervision({ llamadasIniciales }: { llamadasIniciales: Lla
                 <td className="whitespace-nowrap px-4 py-3 text-right">
                   {l.agente_call_sid ? (
                     <MonitoreoLlamada llamadaId={l.id} />
+                  ) : !l.conferencia_nombre ? (
+                    <MonitoreoLlamadaIA callSid={l.call_sid} />
                   ) : (
                     <span className="text-xs text-slate-300">—</span>
                   )}

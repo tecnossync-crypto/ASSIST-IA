@@ -26,11 +26,15 @@ export interface LlamadaResumen {
 
 export interface LlamadaActiva {
   id: string;
+  call_sid: string;
   direccion: "entrante" | "saliente";
   numero_origen: string;
   numero_destino: string;
   iniciada_en: string;
   agente_call_sid: string | null;
+  // null = todavía la lleva el bot (sin transferir); si tiene valor, ya es
+  // una conferencia real (llamada normal, o IA ya transferida a un humano).
+  conferencia_nombre: string | null;
   cola_id: string | null;
   cola_nombre: string | null;
   agente_id: string | null;

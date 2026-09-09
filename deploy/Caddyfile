@@ -4,6 +4,13 @@
 		reverse_proxy voice-server:3002
 	}
 
+	# Audio en vivo para Supervisión (llamadas de IA) — Twilio manda el
+	# audio crudo, y el navegador del admin se conecta acá mismo a
+	# escucharlo. Ver voice-server/src/supervision-stream.ts.
+	handle /supervision-stream* {
+		reverse_proxy voice-server:3002
+	}
+
 	# Todo lo demás (webhooks de Twilio, /internal, /api, /health) va al backend.
 	handle {
 		reverse_proxy backend:3001

@@ -9,6 +9,7 @@ import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { ConversationSession } from "./session.js";
 import type { ConversationRelayIncoming, ConversationRelayOutgoing } from "./types.js";
+import { registrarSupervisionStream } from "./supervision-stream.js";
 
 const PORT = Number(process.env.VOICE_SERVER_PORT ?? process.env.PORT ?? 3002);
 
@@ -23,6 +24,11 @@ const httpServer = createServer((req, res) => {
 });
 
 const wss = new WebSocketServer({ server: httpServer, path: "/voice-stream" });
+
+// Segundo WebSocket, mismo httpServer, otro path — audio en vivo para
+// Supervisión (ver supervision-stream.ts). Totalmente independiente de
+// ConversationRelay: si esto falla, no afecta la llamada en sí.
+registrarSupervisionStream(httpServer);
 
 function enviar(ws: WebSocket, mensaje: ConversationRelayOutgoing) {
   // ws.send() puede fallar en silencio (sin tirar excepción) si la conexión

@@ -20,6 +20,11 @@ services:
         NEXT_PUBLIC_EMPRESA_ID: ${NEXT_PUBLIC_EMPRESA_ID}
         BACKEND_URL: http://backend:3001
         NEXT_PUBLIC_BACKEND_PUBLIC_URL: https://${PUBLIC_DOMAIN}
+        # Para que el navegador del admin pueda escuchar en vivo una llamada
+        # de IA en curso (Supervisión) — mismo dominio público que
+        # VOICE_WS_URL, el navegador se conecta directo (ver
+        # deploy/Caddyfile y voice-server/src/supervision-stream.ts).
+        NEXT_PUBLIC_VOICE_WS_URL: wss://${PUBLIC_DOMAIN}/voice-stream
     restart: unless-stopped
     environment:
       - BACKEND_URL=http://backend:3001
