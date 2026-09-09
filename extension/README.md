@@ -2,14 +2,15 @@
 
 Abre el panel de teléfono de la plataforma (marcar, ver llamadas recientes, contestar) en una **ventana aparte**, para dejarla a mano mientras trabajas en otras pestañas o programas — sin tener que dejar abierta toda la plataforma.
 
-No está publicada en la Chrome Web Store (eso requiere cuenta de desarrollador y revisión de Google); se instala "sin empaquetar" directo desde esta carpeta, igual de funcional.
+No está publicada en la Chrome Web Store (eso requiere cuenta de desarrollador y revisión de Google); se instala "sin empaquetar", igual de funcional.
 
 ## Instalar
 
-1. Abre `chrome://extensions` en Chrome (o Edge, Brave, cualquier navegador basado en Chromium).
-2. Activa **"Modo de desarrollador"** (interruptor arriba a la derecha).
-3. Click en **"Cargar extensión sin empaquetar"** (o "Load unpacked").
-4. Selecciona esta carpeta (`extension/`).
+1. **Descárgala directo desde la plataforma**: Configuración → Agentes → "Descargar extensión (.zip)". Descomprime el archivo.
+2. Abre `chrome://extensions` en Chrome (o Edge, Brave, cualquier navegador basado en Chromium).
+3. Activa **"Modo de desarrollador"** (interruptor arriba a la derecha).
+4. Click en **"Cargar extensión sin empaquetar"** (o "Load unpacked").
+5. Selecciona la carpeta que descomprimiste (`extension/`).
 5. Al instalarse, se abre sola la página de configuración — pon la dirección de tu dashboard (ej. `https://3-147-190-197.sslip.io`, la misma que usas para entrar desde el navegador) y guarda.
 
 Repite estos pasos en la computadora de cada agente que quiera usarla (una extensión sin empaquetar no se sincroniza sola entre computadoras).

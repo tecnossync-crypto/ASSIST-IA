@@ -1,4 +1,4 @@
-import { Headset, KeyRound, Circle, Layers, Phone } from "lucide-react";
+import { Headset, KeyRound, Circle, Layers, Phone, Download, Puzzle } from "lucide-react";
 import { listarAgentes, listarColas, obtenerEmpresa } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { EnrutamientoForm } from "@/components/EnrutamientoForm";
@@ -89,6 +89,26 @@ export default async function AgentesPage() {
           Reparto general (agentes sin cola asignada)
         </div>
         <EnrutamientoForm modoActual={modoActual} />
+      </section>
+
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
+          <Puzzle size={16} className="text-indigo-600" />
+          Extensión de teléfono para el navegador
+        </div>
+        <p className="mb-4 text-xs text-muted">
+          Abre el panel de teléfono en una ventana aparte del navegador — para dejarlo a mano mientras se trabaja
+          en otras pestañas o programas, sin tener que dejar abierta toda la plataforma. Cada agente la instala en
+          su propia computadora (instrucciones incluidas al descomprimir).
+        </p>
+        <a
+          href="/descargas/extension-voz-ia.zip"
+          download
+          className="ts-brand-button inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium text-white shadow shadow-indigo-500/30"
+        >
+          <Download size={14} />
+          Descargar extensión (.zip)
+        </a>
       </section>
 
       <section className="rounded-lg border border-edge bg-surface p-5">
