@@ -11,6 +11,24 @@ import { ConversationSession } from "./session.js";
 import type { ConversationRelayIncoming, ConversationRelayOutgoing } from "./types.js";
 import { registrarSupervisionStream } from "./supervision-stream.js";
 
+// Red de seguridad a nivel de proceso: este servidor sostiene TODAS las
+// llamadas de IA en curso en memoria (una ConversationSession por
+// callSid) — sin esto, una excepción no capturada en CUALQUIER parte
+// (incluidas librerías de terceros, ej. el SDK de OpenAI) tumba el
+// proceso ENTERO en silencio y corta TODAS las conversaciones activas de
+// golpe, no solo la que falló. Docker (restart: unless-stopped) lo
+// vuelve a levantar, pero antes esto pasaba sin dejar rastro en los
+// logs. Se sale del proceso en vez de seguir corriendo con estado
+// posiblemente inconsistente (recomendación de Node para
+// uncaughtException) — Docker lo reinicia limpio.
+process.on("uncaughtException", (err) => {
+  console.error("[fatal] excepción no capturada — el proceso se reinicia:", err);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[fatal] promesa rechazada sin capturar:", reason);
+});
+
 const PORT = Number(process.env.VOICE_SERVER_PORT ?? process.env.PORT ?? 3002);
 
 const httpServer = createServer((req, res) => {
@@ -112,20 +130,30 @@ wss.on("connection", (ws) => {
           // corta — no queda esperando a que el LLM decida terminar solo.
           const limiteMs = session.duracionMaximaSegundos() * 1000;
           temporizadorLimite = setTimeout(async () => {
-            if (!session) return;
-            console.log(`[${session.callSid}] duración máxima alcanzada, cerrando llamada`);
-            session.registrarTurnoAgente(
-              "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo."
-            );
-            enviar(ws, {
-              type: "text",
-              token: "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo.",
-              last: true,
-            });
-            finalizadaManualmente = true;
-            await session.finalizar();
-            enviar(ws, { type: "end" });
-            ws.close();
+            // setTimeout no forma parte de ningún try/catch de arriba — sin
+            // este propio try/catch, un fallo acá (ej. session.finalizar()
+            // no puede guardar la transcripción por un problema de red) se
+            // perdía como una promesa rechazada sin capturar, lo que antes
+            // tumbaba el proceso ENTERO y cortaba TODAS las llamadas
+            // activas, no solo esta.
+            try {
+              if (!session) return;
+              console.log(`[${session.callSid}] duración máxima alcanzada, cerrando llamada`);
+              session.registrarTurnoAgente(
+                "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo."
+              );
+              enviar(ws, {
+                type: "text",
+                token: "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo.",
+                last: true,
+              });
+              finalizadaManualmente = true;
+              await session.finalizar();
+              enviar(ws, { type: "end" });
+              ws.close();
+            } catch (err) {
+              console.error(`[${session?.callSid}] Error cerrando la llamada por límite de duración:`, err);
+            }
           }, limiteMs);
           break;
         }

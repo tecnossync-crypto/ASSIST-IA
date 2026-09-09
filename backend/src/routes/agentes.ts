@@ -305,6 +305,11 @@ export async function agentesRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string }; Body: { codigo: string } }>(
     "/api/agentes/:id/2fa/confirmar",
+    // Código de 6 dígitos = 1 millón de combinaciones — sin límite, se
+    // puede intentar fuerza bruta directo (a diferencia de /verificar-2fa
+    // del login, este no exige la contraseña primero). Mismo límite que el
+    // resto de los endpoints sensibles a fuerza bruta de la plataforma.
+    { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
     async (req, reply) => {
       const { id } = req.params;
       const { codigo } = req.body;

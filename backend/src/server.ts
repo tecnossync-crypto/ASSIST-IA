@@ -34,6 +34,25 @@ import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
 import { procesarTickLlamadasProgramadas } from "./jobs/dispatcher-flujos.js";
 import { limpiarGrabacionesVencidas } from "./jobs/limpiar-grabaciones.js";
 
+// Red de seguridad a nivel de proceso: sin esto, CUALQUIER excepción no
+// capturada en CUALQUIER parte del código (incluidas librerías de
+// terceros — ya pasó una vez con un stream de S3 sin error listener, ver
+// grabaciones.ts) tumba el proceso ENTERO en silencio, cortando TODAS las
+// llamadas activas en ese momento, no solo la que falló. Docker
+// (restart: unless-stopped) lo vuelve a levantar solo, pero antes esto
+// pasaba sin dejar rastro en los logs — ahora al menos queda registrado
+// y el proceso sale de forma controlada (uncaughtException puede dejar
+// estado interno inconsistente, así que la recomendación de Node es
+// salir y dejar que el supervisor —acá, Docker— lo reinicie limpio, en vez
+// de seguir corriendo en un estado desconocido).
+process.on("uncaughtException", (err) => {
+  console.error("[fatal] excepción no capturada — el proceso se reinicia:", err);
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[fatal] promesa rechazada sin capturar:", reason);
+});
+
 const app = Fastify({ logger: true });
 
 // Twilio manda webhooks como application/x-www-form-urlencoded.
