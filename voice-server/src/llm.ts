@@ -2,7 +2,15 @@ import OpenAI from "openai";
 import { TOOLS, ejecutarTool } from "./tools.js";
 import type { EmpresaConfig } from "./types.js";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Sin esto, el SDK usa su default de 10 MINUTOS de timeout — en una llamada
+// en vivo eso es indistinguible de "el bot nunca responde": si OpenAI
+// responde lento un momento, el cliente se queda en silencio total (nada de
+// audio, ni siquiera el saludo inicial) mientras el request cuelga en
+// segundo plano, muy por delante de cualquier fallback de error que ya
+// exista más arriba (esos solo se activan cuando la llamada finalmente
+// falla — con 10 minutos de margen, en la práctica nunca llegan a tiempo).
+// 12s es generoso para gpt-4o-mini y deja margen para 1 reintento rápido.
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 12_000, maxRetries: 1 });
 
 // Modelo por defecto para el agente de voz. Ajustable por variable de
 // entorno sin tocar código si se quiere probar otro tier.
