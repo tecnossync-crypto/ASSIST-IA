@@ -133,6 +133,14 @@ export function twimlConnectVoiceAgent(opts: {
 // conferencia), la conferencia termina para todos — así el lado del agente
 // también cuelga solo, en vez de quedar "en llamada" con nadie del otro
 // lado. Antes estaba en false y esa era justo la falla.
+// beep="false": sin esto, Twilio reproduce un pitido audible a TODOS los que
+// ya están en la conferencia cada vez que alguien más entra o sale — rompía
+// justo la idea de que un admin pueda entrar a escuchar "sin ser notado"
+// (ver /api/llamadas/:id/escuchar), y de paso sonaba como que algo
+// interrumpía la llamada cada vez que se unía el agente.
+// waitUrl: música mientras el cliente espera (antes dependía del default no
+// documentado de Twilio) — mismo audio que se usa para "poner en espera"
+// durante una llamada ya conectada (ver /agente/hold).
 export function twimlEsperarConferencia(opts: { conferenciaNombre: string; publicBaseUrl: string }): string {
   const { conferenciaNombre, publicBaseUrl } = opts;
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -144,6 +152,9 @@ export function twimlEsperarConferencia(opts: { conferenciaNombre: string; publi
     <Conference
       startConferenceOnEnter="false"
       endConferenceOnExit="true"
+      beep="false"
+      waitUrl="${publicBaseUrl}/webhooks/twilio/musica-espera"
+      waitMethod="POST"
       statusCallbackEvent="start end join leave"
       statusCallback="${publicBaseUrl}/webhooks/twilio/conferencia-evento"
     >${conferenciaNombre}</Conference>
@@ -155,7 +166,9 @@ export function twimlEsperarConferencia(opts: { conferenciaNombre: string; publi
 // routes/webhooks-twilio.ts). El primero que conteste arranca la conferencia
 // (startConferenceOnEnter=true) y si se sale, la conferencia termina para
 // todos (endConferenceOnExit=true) — así se comporta igual que colgar en un
-// <Dial> normal.
+// <Dial> normal. beep="false": mismo motivo que arriba — evita el pitido
+// cuando un admin se une a escuchar/intervenir, o cuando se trae a otro
+// agente a la conferencia (transferencia entre agentes).
 export function twimlUnirseConferenciaComoAgente(opts: { conferenciaNombre: string; publicBaseUrl: string }): string {
   const { conferenciaNombre, publicBaseUrl } = opts;
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -164,6 +177,7 @@ export function twimlUnirseConferenciaComoAgente(opts: { conferenciaNombre: stri
     <Conference
       startConferenceOnEnter="true"
       endConferenceOnExit="true"
+      beep="false"
       statusCallbackEvent="start end join leave"
       statusCallback="${publicBaseUrl}/webhooks/twilio/conferencia-evento"
     >${conferenciaNombre}</Conference>

@@ -65,12 +65,18 @@ export async function monitoreoRoutes(app: FastifyInstance) {
         // muted=true: el admin escucha todo, pero nadie lo escucha a él —
         // exactamente "escuchar sin ser notado". Para "intervenir" se
         // desmuta este mismo participante (ver /intervenir abajo).
+        // beep=false: participants.create() por API REST NO hereda el
+        // beep="false" que ya tiene la conferencia en su TwiML — sin esto,
+        // todos en la llamada (cliente incluido) escuchan un pitido justo
+        // cuando el admin entra a escuchar, delatando la escucha y sonando
+        // como si algo hubiera interrumpido la llamada.
         const participante = await twilioEmpresa.client
           .conferences(conferencia.sid)
           .participants.create({
             from: twilioEmpresa.fromNumber,
             to: `client:${identidadAgente(adminUsuarioId)}`,
             muted: true,
+            beep: "false",
             endConferenceOnExit: false,
           });
 
