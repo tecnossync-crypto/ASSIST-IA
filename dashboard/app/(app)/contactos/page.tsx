@@ -31,7 +31,7 @@ export default async function ContactosPage({
 
       <div className="flex flex-wrap gap-2">
         <AgregarContactoModal campos={empresa.campos_personalizados ?? []} />
-        <ImportarContactos />
+        <ImportarContactos campos={empresa.campos_personalizados ?? []} />
       </div>
 
       <form className="flex gap-2">

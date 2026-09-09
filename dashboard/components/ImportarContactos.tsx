@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import { parseCSV } from "@/lib/csv";
 
-export function ImportarContactos() {
+export function ImportarContactos({ campos = [] }: { campos?: { nombre: string }[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [estado, setEstado] = useState<"idle" | "cargando" | "ok" | "error">("idle");
@@ -19,7 +19,7 @@ export function ImportarContactos() {
     setMensaje("");
     try {
       const texto = await archivo.text();
-      const contactos = parseCSV(texto);
+      const contactos = parseCSV(texto, campos);
       if (contactos.length === 0) {
         setEstado("error");
         setMensaje("No se encontraron números en el archivo.");
@@ -57,8 +57,13 @@ export function ImportarContactos() {
         {estado === "cargando" ? "Importando…" : "Importar contactos (CSV)"}
       </button>
       <input ref={inputRef} type="file" accept=".csv,text/csv" onChange={manejarArchivo} className="hidden" />
-      {mensaje && (
+      {mensaje ? (
         <p className={`text-xs ${estado === "error" ? "text-red-600" : "text-muted"}`}>{mensaje}</p>
+      ) : (
+        <p className="text-xs text-muted">
+          Columnas: número, nombre, apellido
+          {campos.length > 0 && <> — y {campos.map((c) => c.nombre).join(", ")} (así el bot ya los conoce y no los vuelve a preguntar)</>}.
+        </p>
       )}
     </div>
   );
