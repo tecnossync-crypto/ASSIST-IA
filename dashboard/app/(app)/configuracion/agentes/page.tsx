@@ -1,4 +1,4 @@
-import { Headset, KeyRound, Circle, Layers } from "lucide-react";
+import { Headset, KeyRound, Circle, Layers, Phone } from "lucide-react";
 import { listarAgentes, listarColas, obtenerEmpresa } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { EnrutamientoForm } from "@/components/EnrutamientoForm";
@@ -6,6 +6,8 @@ import { ColaEnrutamientoSelect } from "@/components/ColaEnrutamientoSelect";
 import { BotonAccion } from "@/components/BotonAccion";
 import { NuevoAgenteForm } from "@/components/NuevoAgenteForm";
 import { CambiarPasswordAgente } from "@/components/CambiarPasswordAgente";
+import { Configurar2FA } from "@/components/Configurar2FA";
+import { AvatarUsuario } from "@/components/AvatarUsuario";
 import { eliminarAgenteAction, crearColaAction, eliminarColaAction } from "./actions";
 
 const ETIQUETAS_ROL: Record<string, string> = {
@@ -25,7 +27,7 @@ export default async function AgentesPage() {
   const modoActual = empresa.enrutamiento_llamadas?.modo ?? "todos";
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
+    <div className="flex max-w-3xl flex-col gap-6">
       <ConfiguracionHeader
         Icon={Headset}
         titulo="Agentes"
@@ -108,29 +110,45 @@ export default async function AgentesPage() {
           </p>
         )}
         {agentes.map((a) => (
-          <div
-            key={a.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-edge bg-surface p-4"
-          >
-            <div className="flex items-center gap-3">
-              <Circle size={9} className={(ESTADO_PRESENCIA[a.estado_presencia] ?? ESTADO_PRESENCIA.desconectado).punto} />
-              <div>
-                <p className="text-sm font-medium text-ink">
-                  {a.nombre}{" "}
-                  <span className="ml-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
-                    {ETIQUETAS_ROL[a.rol] ?? a.rol}
-                  </span>
-                </p>
-                <p className="text-xs text-muted">
-                  {a.email} · {a.pin ? `PIN ${a.pin}` : "sin PIN"} ·{" "}
-                  {a.tiene_acceso_dashboard ? "acceso dashboard" : "sin acceso dashboard"} ·{" "}
-                  {a.cola_nombre ?? "Sin cola"} ·{" "}
-                  {(ESTADO_PRESENCIA[a.estado_presencia] ?? ESTADO_PRESENCIA.desconectado).etiqueta}
-                </p>
+          <div key={a.id} className="flex flex-col gap-3 rounded-lg border border-edge bg-surface p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <AvatarUsuario id={a.id} nombre={a.nombre} tieneAvatar={a.tiene_avatar} />
+                <div>
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                    <Circle
+                      size={8}
+                      className={(ESTADO_PRESENCIA[a.estado_presencia] ?? ESTADO_PRESENCIA.desconectado).punto}
+                    />
+                    {a.nombre}
+                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
+                      {ETIQUETAS_ROL[a.rol] ?? a.rol}
+                    </span>
+                    {a.totp_habilitado && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                        2FA activo
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {a.email}
+                    {a.telefono && (
+                      <>
+                        {" · "}
+                        <span className="inline-flex items-center gap-1">
+                          <Phone size={10} />
+                          {a.telefono}
+                        </span>
+                      </>
+                    )}
+                    {" · "}
+                    {a.pin ? `PIN ${a.pin}` : "sin PIN"} ·{" "}
+                    {a.tiene_acceso_dashboard ? "acceso dashboard" : "sin acceso dashboard"} ·{" "}
+                    {a.cola_nombre ?? "Sin cola"} ·{" "}
+                    {(ESTADO_PRESENCIA[a.estado_presencia] ?? ESTADO_PRESENCIA.desconectado).etiqueta}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              {a.tiene_acceso_dashboard && <CambiarPasswordAgente id={a.id} nombre={a.nombre} />}
               <BotonAccion
                 accion={eliminarAgenteAction.bind(null, a.id)}
                 mensajeExito="Eliminado."
@@ -139,6 +157,13 @@ export default async function AgentesPage() {
                 Eliminar
               </BotonAccion>
             </div>
+
+            {a.tiene_acceso_dashboard && (
+              <div className="flex flex-wrap items-center gap-4 border-t border-edge pt-3">
+                <CambiarPasswordAgente id={a.id} nombre={a.nombre} />
+                <Configurar2FA id={a.id} habilitado={a.totp_habilitado} />
+              </div>
+            )}
           </div>
         ))}
       </section>

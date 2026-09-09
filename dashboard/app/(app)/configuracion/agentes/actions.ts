@@ -36,9 +36,12 @@ export async function crearAgenteAction(
 ): Promise<EstadoCrearAgente> {
   const nombre = String(formData.get("nombre") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
+  const telefono = String(formData.get("telefono") ?? "").trim();
   const pin = String(formData.get("pin") ?? "").trim();
   const rol = String(formData.get("rol") ?? "operador").trim();
   const colaId = String(formData.get("colaId") ?? "").trim();
+  const modoPassword = String(formData.get("modoPassword") ?? "auto");
+  const passwordManual = String(formData.get("passwordManual") ?? "");
   // Admin y supervisor siempre necesitan entrar al dashboard completo; para
   // un agente (operador) es opcional que además tenga acceso al dashboard.
   const conAcceso = rol !== "operador" || formData.get("conAcceso") === "on";
@@ -47,13 +50,21 @@ export async function crearAgenteAction(
   if (!conAcceso && !pin) {
     return { error: "Un agente necesita un PIN (softphone) o acceso al dashboard." };
   }
+  if (conAcceso && modoPassword === "manual" && passwordManual.length < 8) {
+    return { error: "La contraseña debe tener al menos 8 caracteres." };
+  }
 
-  const passwordGenerada = conAcceso ? generarPasswordTemporal() : undefined;
+  const passwordGenerada = conAcceso
+    ? modoPassword === "manual"
+      ? passwordManual
+      : generarPasswordTemporal()
+    : undefined;
 
   try {
     await crearAgente({
       nombre,
       email,
+      telefono: telefono || undefined,
       pin: pin || undefined,
       password: passwordGenerada,
       rol,

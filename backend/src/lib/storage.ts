@@ -81,3 +81,31 @@ export async function streamGrabacion(urlStorage: string): Promise<Readable> {
   const res = await getClient().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   return res.Body as Readable;
 }
+
+/**
+ * Subida genérica (hoy: fotos de perfil de usuarios) — a diferencia de las
+ * grabaciones, esto se sirve siempre a través de nuestro propio endpoint
+ * (nunca con URL firmada temporal), así que solo hace falta guardar la key.
+ */
+export async function subirArchivo(opts: { key: string; body: Buffer; contentType: string }): Promise<void> {
+  const bucket = process.env.STORAGE_BUCKET;
+  if (!bucket) throw new Error("STORAGE_BUCKET no está configurado");
+
+  await getClient().send(
+    new PutObjectCommand({ Bucket: bucket, Key: opts.key, Body: opts.body, ContentType: opts.contentType })
+  );
+}
+
+export async function streamArchivo(key: string): Promise<{ body: Readable; contentType?: string }> {
+  const bucket = process.env.STORAGE_BUCKET;
+  if (!bucket) throw new Error("STORAGE_BUCKET no está configurado");
+
+  const res = await getClient().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  return { body: res.Body as Readable, contentType: res.ContentType };
+}
+
+export async function eliminarArchivo(key: string): Promise<void> {
+  const bucket = process.env.STORAGE_BUCKET;
+  if (!bucket) throw new Error("STORAGE_BUCKET no está configurado");
+  await getClient().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}

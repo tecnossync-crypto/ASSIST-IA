@@ -699,6 +699,7 @@ export interface Agente {
   id: string;
   nombre: string;
   email: string;
+  telefono: string | null;
   rol: string;
   pin: string | null;
   disponible: boolean;
@@ -706,6 +707,8 @@ export interface Agente {
   cola_id: string | null;
   cola_nombre: string | null;
   tiene_acceso_dashboard: boolean;
+  tiene_avatar: boolean;
+  totp_habilitado: boolean;
   estado_presencia: EstadoPresencia;
 }
 
@@ -738,6 +741,7 @@ export async function obtenerAgentePropio(
 export async function crearAgente(data: {
   nombre: string;
   email: string;
+  telefono?: string;
   pin?: string;
   password?: string;
   rol?: string;
@@ -771,10 +775,19 @@ export async function actualizarPasswordAgente(id: string, password: string): Pr
   }
 }
 
-export async function loginUsuario(
-  email: string,
-  password: string
-): Promise<{ usuarioId: string; nombre: string; rol: string; colaId: string | null }> {
+export interface SesionUsuario {
+  usuarioId: string;
+  nombre: string;
+  rol: string;
+  colaId: string | null;
+}
+
+export type ResultadoLogin = SesionUsuario | { requiere2fa: true; desafioToken: string };
+
+// Si el usuario tiene 2FA activo, el backend devuelve {requiere2fa,
+// desafioToken} en vez de la sesión — ver verificar2FA() abajo, que
+// completa el login con el código de la app autenticadora.
+export async function loginUsuario(email: string, password: string): Promise<ResultadoLogin> {
   const res = await fetch(new URL("/api/auth/login", BACKEND_URL), {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -783,6 +796,19 @@ export async function loginUsuario(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Error de login: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function verificar2FA(desafioToken: string, codigo: string): Promise<SesionUsuario> {
+  const res = await fetch(new URL("/api/auth/verificar-2fa", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ desafioToken, codigo }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error verificando el código: HTTP ${res.status}`);
   }
   return res.json();
 }
