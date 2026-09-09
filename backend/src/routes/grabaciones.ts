@@ -11,17 +11,55 @@ const archiver = require("archiver") as (format: string, opts?: Record<string, u
 
 /**
  * Exportación masiva de grabaciones en un solo .zip — para cuando el
- * cliente pide una copia de todo antes de que expiren por retención (ver
- * jobs/limpiar-grabaciones.ts). Arma el zip en streaming (no carga todo en
- * memoria): cada audio se descarga de storage y se agrega al archivo a
- * medida que se va mandando la respuesta.
+ * cliente pide una copia de todo (o de un recorte) antes de que expiren por
+ * retención (ver jobs/limpiar-grabaciones.ts). Arma el zip en streaming (no
+ * carga todo en memoria): cada audio se descarga de storage y se agrega al
+ * archivo a medida que se va mandando la respuesta.
+ *
+ * Filtros, todos opcionales (sin ninguno, exporta todo el historial):
+ * - desde/hasta: fecha (YYYY-MM-DD), sobre creado_en de la grabación.
+ * - colaId: solo llamadas de ese departamento.
+ * - direccion: "entrante" | "saliente".
  */
 export async function grabacionesRoutes(app: FastifyInstance) {
-  app.get<{ Querystring: { empresaId?: string } }>("/api/grabaciones/exportar", async (req, reply) => {
-    const { empresaId } = req.query;
+  app.get<{
+    Querystring: {
+      empresaId?: string;
+      desde?: string;
+      hasta?: string;
+      colaId?: string;
+      direccion?: string;
+    };
+  }>("/api/grabaciones/exportar", async (req, reply) => {
+    const { empresaId, desde, hasta, colaId, direccion } = req.query;
     if (!empresaId) {
       reply.code(400).send({ error: "empresaId es requerido" });
       return;
+    }
+    if (direccion && !["entrante", "saliente"].includes(direccion)) {
+      reply.code(400).send({ error: "direccion debe ser 'entrante' o 'saliente'" });
+      return;
+    }
+
+    const condiciones = ["g.empresa_id = $1"];
+    const valores: unknown[] = [empresaId];
+
+    if (desde) {
+      valores.push(desde);
+      condiciones.push(`g.creado_en >= $${valores.length}::date`);
+    }
+    if (hasta) {
+      // hasta es inclusivo — el día completo, no solo las 00:00.
+      valores.push(hasta);
+      condiciones.push(`g.creado_en < ($${valores.length}::date + interval '1 day')`);
+    }
+    if (colaId) {
+      valores.push(colaId);
+      condiciones.push(`l.cola_id = $${valores.length}`);
+    }
+    if (direccion) {
+      valores.push(direccion);
+      condiciones.push(`l.direccion = $${valores.length}`);
     }
 
     const grabaciones = await pool.query<{
@@ -34,19 +72,20 @@ export async function grabacionesRoutes(app: FastifyInstance) {
       `SELECT g.url_storage, g.creado_en, l.numero_origen, l.numero_destino, l.direccion
        FROM grabaciones g
        JOIN llamadas l ON l.id = g.llamada_id
-       WHERE g.empresa_id = $1
+       WHERE ${condiciones.join(" AND ")}
        ORDER BY g.creado_en`,
-      [empresaId]
+      valores
     );
 
     if (grabaciones.rows.length === 0) {
-      reply.code(404).send({ error: "No hay grabaciones para exportar" });
+      reply.code(404).send({ error: "No hay grabaciones para ese filtro" });
       return;
     }
 
+    const sufijoRango = desde || hasta ? `_${desde ?? "inicio"}_a_${hasta ?? "hoy"}` : "";
     reply.raw.writeHead(200, {
       "content-type": "application/zip",
-      "content-disposition": `attachment; filename="grabaciones-${empresaId}.zip"`,
+      "content-disposition": `attachment; filename="grabaciones-${empresaId}${sufijoRango}.zip"`,
     });
 
     const archivo = archiver("zip", { zlib: { level: 6 } });

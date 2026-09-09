@@ -1,5 +1,5 @@
 import { HardDrive, Archive, Download, Cloud, Sparkles } from "lucide-react";
-import { obtenerEmpresa, obtenerAlmacenamiento, obtenerEstadoZoho } from "@/lib/api";
+import { obtenerEmpresa, obtenerAlmacenamiento, obtenerEstadoZoho, listarColas } from "@/lib/api";
 import { formatBytes } from "@/lib/format";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { FormConFeedback } from "@/components/FormConFeedback";
@@ -7,9 +7,16 @@ import { ConexionZohoWorkDrive } from "@/components/ConexionZohoWorkDrive";
 import { guardarRetencionAction } from "./actions";
 
 const PROXIMAMENTE = ["Dropbox", "OneDrive", "Google Drive"];
+const CAMPO =
+  "rounded-md border border-edge bg-surface px-2.5 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
 
 export default async function AlmacenamientoPage() {
-  const [empresa, uso, zoho] = await Promise.all([obtenerEmpresa(), obtenerAlmacenamiento(), obtenerEstadoZoho()]);
+  const [empresa, uso, zoho, colas] = await Promise.all([
+    obtenerEmpresa(),
+    obtenerAlmacenamiento(),
+    obtenerEstadoZoho(),
+    listarColas().catch(() => []),
+  ]);
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
@@ -77,18 +84,60 @@ export default async function AlmacenamientoPage() {
           </div>
         </FormConFeedback>
 
-        <div className="flex items-center justify-between rounded-md bg-surface-2 p-3">
-          <div>
-            <p className="text-sm font-medium text-ink-2">Exportar todas las grabaciones</p>
-            <p className="text-xs text-muted">Descarga un .zip con el audio de todas las llamadas grabadas hasta ahora.</p>
-          </div>
-          <a
-            href="/api/grabaciones/exportar"
-            className="ts-brand-button flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white shadow shadow-indigo-500/30"
+        <div className="rounded-md bg-surface-2 p-3">
+          <p className="mb-1 text-sm font-medium text-ink-2">Exportar grabaciones</p>
+          <p className="mb-3 text-xs text-muted">
+            Descarga un .zip con el audio de las llamadas grabadas — sin filtros, exporta todo el historial.
+          </p>
+          <form
+            action="/api/grabaciones/exportar"
+            method="get"
+            target="_blank"
+            className="flex flex-wrap items-end gap-2"
           >
-            <Download size={13} />
-            Descargar .zip
-          </a>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="desde" className="text-[11px] font-medium text-muted">
+                Desde
+              </label>
+              <input id="desde" name="desde" type="date" className={CAMPO} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="hasta" className="text-[11px] font-medium text-muted">
+                Hasta
+              </label>
+              <input id="hasta" name="hasta" type="date" className={CAMPO} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="colaId" className="text-[11px] font-medium text-muted">
+                Departamento
+              </label>
+              <select id="colaId" name="colaId" defaultValue="" className={CAMPO}>
+                <option value="">Todos</option>
+                {colas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="direccion" className="text-[11px] font-medium text-muted">
+                Dirección
+              </label>
+              <select id="direccion" name="direccion" defaultValue="" className={CAMPO}>
+                <option value="">Ambas</option>
+                <option value="entrante">Entrantes</option>
+                <option value="saliente">Salientes</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              className="ts-brand-button flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white shadow shadow-indigo-500/30"
+            >
+              <Download size={13} />
+              Descargar .zip
+            </button>
+          </form>
         </div>
       </section>
 

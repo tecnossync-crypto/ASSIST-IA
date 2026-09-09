@@ -3,17 +3,25 @@ import { obtenerSesion } from "@/lib/session";
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:3001";
 const EMPRESA_ID = process.env.NEXT_PUBLIC_EMPRESA_ID ?? "";
 
-// Proxy de streaming: solo admin puede exportar todas las grabaciones de la
-// empresa en un .zip. Se pasa el stream de la respuesta del backend
-// directo al navegador, sin bufferear el zip completo en memoria acá.
-export async function GET() {
+// Proxy de streaming: solo admin puede exportar grabaciones de la empresa
+// en un .zip. Se pasa el stream de la respuesta del backend directo al
+// navegador, sin bufferear el zip completo en memoria acá. Filtros
+// opcionales (desde/hasta/colaId/direccion) se reenvían tal cual — ver
+// backend/src/routes/grabaciones.ts.
+export async function GET(req: Request) {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.rol !== "admin") {
     return new Response("No autorizado", { status: 403 });
   }
 
+  const entrada = new URL(req.url);
   const url = new URL("/api/grabaciones/exportar", BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
+  for (const clave of ["desde", "hasta", "colaId", "direccion"]) {
+    const valor = entrada.searchParams.get(clave);
+    if (valor) url.searchParams.set(clave, valor);
+  }
+
   const res = await fetch(url);
 
   if (!res.ok || !res.body) {
