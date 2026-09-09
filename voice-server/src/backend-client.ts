@@ -74,7 +74,7 @@ export async function guardarTranscripcion(
 
 export async function registrarSolicitud(
   callSid: string,
-  data: { tipo?: string; descripcion?: string }
+  data: { tipo?: string; descripcion?: string; colaId?: string }
 ) {
   await internalFetch(`/internal/llamadas/${callSid}/solicitud`, {
     method: "POST",

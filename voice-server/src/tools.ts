@@ -12,9 +12,13 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "transferir_a_humano",
       description:
-        "Transfiere la llamada a un agente humano disponible. Úsala solo cuando el cliente lo pida " +
-        "explícitamente, esté molesto/insatisfecho, no tengas la información que necesita, o el caso esté " +
-        "fuera de lo que el guion cubre. Después de llamarla, despídete brevemente porque la llamada va a " +
+        "Transfiere la llamada EN VIVO, ahora mismo, a un agente humano disponible — el cliente se queda " +
+        "esperando en línea hasta que alguien conteste. Úsala SOLO cuando de verdad haga falta que un humano " +
+        "hable con el cliente en este momento: lo pide explícitamente, está molesto/insatisfecho, es urgente, o " +
+        "el caso está fuera de lo que el guion cubre y no lo puedes resolver ni registrar bien. " +
+        "Para pedidos normales que se pueden gestionar después (pagos, cotizaciones, información, cambios, " +
+        "reclamos no urgentes, etc.) usa registrar_solicitud en vez de esta — NO hace falta transferir en vivo " +
+        "para eso. Después de llamar a esta herramienta, despídete brevemente porque la llamada va a " +
         "transferirse.",
       parameters: {
         type: "object",
@@ -40,18 +44,29 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "registrar_solicitud",
       description:
-        "Registra lo que el cliente pidió durante la llamada (cotización, reclamo, cita, información, etc.). " +
-        "Llámala en cuanto identifiques con claridad qué necesita el cliente, no esperes a que termine la llamada.",
+        "Guarda lo que el cliente pidió (pago, cotización, reclamo, información, cambio en su póliza, cita, " +
+        "etc.) para que un gestor lo retome DESPUÉS — sin transferir la llamada en vivo. Esta es la opción por " +
+        "defecto para casi cualquier pedido del cliente: en cuanto identifiques con claridad qué necesita, " +
+        "regístralo con esta herramienta y avísale que un gestor se va a comunicar con él/ella para continuar " +
+        "(dilo en tu respuesta, en tus propias palabras). Usa transferir_a_humano en cambio SOLO si de verdad " +
+        "hace falta un humano ahora mismo. No esperes a que termine la llamada para llamar a esta herramienta.",
       parameters: {
         type: "object",
         properties: {
           tipo: {
             type: "string",
-            description: "Categoría corta: cotizacion | reclamo | cita | informacion | otro",
+            description: "Categoría corta: cotizacion | reclamo | pago | cita | informacion | otro",
           },
           descripcion: {
             type: "string",
             description: "Qué pidió el cliente, en una o dos frases.",
+          },
+          colaId: {
+            type: "string",
+            description:
+              "El id EXACTO (no el nombre) del departamento al que corresponde este pedido, tomado de la lista " +
+              "de departamentos disponibles en tus instrucciones. Si no hay uno claramente indicado, o solo hay " +
+              "uno configurado, omite este campo.",
           },
         },
         required: ["tipo", "descripcion"],
@@ -112,8 +127,13 @@ export async function ejecutarTool(
     case "registrar_solicitud": {
       const tipo = input.tipo ? String(input.tipo) : undefined;
       const descripcion = input.descripcion ? String(input.descripcion) : undefined;
-      await registrarSolicitud(callSid, { tipo, descripcion });
-      return { resultText: "Solicitud registrada." };
+      const colaId = input.colaId ? String(input.colaId) : undefined;
+      await registrarSolicitud(callSid, { tipo, descripcion, colaId });
+      return {
+        resultText:
+          "Solicitud registrada. Dile ahora al cliente, en tus propias palabras, que un gestor se va a comunicar " +
+          "con él/ella para continuar con esto — no transfieras la llamada para esto.",
+      };
     }
 
     case "registrar_dato": {

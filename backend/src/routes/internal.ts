@@ -159,14 +159,18 @@ export async function internalRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Registra lo que el cliente pidió (cotización, reclamo, cita...) según
-  // lo extraiga el agente durante la llamada.
+  // Registra lo que el cliente pidió (cotización, reclamo, pago, cita...)
+  // según lo extraiga el agente durante la llamada — esto es lo que usa el
+  // bot cuando NO transfiere en vivo, sino que guarda el pedido para que un
+  // gestor lo retome después (ver herramienta registrar_solicitud).
+  // colaId (opcional): a qué departamento le corresponde este pedido, si el
+  // bot pudo identificarlo — se valida que sea de la MISMA empresa.
   app.post<{
     Params: { callSid: string };
-    Body: { tipo?: string; descripcion?: string };
+    Body: { tipo?: string; descripcion?: string; colaId?: string };
   }>("/internal/llamadas/:callSid/solicitud", async (req, reply) => {
     const { callSid } = req.params;
-    const { tipo, descripcion } = req.body;
+    const { tipo, descripcion, colaId } = req.body;
 
     const llamada = await pool.query<{ id: string; empresa_id: string }>(
       "SELECT id, empresa_id FROM llamadas WHERE call_sid = $1",
@@ -180,10 +184,16 @@ export async function internalRoutes(app: FastifyInstance) {
 
     const { id: llamadaId, empresa_id: empresaId } = llamada.rows[0];
 
+    let colaIdValida: string | null = null;
+    if (colaId) {
+      const cola = await pool.query("SELECT 1 FROM colas WHERE id = $1 AND empresa_id = $2", [colaId, empresaId]);
+      if (cola.rows.length > 0) colaIdValida = colaId;
+    }
+
     await pool.query(
-      `INSERT INTO solicitudes (empresa_id, llamada_id, tipo, descripcion)
-       VALUES ($1, $2, $3, $4)`,
-      [empresaId, llamadaId, tipo ?? null, descripcion ?? null]
+      `INSERT INTO solicitudes (empresa_id, llamada_id, tipo, descripcion, cola_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [empresaId, llamadaId, tipo ?? null, descripcion ?? null, colaIdValida]
     );
 
     reply.send({ ok: true });

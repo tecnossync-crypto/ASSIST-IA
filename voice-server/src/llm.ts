@@ -46,14 +46,15 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
     : null;
 
   // Departamentos/colas configurados por la empresa (Configuración →
-  // Agentes). Si hay más de uno, el modelo debe indicar cuál corresponde al
-  // usar transferir_a_humano; si solo hay uno o ninguno, no hace falta
-  // elegir (el backend reparte entre todos los agentes por defecto).
+  // Agentes). Si hay más de uno, el modelo debe indicar cuál corresponde
+  // (colaId) al usar transferir_a_humano O registrar_solicitud; si solo hay
+  // uno o ninguno, no hace falta elegir (el backend reparte entre todos los
+  // agentes por defecto, o la solicitud queda sin departamento específico).
   const colas = empresa.colas ?? [];
   const listaColas =
     colas.length > 1
-      ? `Departamentos disponibles para transferir (usa el "id" EXACTO, no el nombre, en el campo colaId de ` +
-        `transferir_a_humano): ${colas.map((c) => `"${c.nombre}" [id: ${c.id}]`).join(", ")}.`
+      ? `Departamentos disponibles (usa el "id" EXACTO, no el nombre, en el campo colaId de transferir_a_humano ` +
+        `o registrar_solicitud, según a cuál le corresponda el pedido): ${colas.map((c) => `"${c.nombre}" [id: ${c.id}]`).join(", ")}.`
       : null;
 
   // Si ya conocemos a este cliente (llamada a/de un número que ya está en
@@ -101,8 +102,20 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
       ? `Campos que esta empresa necesita que recolectes del cliente, además de lo anterior: ${listaCampos}. ` +
         "Usa la herramienta registrar_dato una vez por cada uno en cuanto el cliente te lo dé."
       : "",
-    "Usa la herramienta registrar_solicitud en cuanto identifiques qué necesita el cliente.",
-    "Usa la herramienta transferir_a_humano solo cuando corresponda según las reglas de arriba.",
+    // Regla por defecto, no negociable: casi todo pedido se resuelve
+    // REGISTRANDO (registrar_solicitud) y avisándole al cliente que un
+    // gestor lo va a contactar — NO transfiriendo en vivo. Solo se
+    // transfiere en vivo si de verdad hace falta un humano ya mismo. Si el
+    // guion de la empresa (arriba, "Cuándo transferir a un humano") da
+    // reglas más específicas, esas mandan por encima de esto para su caso,
+    // pero la regla por defecto sigue aplicando para todo lo demás.
+    "Cuando el cliente pida algo (pagar, cotizar, información, un cambio en su cuenta/póliza, un reclamo no " +
+      "urgente, etc.), tu opción por defecto es usar registrar_solicitud: guarda el pedido en cuanto lo tengas " +
+      "claro (no esperes a que termine la llamada) y avísale en tu propia respuesta que un gestor se va a " +
+      "comunicar con él/ella para continuar. NO transfieras la llamada para esto.",
+    "Usa transferir_a_humano SOLO cuando de verdad haga falta un humano ahora mismo: el cliente lo pide " +
+      "explícitamente e insiste, está molesto/insatisfecho, el caso es urgente, o está fuera de lo que puedes " +
+      "resolver o registrar bien.",
     listaColas,
     "Nunca inventes información que no tengas; si no sabes algo, dilo y ofrece transferir.",
   ]
