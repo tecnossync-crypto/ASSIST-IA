@@ -140,10 +140,10 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   // según el enrutamiento configurado por la empresa (todos | round_robin |
   // disponibilidad). empresaId viaja en la query string porque nosotros
   // armamos esta URL al crear la llamada.
-  app.post<{ Querystring: { empresaId?: string; colaId?: string; origenExterno?: string } }>(
+  app.post<{ Querystring: { empresaId?: string; colaId?: string; origenExterno?: string; usuarioId?: string } }>(
     "/webhooks/twilio/voice-normal",
     async (req, reply) => {
-      const { empresaId, colaId, origenExterno } = req.query;
+      const { empresaId, colaId, origenExterno, usuarioId } = req.query;
       const body = req.body as Record<string, string>;
       const publicBaseUrl = process.env.PUBLIC_BASE_URL;
 
@@ -178,6 +178,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         conferenciaNombre,
         colaId,
         publicBaseUrl,
+        usuarioIdDirecto: usuarioId,
       });
       if (identidades.length === 0) {
         app.log.warn({ empresaId, colaId }, "Llamada normal sin agentes disponibles");

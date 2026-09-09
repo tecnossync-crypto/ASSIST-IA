@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Delete, Phone, PhoneOff, Users, History, Loader2, X } from "lucide-react";
 import type { ContactoResumen, LlamadaResumen, Cola } from "@/lib/api";
+import { useAgenteSoftphone } from "@/components/AgenteSoftphoneContext";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
 
@@ -22,6 +23,11 @@ function formatCronometro(segundos: number): string {
 
 export function PanelTelefono() {
   const router = useRouter();
+  // Si hay un agente identificado con PIN, la llamada debe timbrarle
+  // SIEMPRE a él (ver backend: iniciarConferenciaConAgentes con
+  // usuarioIdDirecto) — no al enrutamiento general de la cola, que es para
+  // repartir entre varios, no para esto.
+  const { sesion: sesionAgente } = useAgenteSoftphone();
   const [contactos, setContactos] = useState<ContactoResumen[]>([]);
   const [recientes, setRecientes] = useState<LlamadaResumen[]>([]);
   const [colas, setColas] = useState<Cola[]>([]);
@@ -156,7 +162,7 @@ export function PanelTelefono() {
       const res = await fetch("/api/llamar-normal", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ numero: num, colaId: colaId || undefined }),
+        body: JSON.stringify({ numero: num, colaId: colaId || undefined, usuarioId: sesionAgente?.usuarioId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error originando la llamada");

@@ -1,6 +1,6 @@
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa } from "./twilio-empresa.js";
-import { elegirAgentesParaLlamada } from "./agentes.js";
+import { elegirAgentesParaLlamada, identidadAgente } from "./agentes.js";
 
 /**
  * Marca a los agentes que correspondan (según colas/enrutamiento) para que
@@ -20,10 +20,22 @@ export async function iniciarConferenciaConAgentes(opts: {
   conferenciaNombre: string;
   colaId?: string | null;
   publicBaseUrl: string;
+  // Si un agente específico originó esta llamada él mismo (ej. desde el
+  // panel de teléfono, "llamar a este contacto"), debe ser SIEMPRE quien la
+  // atienda — sin pasar por el enrutamiento de la cola (round_robin,
+  // disponibilidad, etc.), que es para REPARTIR llamadas entrantes/
+  // transferidas entre varios agentes, no para decidir quién contesta algo
+  // que un agente concreto ya decidió llamar él mismo. Antes esto se
+  // ignoraba y la llamada podía terminar timbrándole a otro agente (o a
+  // nadie, si el que llamó no estaba marcado "disponible"), dejando al
+  // cliente esperando indefinidamente.
+  usuarioIdDirecto?: string | null;
 }): Promise<{ identidades: string[] }> {
-  const { empresaId, llamadaId, conferenciaNombre, colaId, publicBaseUrl } = opts;
+  const { empresaId, llamadaId, conferenciaNombre, colaId, publicBaseUrl, usuarioIdDirecto } = opts;
 
-  const identidadesAgentes = await elegirAgentesParaLlamada(empresaId, colaId);
+  const identidadesAgentes = usuarioIdDirecto
+    ? [identidadAgente(usuarioIdDirecto)]
+    : await elegirAgentesParaLlamada(empresaId, colaId);
   if (identidadesAgentes.length === 0) return { identidades: [] };
 
   const twilioEmpresa = await clienteTwilioEmpresa(empresaId);

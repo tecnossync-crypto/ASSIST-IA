@@ -267,11 +267,15 @@ export async function colgarLlamada(callSid: string): Promise<void> {
   }
 }
 
-export async function iniciarLlamadaNormal(numero: string, colaId?: string | null): Promise<{ callSid: string }> {
+export async function iniciarLlamadaNormal(
+  numero: string,
+  colaId?: string | null,
+  usuarioId?: string | null
+): Promise<{ callSid: string }> {
   const res = await fetch(new URL("/api/llamadas/normal", BACKEND_URL), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ empresaId: EMPRESA_ID, numero, colaId: colaId || undefined }),
+    body: JSON.stringify({ empresaId: EMPRESA_ID, numero, colaId: colaId || undefined, usuarioId: usuarioId || undefined }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

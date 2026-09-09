@@ -55,10 +55,10 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
     }
   );
 
-  app.post<{ Body: { empresaId: string; numero: string; colaId?: string | null } }>(
+  app.post<{ Body: { empresaId: string; numero: string; colaId?: string | null; usuarioId?: string | null } }>(
     "/api/llamadas/normal",
     async (req, reply) => {
-      const { empresaId, numero, colaId } = req.body;
+      const { empresaId, numero, colaId, usuarioId } = req.body;
 
       if (!empresaId || !numero) {
         reply.code(400).send({ error: "empresaId y numero son requeridos" });
@@ -78,6 +78,13 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
       }
 
       const parametroCola = colaId ? `&colaId=${encodeURIComponent(colaId)}` : "";
+      // Si un agente identificado con su PIN originó la llamada (panel de
+      // teléfono), debe ser SIEMPRE quien la atienda — ver
+      // iniciarConferenciaConAgentes. Sin esto, la llamada podía terminar
+      // repartida por el enrutamiento normal (a otro agente, o a nadie si
+      // el que llamó no estaba marcado "disponible" en ese momento),
+      // dejando al cliente esperando sin que nadie le conteste.
+      const parametroUsuario = usuarioId ? `&usuarioId=${encodeURIComponent(usuarioId)}` : "";
 
       try {
         const call = await twilioEmpresa.client.calls.create({
@@ -87,7 +94,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           // la cola elegida o de la empresa) se decide en
           // /webhooks/twilio/voice-normal, al momento en que el cliente
           // contesta — no acá al originar.
-          url: `${publicBaseUrl}/webhooks/twilio/voice-normal?empresaId=${empresaId}${parametroCola}`,
+          url: `${publicBaseUrl}/webhooks/twilio/voice-normal?empresaId=${empresaId}${parametroCola}${parametroUsuario}`,
           method: "POST",
           statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
           statusCallbackMethod: "POST",
@@ -95,7 +102,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           timeout: twilioEmpresa.timeoutTimbrado,
         });
 
-        app.log.info({ callSid: call.sid, numero, colaId }, "Llamada normal (softphone) originada");
+        app.log.info({ callSid: call.sid, numero, colaId, usuarioId }, "Llamada normal (softphone) originada");
         reply.send({ ok: true, callSid: call.sid });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada normal");
