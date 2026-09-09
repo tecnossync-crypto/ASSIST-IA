@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { KeyRound, Copy, Check, ShieldAlert, User, Mail, Phone, Wand2, Pencil, ImagePlus } from "lucide-react";
+import { KeyRound, Copy, Check, ShieldAlert, User, Mail, Phone, Wand2, Pencil, ImagePlus, Hash } from "lucide-react";
 import { crearAgenteAction, type EstadoCrearAgente } from "@/app/(app)/configuracion/agentes/actions";
 import { MedidorFuerzaPassword } from "@/components/MedidorFuerzaPassword";
 import type { Cola } from "@/lib/api";
@@ -83,7 +83,7 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
 
       <form action={formAction} className="flex flex-col gap-6 rounded-xl border border-edge bg-surface p-5">
         <Seccion titulo="Información básica" Icon={User}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <input name="nombre" required placeholder="Nombre completo" className={CAMPO} />
             <div className="relative">
               <Mail size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -92,6 +92,15 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
             <div className="relative">
               <Phone size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <input name="telefono" type="tel" placeholder="Teléfono (opcional)" className={`${CAMPO} pl-8`} />
+            </div>
+            <div className="relative">
+              <Hash size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <input
+                name="idExterno"
+                placeholder="Id externo (opcional)"
+                title="Código o id en otro sistema (CRM, planilla, etc.), para integraciones — no lo usa la plataforma."
+                className={`${CAMPO} pl-8`}
+              />
             </div>
           </div>
         </Seccion>

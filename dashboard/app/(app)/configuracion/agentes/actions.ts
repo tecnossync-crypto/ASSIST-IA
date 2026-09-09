@@ -6,6 +6,7 @@ import {
   crearAgente,
   eliminarAgente,
   actualizarPasswordAgente,
+  actualizarIdExternoAgente,
   actualizarEnrutamiento,
   crearCola,
   actualizarEnrutamientoCola,
@@ -37,6 +38,7 @@ export async function crearAgenteAction(
   const nombre = String(formData.get("nombre") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const telefono = String(formData.get("telefono") ?? "").trim();
+  const idExterno = String(formData.get("idExterno") ?? "").trim();
   const pin = String(formData.get("pin") ?? "").trim();
   const rol = String(formData.get("rol") ?? "operador").trim();
   const colaId = String(formData.get("colaId") ?? "").trim();
@@ -65,6 +67,7 @@ export async function crearAgenteAction(
       nombre,
       email,
       telefono: telefono || undefined,
+      idExterno: idExterno || undefined,
       pin: pin || undefined,
       password: passwordGenerada,
       rol,
@@ -108,6 +111,29 @@ export async function cambiarPasswordAgenteAction(
 
   revalidatePath("/configuracion/agentes");
   await auditar("actualizar", "agente_password", { id });
+  return { ok: true };
+}
+
+export interface EstadoIdExterno {
+  error?: string;
+  ok?: boolean;
+}
+
+export async function cambiarIdExternoAgenteAction(
+  id: string,
+  _prevState: EstadoIdExterno | null,
+  formData: FormData
+): Promise<EstadoIdExterno> {
+  const idExterno = String(formData.get("idExterno") ?? "").trim();
+
+  try {
+    await actualizarIdExternoAgente(id, idExterno);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error guardando el id externo." };
+  }
+
+  revalidatePath("/configuracion/agentes");
+  await auditar("actualizar", "agente_id_externo", { id, idExterno });
   return { ok: true };
 }
 

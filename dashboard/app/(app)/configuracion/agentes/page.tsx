@@ -8,6 +8,7 @@ import { NuevoAgenteForm } from "@/components/NuevoAgenteForm";
 import { CambiarPasswordAgente } from "@/components/CambiarPasswordAgente";
 import { Configurar2FA } from "@/components/Configurar2FA";
 import { AvatarUsuario } from "@/components/AvatarUsuario";
+import { EditorIdExternoAgente } from "@/components/EditorIdExternoAgente";
 import { eliminarAgenteAction, crearColaAction, eliminarColaAction } from "./actions";
 
 const ETIQUETAS_ROL: Record<string, string> = {
@@ -158,12 +159,15 @@ export default async function AgentesPage() {
               </BotonAccion>
             </div>
 
-            {a.tiene_acceso_dashboard && (
-              <div className="flex flex-wrap items-center gap-4 border-t border-edge pt-3">
-                <CambiarPasswordAgente id={a.id} nombre={a.nombre} />
-                <Configurar2FA id={a.id} habilitado={a.totp_habilitado} />
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-4 border-t border-edge pt-3">
+              {a.tiene_acceso_dashboard && (
+                <>
+                  <CambiarPasswordAgente id={a.id} nombre={a.nombre} />
+                  <Configurar2FA id={a.id} habilitado={a.totp_habilitado} />
+                </>
+              )}
+              <EditorIdExternoAgente id={a.id} valorInicial={a.id_externo} />
+            </div>
           </div>
         ))}
       </section>

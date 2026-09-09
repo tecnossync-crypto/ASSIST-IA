@@ -723,6 +723,10 @@ export interface Agente {
   nombre: string;
   email: string;
   telefono: string | null;
+  // Id/código en un sistema externo (CRM, planilla, etc.) — puramente
+  // informativo, para que una integración identifique a este usuario sin
+  // depender del email. No lo usa nada de la plataforma internamente.
+  id_externo: string | null;
   rol: string;
   pin: string | null;
   disponible: boolean;
@@ -765,6 +769,7 @@ export async function crearAgente(data: {
   nombre: string;
   email: string;
   telefono?: string;
+  idExterno?: string;
   pin?: string;
   password?: string;
   rol?: string;
@@ -784,6 +789,18 @@ export async function crearAgente(data: {
 export async function eliminarAgente(id: string): Promise<void> {
   const res = await fetch(new URL(`/api/agentes/${id}`, BACKEND_URL), { method: "DELETE" });
   if (!res.ok) throw new Error(`Error eliminando agente: HTTP ${res.status}`);
+}
+
+export async function actualizarIdExternoAgente(id: string, idExterno: string): Promise<void> {
+  const res = await fetch(new URL(`/api/agentes/${id}`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ idExterno }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error actualizando el id externo: HTTP ${res.status}`);
+  }
 }
 
 export async function actualizarPasswordAgente(id: string, password: string): Promise<void> {

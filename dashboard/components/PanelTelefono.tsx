@@ -21,7 +21,7 @@ function formatCronometro(segundos: number): string {
   return `${m}:${s}`;
 }
 
-export function PanelTelefono() {
+export function PanelTelefono({ autoAbrir = false }: { autoAbrir?: boolean } = {}) {
   const router = useRouter();
   // Si hay un agente identificado con PIN, la llamada debe timbrarle
   // SIEMPRE a él (ver backend: iniciarConferenciaConAgentes con
@@ -31,7 +31,10 @@ export function PanelTelefono() {
   const [contactos, setContactos] = useState<ContactoResumen[]>([]);
   const [recientes, setRecientes] = useState<LlamadaResumen[]>([]);
   const [colas, setColas] = useState<Cola[]>([]);
-  const [abierto, setAbierto] = useState(false);
+  // autoAbrir: la ventana compacta de la extensión de Chrome (ver
+  // app/extension-panel) no tiene otra cosa que mostrar, así que el panel
+  // arranca abierto en vez de mostrar primero el botón circular flotante.
+  const [abierto, setAbierto] = useState(autoAbrir);
   const [tab, setTab] = useState<Tab>("marcar");
   const [numero, setNumero] = useState("");
   const [busqueda, setBusqueda] = useState("");

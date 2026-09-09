@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Plataforma de Voz IA — Teléfono",
+  "version": "1.0.0",
+  "description": "Abre el panel de teléfono (marcar, contestar, ver llamadas) en una ventana aparte, sin tener que dejar abierta toda la plataforma.",
+  "action": {
+    "default_title": "Abrir el panel de teléfono"
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage"]
+}

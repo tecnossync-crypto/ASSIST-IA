@@ -35,7 +35,7 @@ export async function agentesRoutes(app: FastifyInstance) {
     const result = await pool.query(
       `SELECT u.id, u.nombre, u.email, u.telefono, u.rol, u.pin, u.disponible, u.estado_presencia, u.ultima_conexion,
               u.cola_id, c.nombre AS cola_nombre, (u.password_hash IS NOT NULL) AS tiene_acceso_dashboard,
-              (u.avatar_key IS NOT NULL) AS tiene_avatar, u.totp_habilitado
+              (u.avatar_key IS NOT NULL) AS tiene_avatar, u.totp_habilitado, u.id_externo
        FROM usuarios u
        LEFT JOIN colas c ON c.id = u.cola_id
        WHERE u.empresa_id = $1 ORDER BY u.creado_en`,
@@ -67,13 +67,14 @@ export async function agentesRoutes(app: FastifyInstance) {
       nombre: string;
       email: string;
       telefono?: string;
+      idExterno?: string;
       pin?: string;
       password?: string;
       rol?: string;
       colaId?: string | null;
     };
   }>("/api/agentes", async (req, reply) => {
-    const { empresaId, nombre, email, telefono, pin, password, rol, colaId } = req.body;
+    const { empresaId, nombre, email, telefono, idExterno, pin, password, rol, colaId } = req.body;
     if (!empresaId || !nombre || !email) {
       reply.code(400).send({ error: "empresaId, nombre y email son requeridos" });
       return;
@@ -91,10 +92,20 @@ export async function agentesRoutes(app: FastifyInstance) {
     try {
       const passwordHash = password ? await bcrypt.hash(password, 10) : null;
       const result = await pool.query(
-        `INSERT INTO usuarios (empresa_id, nombre, email, telefono, pin, password_hash, rol, cola_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING id, nombre, email, telefono, rol, pin, cola_id`,
-        [empresaId, nombre, email.trim().toLowerCase(), telefono?.trim() || null, pin || null, passwordHash, rolFinal, colaId || null]
+        `INSERT INTO usuarios (empresa_id, nombre, email, telefono, id_externo, pin, password_hash, rol, cola_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id, nombre, email, telefono, id_externo, rol, pin, cola_id`,
+        [
+          empresaId,
+          nombre,
+          email.trim().toLowerCase(),
+          telefono?.trim() || null,
+          idExterno?.trim() || null,
+          pin || null,
+          passwordHash,
+          rolFinal,
+          colaId || null,
+        ]
       );
       reply.send({ ok: true, agente: result.rows[0] });
     } catch (err) {
@@ -108,6 +119,7 @@ export async function agentesRoutes(app: FastifyInstance) {
       nombre?: string;
       email?: string;
       telefono?: string;
+      idExterno?: string;
       pin?: string;
       rol?: string;
       colaId?: string | null;
@@ -115,7 +127,7 @@ export async function agentesRoutes(app: FastifyInstance) {
     };
   }>("/api/agentes/:id", async (req, reply) => {
     const { id } = req.params;
-    const { nombre, email, telefono, pin, rol, colaId, password } = req.body;
+    const { nombre, email, telefono, idExterno, pin, rol, colaId, password } = req.body;
     if (pin && !/^\d{4,6}$/.test(pin)) {
       reply.code(400).send({ error: "El PIN debe ser numérico, de 4 a 6 dígitos" });
       return;
@@ -140,9 +152,10 @@ export async function agentesRoutes(app: FastifyInstance) {
            rol = COALESCE($5, rol),
            cola_id = CASE WHEN $6::boolean THEN $7::uuid ELSE cola_id END,
            password_hash = COALESCE($8, password_hash),
-           telefono = COALESCE($9, telefono)
+           telefono = COALESCE($9, telefono),
+           id_externo = CASE WHEN $10::boolean THEN $11 ELSE id_externo END
          WHERE id = $1
-         RETURNING id, nombre, email, telefono, rol, pin, cola_id`,
+         RETURNING id, nombre, email, telefono, id_externo, rol, pin, cola_id`,
         [
           id,
           nombre ?? null,
@@ -153,6 +166,8 @@ export async function agentesRoutes(app: FastifyInstance) {
           colaId || null,
           passwordHash,
           telefono !== undefined ? telefono.trim() || null : null,
+          idExterno !== undefined,
+          idExterno?.trim() || null,
         ]
       );
       if (result.rows.length === 0) {
