@@ -572,6 +572,21 @@ export async function eliminarContacto(id: string): Promise<void> {
   }
 }
 
+export async function actualizarInfoContacto(
+  id: string,
+  data: { nombre?: string; apellido?: string; numero?: string }
+): Promise<void> {
+  const res = await fetch(new URL(`/api/contactos/${id}/info`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error actualizando el contacto: HTTP ${res.status}`);
+  }
+}
+
 export async function actualizarPropietarioContacto(id: string, propietarioUsuarioId: string | null): Promise<void> {
   const res = await fetch(new URL(`/api/contactos/${id}/propietario`, BACKEND_URL), {
     method: "PUT",

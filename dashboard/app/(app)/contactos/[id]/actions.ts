@@ -4,10 +4,41 @@ import { revalidatePath } from "next/cache";
 import {
   actualizarEtiquetasContacto,
   actualizarDatosContacto,
+  actualizarInfoContacto,
   actualizarPropietarioContacto,
   eliminarContacto,
 } from "@/lib/api";
 import { auditar } from "@/lib/session";
+
+export interface EstadoInfoBasica {
+  error?: string;
+  ok?: boolean;
+}
+
+export async function guardarInfoBasicaAction(
+  contactoId: string,
+  _prevState: EstadoInfoBasica | null,
+  formData: FormData
+): Promise<EstadoInfoBasica> {
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  const apellido = String(formData.get("apellido") ?? "").trim();
+  const numero = String(formData.get("numero") ?? "").trim();
+
+  if (!numero) {
+    return { error: "El número es requerido." };
+  }
+
+  try {
+    await actualizarInfoContacto(contactoId, { nombre, apellido, numero });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error actualizando el contacto." };
+  }
+
+  revalidatePath(`/contactos/${contactoId}`);
+  revalidatePath("/contactos");
+  await auditar("actualizar", "contacto_info", { contactoId, nombre, apellido, numero });
+  return { ok: true };
+}
 
 export async function guardarEtiquetasAction(formData: FormData) {
   const contactoId = String(formData.get("contactoId"));

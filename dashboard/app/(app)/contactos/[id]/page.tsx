@@ -6,6 +6,7 @@ import { EditorEtiquetasContacto } from "@/components/EditorEtiquetasContacto";
 import { EditorDatosContacto } from "@/components/EditorDatosContacto";
 import { SelectorPropietarioContacto } from "@/components/SelectorPropietarioContacto";
 import { BotonEliminarContacto } from "@/components/BotonEliminarContacto";
+import { EditorInfoBasicaContacto } from "@/components/EditorInfoBasicaContacto";
 
 export default async function ContactoDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,11 +29,19 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
       </div>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">{nombreCompleto}</h1>
-          <p className="text-sm text-muted">
-            {contacto.numero} · última actividad {formatFechaHora(contacto.actualizado_en)}
-          </p>
+        <div className="flex flex-1 flex-col gap-2">
+          <div>
+            <h1 className="text-xl font-semibold">{nombreCompleto}</h1>
+            <p className="text-sm text-muted">
+              {contacto.numero} · última actividad {formatFechaHora(contacto.actualizado_en)}
+            </p>
+          </div>
+          <EditorInfoBasicaContacto
+            contactoId={contacto.id}
+            nombre={contacto.nombre}
+            apellido={contacto.apellido}
+            numero={contacto.numero}
+          />
         </div>
         <BotonEliminarContacto contactoId={contacto.id} nombre={nombreCompleto} />
       </div>

@@ -102,6 +102,48 @@ export async function contactosRoutes(app: FastifyInstance) {
     reply.send({ ok: true, insertados, actualizados });
   });
 
+  // Edición manual de los datos básicos del contacto (nombre, apellido,
+  // número) desde su ficha — antes solo se podían capturar automáticamente
+  // durante una llamada, sin forma de corregir un error a mano. numero se
+  // normaliza igual que en cualquier otro camino de creación/edición de
+  // contactos (ver lib/telefono.ts), para no crear un duplicado por
+  // diferencia de formato.
+  app.put<{ Params: { id: string }; Body: { nombre?: string; apellido?: string; numero?: string } }>(
+    "/api/contactos/:id/info",
+    async (req, reply) => {
+      const { id } = req.params;
+      const { nombre, apellido, numero } = req.body;
+
+      try {
+        const result = await pool.query(
+          `UPDATE contactos SET
+             nombre = COALESCE($2, nombre),
+             apellido = COALESCE($3, apellido),
+             numero = COALESCE($4, numero),
+             actualizado_en = now()
+           WHERE id = $1
+           RETURNING id, numero, nombre, apellido`,
+          [
+            id,
+            nombre !== undefined ? nombre.trim() || null : null,
+            apellido !== undefined ? apellido.trim() || null : null,
+            numero !== undefined && numero.trim() ? normalizarNumero(numero) : null,
+          ]
+        );
+        if (result.rows.length === 0) {
+          reply.code(404).send({ error: "no encontrado" });
+          return;
+        }
+        reply.send({ ok: true, contacto: result.rows[0] });
+      } catch (err) {
+        reply.code(409).send({
+          error: "Ya existe otro contacto con ese número en esta empresa",
+          detalle: String(err),
+        });
+      }
+    }
+  );
+
   // Los campos personalizados que la empresa configura en Configuración →
   // Contactos, editados a mano desde la ficha del contacto (no solo lo que
   // capture el bot en una llamada). Reemplaza el objeto completo — el
