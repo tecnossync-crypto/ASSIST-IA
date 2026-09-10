@@ -682,6 +682,13 @@ export async function eliminarReglaApiLlamadas(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Error eliminando la regla: HTTP ${res.status}`);
 }
 
+export async function obtenerWebhookRecibido(id: string): Promise<WebhookRecibido> {
+  const res = await fetch(new URL(`/api/webhooks/recientes/${id}`, BACKEND_URL), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo la solicitud: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.solicitud;
+}
+
 export type EndpointWebhookPrueba = "llamar-agente" | "llamadas" | "contactos";
 
 // Dispara una solicitud REAL contra nuestro propio webhook (con el api_key

@@ -146,15 +146,16 @@ export default async function IntegracionesPage() {
             Solicitudes recibidas recientemente
           </div>
           <Link
-            href="/configuracion/integraciones/logs"
+            href="/api-logs"
             className="flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline"
           >
             <ListFilter size={12} />
-            Ver panel completo
+            Ver Registros API
           </Link>
         </div>
         <p className="mb-4 text-xs text-muted">
-          Las últimas 10 — para ver todas con filtros y paginación, usa el panel completo de arriba.
+          Las últimas 10 — para ver todas con filtros, paginación y el detalle de cada una, entra a{" "}
+          <Link href="/api-logs" className="text-indigo-700 hover:underline">Registros API</Link>.
         </p>
         {solicitudes.length === 0 ? (
           <p className="text-sm text-muted">Todavía no ha llegado ninguna solicitud.</p>

@@ -454,4 +454,19 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
     );
     reply.send({ solicitudes: result.rows, total: Number(totalResult.rows[0].total) });
   });
+
+  // Detalle de una sola solicitud — para el panel dedicado de "Registros
+  // API" (antes solo se veía la lista, sin una vista de detalle aparte).
+  app.get<{ Params: { id: string } }>("/api/webhooks/recientes/:id", async (req, reply) => {
+    const result = await pool.query(
+      `SELECT id, empresa_id, endpoint, body, ok, error, es_prueba, call_sid, creado_en
+       FROM webhooks_recibidos WHERE id = $1`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      reply.code(404).send({ error: "no encontrado" });
+      return;
+    }
+    reply.send({ solicitud: result.rows[0] });
+  });
 }

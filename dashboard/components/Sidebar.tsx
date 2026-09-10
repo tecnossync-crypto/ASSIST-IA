@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Phone, Megaphone, Users, Settings, Radio, LogOut, X } from "lucide-react";
+import { LayoutDashboard, Phone, Megaphone, Users, Settings, Radio, LogOut, X, Terminal } from "lucide-react";
 import { cerrarSesionAction } from "@/app/logout/actions";
 import { useMobileNav } from "./MobileNavContext";
 
@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/llamadas", label: "Llamadas", Icon: Phone },
   { href: "/campanas", label: "Campañas", Icon: Megaphone },
   { href: "/contactos", label: "Contactos", Icon: Users },
+  { href: "/api-logs", label: "Registros API", Icon: Terminal },
   { href: "/configuracion", label: "Configuración", Icon: Settings },
 ];
 
@@ -36,7 +37,7 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
   const items = (
     veSupervision ? [...ITEMS.slice(0, 2), ...ITEMS_SUPERVISION, ...ITEMS.slice(2)] : ITEMS
   )
-    .filter((i) => i.href !== "/configuracion" || esAdmin)
+    .filter((i) => (i.href !== "/configuracion" && i.href !== "/api-logs") || esAdmin)
     .filter((i) => !esOperador || !["/", "/campanas", "/contactos"].includes(i.href));
 
   return (

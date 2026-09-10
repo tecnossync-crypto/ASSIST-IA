@@ -10,7 +10,14 @@ const PUBLICAS = ["/login", "/_next", "/favicon.ico", "/api/webhooks"];
 // Configuración a los operadores, pero eso es solo cosmético: sin esto,
 // cualquiera con sesión (incluso un operador) podía entrar directo por URL
 // y, por ejemplo, generar el API key o exportar grabaciones.
-const SOLO_ADMIN = ["/configuracion", "/api/grabaciones", "/api/clonar-voz", "/api/logs-webhooks", "/api/reglas-api-llamadas"];
+const SOLO_ADMIN = [
+  "/configuracion",
+  "/api-logs",
+  "/api/grabaciones",
+  "/api/clonar-voz",
+  "/api/logs-webhooks",
+  "/api/reglas-api-llamadas",
+];
 
 // El supervisor ve todo lo operativo (incluida Supervisión en vivo) pero
 // nunca Configuración — por eso esta lista es aparte de SOLO_ADMIN.

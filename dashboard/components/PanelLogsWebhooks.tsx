@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-import { formatFechaHora } from "@/lib/format";
+import Link from "next/link";
+import { Loader2, ChevronLeft, ChevronRight, ChevronRight as FlechaFila } from "lucide-react";
+import { formatFechaHoraCorta } from "@/lib/format";
 import type { WebhookRecibido } from "@/lib/api";
 
 const ETIQUETAS_ENDPOINT: Record<string, string> = {
@@ -12,11 +13,10 @@ const ETIQUETAS_ENDPOINT: Record<string, string> = {
   prueba: "URL de prueba",
 };
 
-const TAMANO_PAGINA = 20;
+const TAMANO_PAGINA = 25;
 
-/** Panel completo de "todas las llamadas API y los logs" — con filtros por
- *  endpoint/resultado y paginación, a diferencia del preview de las
- *  últimas 10 que se ve directo en Integraciones. */
+/** Registros del API — lista tipo tabla (igual que Llamadas), cada fila
+ *  lleva a su propia página de detalle en vez de mostrar todo inline. */
 export function PanelLogsWebhooks() {
   const [solicitudes, setSolicitudes] = useState<WebhookRecibido[]>([]);
   const [total, setTotal] = useState(0);
@@ -82,48 +82,65 @@ export function PanelLogsWebhooks() {
           <option value="false">Solo error</option>
         </select>
         {cargando && <Loader2 size={14} className="animate-spin text-muted" />}
-        <span className="ml-auto text-xs text-muted">{total} solicitud(es)</span>
+        <span className="ml-auto text-xs text-muted">{total} registro(s)</span>
       </div>
 
-      {solicitudes.length === 0 && !cargando ? (
-        <p className="rounded-lg border border-dashed border-edge p-6 text-center text-sm text-muted">
-          No hay solicitudes con ese filtro.
-        </p>
-      ) : (
-        <div className="flex flex-col divide-y divide-edge rounded-lg border border-edge bg-surface">
-          {solicitudes.map((s) => (
-            <div key={s.id} className="p-3">
-              <div className="mb-1 flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                  {ETIQUETAS_ENDPOINT[s.endpoint] ?? s.endpoint}
-                </span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    s.ok ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                  }`}
-                >
-                  {s.ok ? "OK" : "Error"}
-                </span>
-                {s.es_prueba && (
-                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">Prueba manual</span>
-                )}
-                {s.call_sid && (
-                  <span className="rounded-full bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-ink-2">
-                    {s.call_sid}
-                  </span>
-                )}
-                <span className="ml-auto text-xs text-muted">{formatFechaHora(s.creado_en)}</span>
-              </div>
-              <pre className="overflow-x-auto rounded-md bg-surface-2 p-2 text-xs text-ink-2">
-                <code>
-                  {typeof s.body?.crudo === "string" ? s.body.crudo || "(vacío)" : JSON.stringify(s.body, null, 2)}
-                </code>
-              </pre>
-              {s.error && <p className="mt-1 text-xs text-red-600">{s.error}</p>}
-            </div>
-          ))}
+      <div className="overflow-hidden rounded-lg border border-edge bg-surface">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead className="bg-surface-2 text-left text-muted">
+              <tr>
+                <th className="whitespace-nowrap px-4 py-2 font-medium">Fecha</th>
+                <th className="whitespace-nowrap px-4 py-2 font-medium">Endpoint</th>
+                <th className="whitespace-nowrap px-4 py-2 font-medium">Resultado</th>
+                <th className="whitespace-nowrap px-4 py-2 font-medium">Origen</th>
+                <th className="px-4 py-2 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-edge">
+              {solicitudes.map((s) => (
+                <tr key={s.id} className="hover:bg-surface-2">
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <Link href={`/api-logs/${s.id}`} className="block">
+                      {formatFechaHoraCorta(s.creado_en)}
+                    </Link>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                      {ETIQUETAS_ENDPOINT[s.endpoint] ?? s.endpoint}
+                    </span>
+                    {s.es_prueba && <span className="ml-1.5 text-xs text-muted">(prueba)</span>}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        s.ok ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {s.ok ? "OK" : "Error"}
+                    </span>
+                  </td>
+                  <td className="max-w-[220px] truncate px-4 py-3 text-ink-2">
+                    {typeof s.body?.origen === "string" ? s.body.origen : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link href={`/api-logs/${s.id}`} className="inline-flex items-center text-indigo-700 hover:underline">
+                      Ver <FlechaFila size={13} />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {solicitudes.length === 0 && !cargando && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                    No hay registros con ese filtro.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
       {totalPaginas > 1 && (
         <div className="flex items-center justify-center gap-3">
