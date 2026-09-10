@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { empresaPorApiKey } from "../lib/api-keys.js";
-import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
+import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
 import { asegurarContacto, upsertContacto } from "../lib/contactos.js";
 import { registrarWebhookRecibido } from "../lib/webhooks-log.js";
 import { evaluarReglaApiLlamadas } from "../lib/reglas-api-llamadas.js";
@@ -119,8 +119,9 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       await asegurarContacto(empresaId, numero);
 
       try {
+        const { to } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
-          to: numero,
+          to,
           from: twilioEmpresa.fromNumber,
           url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&webhookLlamadaId=${llamadaWebhookId}`,
           method: "POST",
@@ -239,8 +240,9 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       params.set("origenExterno", origen?.trim() || "externo");
 
       try {
+        const { to } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
-          to: numero,
+          to,
           from: twilioEmpresa.fromNumber,
           url: `${publicBaseUrl}/webhooks/twilio/voice-normal?${params.toString()}`,
           method: "POST",

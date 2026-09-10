@@ -1,5 +1,5 @@
 import { pool } from "../db/pool.js";
-import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
+import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
 
 // Cuántos contactos se marcan "listos para llamar" por cada tick. Es el
 // control de ritmo: con TICK_MS=20s y LOTE=3, salen ~9 llamadas/minuto por
@@ -59,8 +59,9 @@ async function originarLlamadaContacto(
   }
 
   try {
+    const { to } = resolverDestinoSaliente(contacto.numero, twilioEmpresa.centralPropia);
     await twilioEmpresa.client.calls.create({
-      to: contacto.numero,
+      to,
       from: twilioEmpresa.fromNumber,
       url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${contacto.empresa_id}&campanaContactoId=${contacto.id}`,
       method: "POST",

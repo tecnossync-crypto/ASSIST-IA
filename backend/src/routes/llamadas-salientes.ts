@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
+import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
 import { generarTokenVoz } from "../lib/voice-token.js";
 
 /**
@@ -35,8 +35,9 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
       }
 
       try {
+        const { to, porCentralPropia } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
-          to: numero,
+          to,
           from: twilioEmpresa.fromNumber,
           url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}`,
           method: "POST",
@@ -46,7 +47,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           timeout: twilioEmpresa.timeoutTimbrado,
         });
 
-        app.log.info({ callSid: call.sid, numero }, "Llamada saliente (IA) originada");
+        app.log.info({ callSid: call.sid, numero, porCentralPropia }, "Llamada saliente (IA) originada");
         reply.send({ ok: true, callSid: call.sid });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada saliente");
@@ -87,8 +88,9 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
       const parametroUsuario = usuarioId ? `&usuarioId=${encodeURIComponent(usuarioId)}` : "";
 
       try {
+        const { to, porCentralPropia } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
-          to: numero,
+          to,
           from: twilioEmpresa.fromNumber,
           // Quién contesta (uno o varios agentes, según el enrutamiento de
           // la cola elegida o de la empresa) se decide en
@@ -102,7 +104,10 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           timeout: twilioEmpresa.timeoutTimbrado,
         });
 
-        app.log.info({ callSid: call.sid, numero, colaId, usuarioId }, "Llamada normal (softphone) originada");
+        app.log.info(
+          { callSid: call.sid, numero, colaId, usuarioId, porCentralPropia },
+          "Llamada normal (softphone) originada"
+        );
         reply.send({ ok: true, callSid: call.sid });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada normal");

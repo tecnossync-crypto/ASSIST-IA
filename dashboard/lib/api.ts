@@ -213,6 +213,13 @@ export interface EmpresaConfig {
   enrutamiento_llamadas: { modo: ModoEnrutamiento; turno_actual?: number };
   retencion_grabaciones_dias: number;
   api_key: string | null;
+  central_propia_activa: boolean;
+  central_propia_dominio: string | null;
+  central_propia_auth_tipo: "ip" | "credenciales" | null;
+  central_propia_usuario: string | null;
+  central_propia_saliente: boolean;
+  central_propia_entrante: boolean;
+  central_propia_tiene_password: boolean;
 }
 
 export async function obtenerEmpresa(): Promise<EmpresaConfig> {
@@ -240,6 +247,26 @@ export async function actualizarEmpresa(data: {
     body: JSON.stringify({ empresaId: EMPRESA_ID, ...data }),
   });
   if (!res.ok) throw new Error(`Error actualizando empresa: HTTP ${res.status}`);
+}
+
+export async function actualizarCentralPropia(data: {
+  activa?: boolean;
+  dominio?: string;
+  authTipo?: "ip" | "credenciales";
+  usuario?: string;
+  password?: string;
+  saliente?: boolean;
+  entrante?: boolean;
+}): Promise<void> {
+  const res = await fetch(new URL("/api/empresa/central-propia", BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, ...data }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error actualizando la central propia: HTTP ${res.status}`);
+  }
 }
 
 export async function iniciarLlamadaSaliente(numero: string): Promise<{ callSid: string }> {

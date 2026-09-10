@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { clonarVoz } from "../lib/elevenlabs.js";
 import { generarApiKey } from "../lib/api-keys.js";
+import { encriptar } from "../lib/crypto.js";
 import { MODOS_ENRUTAMIENTO, type ModoEnrutamiento } from "../lib/agentes.js";
 
 /**
@@ -23,7 +24,10 @@ export async function empresaRoutes(app: FastifyInstance) {
     const result = await pool.query(
       `SELECT id, nombre, guion_agente, voz_agente, tts_provider, campos_personalizados,
               etiquetas_disponibles, duracion_maxima_llamada_segundos, timeout_timbrado_segundos,
-              tiempo_respuesta_segundos, enrutamiento_llamadas, retencion_grabaciones_dias, api_key
+              tiempo_respuesta_segundos, enrutamiento_llamadas, retencion_grabaciones_dias, api_key,
+              central_propia_activa, central_propia_dominio, central_propia_auth_tipo,
+              central_propia_usuario, central_propia_saliente, central_propia_entrante,
+              (central_propia_password_enc IS NOT NULL) AS central_propia_tiene_password
        FROM empresas WHERE id = $1`,
       [empresaId]
     );
@@ -211,5 +215,56 @@ export async function empresaRoutes(app: FastifyInstance) {
       app.log.error({ err }, "Error clonando voz con ElevenLabs");
       reply.code(502).send({ error: err instanceof Error ? err.message : "Error desconocido" });
     }
+  });
+
+  // Vincular la central telefónica (PBX) propia de la empresa vía troncal
+  // SIP — ver migración 039 y lib/twilio-empresa.ts (resolverDestinoSaliente).
+  // Todo opcional/apagado por defecto: mientras activa=false, no cambia
+  // nada de cómo se originan las llamadas hoy.
+  app.put<{
+    Body: {
+      empresaId: string;
+      activa?: boolean;
+      dominio?: string;
+      authTipo?: "ip" | "credenciales";
+      usuario?: string;
+      password?: string;
+      saliente?: boolean;
+      entrante?: boolean;
+    };
+  }>("/api/empresa/central-propia", async (req, reply) => {
+    const { empresaId, activa, dominio, authTipo, usuario, password, saliente, entrante } = req.body;
+    if (!empresaId) {
+      reply.code(400).send({ error: "empresaId es requerido" });
+      return;
+    }
+    if (activa && !dominio?.trim()) {
+      reply.code(400).send({ error: "dominio es requerido para activar la central propia" });
+      return;
+    }
+
+    await pool.query(
+      `UPDATE empresas SET
+         central_propia_activa = COALESCE($2, central_propia_activa),
+         central_propia_dominio = COALESCE($3, central_propia_dominio),
+         central_propia_auth_tipo = COALESCE($4, central_propia_auth_tipo),
+         central_propia_usuario = COALESCE($5, central_propia_usuario),
+         central_propia_password_enc = COALESCE($6, central_propia_password_enc),
+         central_propia_saliente = COALESCE($7, central_propia_saliente),
+         central_propia_entrante = COALESCE($8, central_propia_entrante)
+       WHERE id = $1`,
+      [
+        empresaId,
+        activa ?? null,
+        dominio?.trim() || null,
+        authTipo ?? null,
+        usuario?.trim() || null,
+        password ? encriptar(password) : null,
+        saliente ?? null,
+        entrante ?? null,
+      ]
+    );
+
+    reply.send({ ok: true });
   });
 }

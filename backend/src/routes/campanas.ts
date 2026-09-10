@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
-import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
+import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
 
 /**
  * CRUD de campañas de llamadas salientes masivas + su lista de contactos.
@@ -197,8 +197,9 @@ export async function campanasRoutes(app: FastifyInstance) {
       const campanaContactoId = contactoPrueba.rows[0].id;
 
       try {
+        const { to } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
-          to: numero,
+          to,
           from: twilioEmpresa.fromNumber,
           url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&campanaContactoId=${campanaContactoId}`,
           method: "POST",

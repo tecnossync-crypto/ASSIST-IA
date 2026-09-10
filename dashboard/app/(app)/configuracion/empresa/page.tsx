@@ -2,6 +2,7 @@ import { Building2 } from "lucide-react";
 import { obtenerEmpresa } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { FormConFeedback } from "@/components/FormConFeedback";
+import { CentralPropiaForm } from "@/components/CentralPropiaForm";
 import { guardarEmpresaAction } from "./actions";
 
 export default async function EmpresaConfigPage() {
@@ -28,6 +29,8 @@ export default async function EmpresaConfigPage() {
           />
         </div>
       </FormConFeedback>
+
+      <CentralPropiaForm empresa={empresa} />
     </div>
   );
 }
