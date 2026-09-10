@@ -104,10 +104,18 @@ export function twimlConnectVoiceAgent(opts: {
   // Cuando el voice-server manda {"type":"end"}, ConversationRelay termina y
   // TwiML cae al siguiente verbo: <Redirect> a post-relay, que decide si
   // hay que marcar humano (transferir_a_humano) o simplemente colgar.
+  // OJO: <Start> admite un solo verbo hijo por bloque — poner <Recording> y
+  // <Stream> juntos dentro del MISMO <Start> es TwiML inválido para Twilio
+  // (cada cosa que se "arranca" en paralelo necesita su propio <Start>).
+  // Esto causaba justo el síntoma reportado: la llamada conectaba y se
+  // cortaba al segundo, sin ninguna transcripción — Twilio rechazaba el
+  // TwiML completo antes de llegar siquiera a <Connect>.
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
     <Recording recordingStatusCallback="${publicBaseUrl}/webhooks/twilio/recording-status" />
+  </Start>
+  <Start>
     <Stream url="${streamSupervisionUrl}${parametroCallSidStream}" track="both_tracks" />
   </Start>
   <Connect>
