@@ -4,6 +4,7 @@ import { empresaPorApiKey } from "../lib/api-keys.js";
 import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
 import { asegurarContacto, upsertContacto } from "../lib/contactos.js";
 import { registrarWebhookRecibido } from "../lib/webhooks-log.js";
+import { evaluarReglaApiLlamadas } from "../lib/reglas-api-llamadas.js";
 
 interface CampoPersonalizado {
   nombre: string;
@@ -100,9 +101,18 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         return;
       }
 
+      // Si alguna regla de Configuración → Integraciones matchea (según los
+      // campos que mandó esta plataforma externa), su guion manda por
+      // encima del "prompt" crudo que haya mandado la plataforma — así la
+      // empresa controla el guion real en vez de confiar en texto libre
+      // que a veces es solo una nota de contexto, no un prompt de verdad.
+      const reglaAplicada = await evaluarReglaApiLlamadas(empresaId, req.body as Record<string, unknown>);
+      const promptFinal = reglaAplicada?.promptPersonalizado ?? prompt;
+
       const solicitud = await pool.query<{ id: string }>(
-        `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen) VALUES ($1, $2, $3, $4) RETURNING id`,
-        [empresaId, numero, prompt ?? null, origen ?? null]
+        `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [empresaId, numero, promptFinal ?? null, origen ?? null, reglaAplicada?.reglaId ?? null]
       );
       const llamadaWebhookId = solicitud.rows[0].id;
 
@@ -121,7 +131,14 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         });
 
         app.log.info({ callSid: call.sid, numero, origen }, "Llamada originada vía webhook externo");
-        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: true, esPrueba });
+        await registrarWebhookRecibido({
+          empresaId,
+          endpoint: "llamadas",
+          body: req.body,
+          ok: true,
+          esPrueba,
+          callSid: call.sid,
+        });
         reply.send({ ok: true, callSid: call.sid, id: llamadaWebhookId });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada vía webhook externo");
@@ -234,7 +251,14 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         });
 
         app.log.info({ callSid: call.sid, numero, origen }, "Llamada a agente originada vía webhook externo");
-        await registrarWebhookRecibido({ empresaId, endpoint: "llamar-agente", body: req.body, ok: true, esPrueba });
+        await registrarWebhookRecibido({
+          empresaId,
+          endpoint: "llamar-agente",
+          body: req.body,
+          ok: true,
+          esPrueba,
+          callSid: call.sid,
+        });
         reply.send({ ok: true, callSid: call.sid });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada a agente vía webhook externo");
@@ -389,25 +413,45 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
   // que llegaron a los 3 webhooks de arriba (reales o de prueba) — así se
   // puede verificar qué mandó de verdad la plataforma de terceros antes de
   // dar la integración por buena.
-  app.get<{ Querystring: { empresaId?: string; limite?: string } }>(
-    "/api/webhooks/recientes",
-    async (req, reply) => {
-      const { empresaId, limite } = req.query;
-      if (!empresaId) {
-        reply.code(400).send({ error: "empresaId es requerido" });
-        return;
-      }
-      const lim = Math.min(parseInt(limite ?? "20", 10) || 20, 50);
-
-      const result = await pool.query(
-        `SELECT id, endpoint, body, ok, error, es_prueba, creado_en
-         FROM webhooks_recibidos
-         WHERE empresa_id = $1
-         ORDER BY creado_en DESC
-         LIMIT $2`,
-        [empresaId, lim]
-      );
-      reply.send({ solicitudes: result.rows });
+  // limite/offset para paginar (el panel completo de logs pide de a
+  // páginas); endpoint/ok opcionales para filtrar. Sin filtros, se
+  // comporta igual que antes (últimas N, sin importar cuáles).
+  app.get<{
+    Querystring: { empresaId?: string; limite?: string; offset?: string; endpoint?: string; ok?: string };
+  }>("/api/webhooks/recientes", async (req, reply) => {
+    const { empresaId, limite, offset, endpoint, ok } = req.query;
+    if (!empresaId) {
+      reply.code(400).send({ error: "empresaId es requerido" });
+      return;
     }
-  );
+    const lim = Math.min(parseInt(limite ?? "20", 10) || 20, 100);
+    const off = Math.max(parseInt(offset ?? "0", 10) || 0, 0);
+
+    const condiciones = ["empresa_id = $1"];
+    const valores: unknown[] = [empresaId];
+    if (endpoint) {
+      valores.push(endpoint);
+      condiciones.push(`endpoint = $${valores.length}`);
+    }
+    if (ok === "true" || ok === "false") {
+      valores.push(ok === "true");
+      condiciones.push(`ok = $${valores.length}`);
+    }
+
+    const totalResult = await pool.query<{ total: string }>(
+      `SELECT COUNT(*) AS total FROM webhooks_recibidos WHERE ${condiciones.join(" AND ")}`,
+      valores
+    );
+
+    valores.push(lim, off);
+    const result = await pool.query(
+      `SELECT id, endpoint, body, ok, error, es_prueba, call_sid, creado_en
+       FROM webhooks_recibidos
+       WHERE ${condiciones.join(" AND ")}
+       ORDER BY creado_en DESC
+       LIMIT $${valores.length - 1} OFFSET $${valores.length}`,
+      valores
+    );
+    reply.send({ solicitudes: result.rows, total: Number(totalResult.rows[0].total) });
+  });
 }

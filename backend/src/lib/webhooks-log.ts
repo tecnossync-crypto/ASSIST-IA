@@ -13,12 +13,21 @@ export async function registrarWebhookRecibido(opts: {
   ok: boolean;
   error?: string;
   esPrueba?: boolean;
+  callSid?: string;
 }): Promise<void> {
   try {
     await pool.query(
-      `INSERT INTO webhooks_recibidos (empresa_id, endpoint, body, ok, error, es_prueba)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [opts.empresaId, opts.endpoint, JSON.stringify(opts.body ?? {}), opts.ok, opts.error ?? null, opts.esPrueba ?? false]
+      `INSERT INTO webhooks_recibidos (empresa_id, endpoint, body, ok, error, es_prueba, call_sid)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        opts.empresaId,
+        opts.endpoint,
+        JSON.stringify(opts.body ?? {}),
+        opts.ok,
+        opts.error ?? null,
+        opts.esPrueba ?? false,
+        opts.callSid ?? null,
+      ]
     );
   } catch (err) {
     console.error("No se pudo registrar el webhook recibido (no bloquea la request real)", err);

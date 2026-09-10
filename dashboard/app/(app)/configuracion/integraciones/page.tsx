@@ -1,9 +1,11 @@
-import { Plug, Webhook, Database, Sparkles, FlaskConical, Inbox } from "lucide-react";
-import { obtenerEmpresa, listarWebhooksRecientes } from "@/lib/api";
+import Link from "next/link";
+import { Plug, Webhook, Database, Sparkles, FlaskConical, Inbox, ListFilter, GitBranch } from "lucide-react";
+import { obtenerEmpresa, listarWebhooksRecientes, listarReglasApiLlamadas } from "@/lib/api";
 import { formatFechaHora } from "@/lib/format";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { ApiKeyManager } from "@/components/ApiKeyManager";
 import { ProbadorWebhooks } from "@/components/ProbadorWebhooks";
+import { ReglasApiLlamadas } from "@/components/ReglasApiLlamadas";
 
 const ETIQUETAS_ENDPOINT: Record<string, string> = {
   "llamar-agente": "Llamar a un agente",
@@ -22,9 +24,10 @@ const PROXIMAMENTE = [
 ];
 
 export default async function IntegracionesPage() {
-  const [empresa, solicitudes] = await Promise.all([
+  const [empresa, { solicitudes }, reglas] = await Promise.all([
     obtenerEmpresa(),
-    listarWebhooksRecientes().catch(() => []),
+    listarWebhooksRecientes({ limite: 10 }).catch(() => ({ solicitudes: [], total: 0 })),
+    listarReglasApiLlamadas().catch(() => []),
   ]);
   const backendPublicUrl = process.env.NEXT_PUBLIC_BACKEND_PUBLIC_URL || "https://TU-DOMINIO-BACKEND";
 
@@ -97,15 +100,30 @@ export default async function IntegracionesPage() {
             <span className="font-mono text-ink-2">numero</span> — requerido, el teléfono a llamar (con código de país).
           </li>
           <li>
-            <span className="font-mono text-ink-2">prompt</span> — opcional. Si lo mandas, reemplaza el prompt
-            normal del agente solo para esta llamada; si no lo mandas, usa el guion configurado en
-            Configuración → Inteligencia Artificial.
+            <span className="font-mono text-ink-2">prompt</span> — opcional. Si lo mandas (y ninguna regla de
+            abajo aplica), reemplaza el prompt normal del agente solo para esta llamada; si no lo mandas, usa el
+            guion configurado en Configuración → Inteligencia Artificial.
           </li>
           <li>
             <span className="font-mono text-ink-2">origen</span> — opcional, libre, solo para identificar de
-            dónde vino la solicitud.
+            dónde vino la solicitud (también lo pueden usar las reglas de abajo para decidir el guion).
           </li>
         </ul>
+      </section>
+
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+          <GitBranch size={16} className="text-indigo-600" />
+          Reglas del API — qué guion usar según lo que llegue
+        </div>
+        <p className="mb-4 text-xs text-muted">
+          Algunas plataformas (ej. Zoho SalesIQ) mandan como &quot;prompt&quot; una nota corta de contexto, no un guion de
+          verdad — y esa nota terminaba reemplazando TODO el prompt del bot. Con una regla, tú controlas el
+          guion real que se usa; el campo que llegó en el POST (ej. <span className="font-mono">origen</span>)
+          solo decide CUÁL regla aplica. Se evalúan en orden, la primera que coincide gana; si ninguna coincide,
+          se usa el comportamiento normal de arriba.
+        </p>
+        <ReglasApiLlamadas reglas={reglas} />
       </section>
 
       <section className="rounded-lg border border-edge bg-surface p-5">
@@ -122,14 +140,21 @@ export default async function IntegracionesPage() {
       </section>
 
       <section className="rounded-lg border border-edge bg-surface p-5">
-        <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
-          <Inbox size={16} className="text-indigo-600" />
-          Solicitudes recibidas recientemente
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <Inbox size={16} className="text-indigo-600" />
+            Solicitudes recibidas recientemente
+          </div>
+          <Link
+            href="/configuracion/integraciones/logs"
+            className="flex items-center gap-1 text-xs font-medium text-indigo-700 hover:underline"
+          >
+            <ListFilter size={12} />
+            Ver panel completo
+          </Link>
         </div>
         <p className="mb-4 text-xs text-muted">
-          Lo que de verdad llegó a estos webhooks (de tu plataforma o de la prueba de arriba) — así puedes
-          verificar los parámetros exactos que manda tu integración antes de darla por buena. Recarga la
-          página para actualizar.
+          Las últimas 10 — para ver todas con filtros y paginación, usa el panel completo de arriba.
         </p>
         {solicitudes.length === 0 ? (
           <p className="text-sm text-muted">Todavía no ha llegado ninguna solicitud.</p>

@@ -28,6 +28,7 @@ import { monitoreoRoutes } from "./routes/monitoreo.js";
 import { llamadasAgenteRoutes } from "./routes/llamadas-agente.js";
 import { grabacionesRoutes } from "./routes/grabaciones.js";
 import { webhooksExternosRoutes } from "./routes/webhooks-externos.js";
+import { reglasApiRoutes } from "./routes/reglas-api.js";
 import { almacenamientoRoutes } from "./routes/almacenamiento.js";
 import { integracionesNubeRoutes } from "./routes/integraciones-nube.js";
 import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
@@ -96,6 +97,7 @@ await app.register(monitoreoRoutes);
 await app.register(llamadasAgenteRoutes);
 await app.register(grabacionesRoutes);
 await app.register(webhooksExternosRoutes);
+await app.register(reglasApiRoutes);
 await app.register(almacenamientoRoutes);
 await app.register(integracionesNubeRoutes);
 

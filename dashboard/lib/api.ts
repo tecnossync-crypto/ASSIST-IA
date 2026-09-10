@@ -606,18 +606,80 @@ export interface WebhookRecibido {
   ok: boolean;
   error: string | null;
   es_prueba: boolean;
+  call_sid: string | null;
   creado_en: string;
 }
 
 // Bitácora de qué llegó a los webhooks públicos (Configuración →
 // Integraciones → "Probar antes de conectar").
-export async function listarWebhooksRecientes(): Promise<WebhookRecibido[]> {
+export async function listarWebhooksRecientes(opts?: {
+  limite?: number;
+  offset?: number;
+  endpoint?: string;
+  ok?: boolean;
+}): Promise<{ solicitudes: WebhookRecibido[]; total: number }> {
   const url = new URL("/api/webhooks/recientes", BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
+  if (opts?.limite) url.searchParams.set("limite", String(opts.limite));
+  if (opts?.offset) url.searchParams.set("offset", String(opts.offset));
+  if (opts?.endpoint) url.searchParams.set("endpoint", opts.endpoint);
+  if (opts?.ok !== undefined) url.searchParams.set("ok", String(opts.ok));
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Error listando solicitudes recibidas: HTTP ${res.status}`);
   const data = await res.json();
-  return data.solicitudes;
+  return { solicitudes: data.solicitudes, total: data.total ?? data.solicitudes.length };
+}
+
+export interface ReglaApiLlamadas {
+  id: string;
+  nombre: string;
+  campo: string;
+  operador: "igual" | "contiene";
+  valor: string;
+  prompt_personalizado: string;
+  activa: boolean;
+  orden: number;
+}
+
+export async function listarReglasApiLlamadas(): Promise<ReglaApiLlamadas[]> {
+  const url = new URL("/api/reglas-api-llamadas", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando reglas: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.reglas;
+}
+
+export async function crearReglaApiLlamadas(data: {
+  nombre: string;
+  campo: string;
+  operador: string;
+  valor: string;
+  promptPersonalizado: string;
+}): Promise<void> {
+  const res = await fetch(new URL("/api/reglas-api-llamadas", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, ...data }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error creando la regla: HTTP ${res.status}`);
+  }
+}
+
+export async function actualizarReglaApiLlamadas(id: string, data: { activa?: boolean }): Promise<void> {
+  const res = await fetch(new URL(`/api/reglas-api-llamadas/${id}`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Error actualizando la regla: HTTP ${res.status}`);
+}
+
+export async function eliminarReglaApiLlamadas(id: string): Promise<void> {
+  const res = await fetch(new URL(`/api/reglas-api-llamadas/${id}`, BACKEND_URL), { method: "DELETE" });
+  if (!res.ok) throw new Error(`Error eliminando la regla: HTTP ${res.status}`);
 }
 
 export type EndpointWebhookPrueba = "llamar-agente" | "llamadas" | "contactos";
