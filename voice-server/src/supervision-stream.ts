@@ -13,7 +13,9 @@ import { WebSocketServer, WebSocket } from "ws";
  * path distinto (/supervision-stream), así que no hace falta otro puerto.
  */
 export function registrarSupervisionStream(httpServer: Server) {
-  const wss = new WebSocketServer({ server: httpServer, path: "/supervision-stream" });
+  // perMessageDeflate: false — ver server.ts (mismo motivo: compresión
+  // WebSocket detrás de Caddy corrompía los frames en producción).
+  const wss = new WebSocketServer({ server: httpServer, path: "/supervision-stream", perMessageDeflate: false });
   const oyentesPorCallSid = new Map<string, Set<WebSocket>>();
 
   function agregarOyente(callSid: string, ws: WebSocket) {

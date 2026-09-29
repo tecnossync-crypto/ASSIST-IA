@@ -42,7 +42,14 @@ const httpServer = createServer((req, res) => {
   res.end();
 });
 
-const wss = new WebSocketServer({ server: httpServer, path: "/voice-stream" });
+// perMessageDeflate: false — la librería "ws" activa compresión WebSocket
+// por defecto, y detrás de un proxy como Caddy eso puede corromper los
+// frames (confirmado en producción: "Invalid WebSocket frame: RSV1 must be
+// clear" al conectar de prueba con wscat — Twilio se topaba con lo mismo,
+// por eso ConversationRelay se conectaba y se cortaba al instante sin
+// intercambiar ni un mensaje). No hace falta comprimir mensajes JSON tan
+// chicos, así que se apaga de raíz en vez de perseguir la negociación.
+const wss = new WebSocketServer({ server: httpServer, path: "/voice-stream", perMessageDeflate: false });
 
 // Segundo WebSocket, mismo httpServer, otro path — audio en vivo para
 // Supervisión (ver supervision-stream.ts). Totalmente independiente de
