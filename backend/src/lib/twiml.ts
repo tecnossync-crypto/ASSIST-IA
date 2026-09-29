@@ -112,8 +112,13 @@ export function twimlConnectVoiceAgent(opts: {
   // aparte que no bloquea ni reemplaza al <Connect> de abajo — corren en
   // paralelo. track="both_tracks" manda el audio del cliente y del bot por
   // separado (msg.media.track), el navegador los mezcla al reproducir.
+  // OJO: <Stream> de Twilio NO soporta query strings en la URL — si se le
+  // manda uno (ej. "?callSid=..."), Twilio devuelve el error 31920 "Stream -
+  // WebSocket - Handshake Error" (confirmado en el Debugger de Twilio en
+  // producción). No hace falta de todas formas: Twilio manda el callSid
+  // real dentro del propio evento "start" del stream (ver
+  // supervision-stream.ts, que ya lo lee de ahí como fuente principal).
   const streamSupervisionUrl = voiceWsUrl.replace(/\/voice-stream\/?$/, "/supervision-stream");
-  const parametroCallSidStream = `?callSid=${encodeURIComponent(callSid)}`;
 
   // <Record> deja constancia de la llamada completa; <Connect><ConversationRelay>
   // entrega el audio como texto por WebSocket a nuestro servidor de voz IA.
@@ -132,7 +137,7 @@ export function twimlConnectVoiceAgent(opts: {
     <Recording recordingStatusCallback="${publicBaseUrl}/webhooks/twilio/recording-status" />
   </Start>
   <Start>
-    <Stream url="${streamSupervisionUrl}${parametroCallSidStream}" track="both_tracks" />
+    <Stream url="${streamSupervisionUrl}" track="both_tracks" />
   </Start>
   <Connect>
     <ConversationRelay url="${voiceWsUrl}"${idiomaAttr}${vozAttr}>
