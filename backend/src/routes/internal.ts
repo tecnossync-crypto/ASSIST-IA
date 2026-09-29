@@ -4,8 +4,6 @@ import { requireInternalKey } from "../lib/internal-auth.js";
 import { upsertContacto } from "../lib/contactos.js";
 import { aplicarVariablesContacto } from "../lib/variables-prompt.js";
 import { sintetizarVoz } from "../lib/elevenlabs.js";
-import { subirGrabacion, urlFirmadaGrabacion } from "../lib/storage.js";
-import { randomUUID } from "node:crypto";
 
 /** Colas/departamentos de la empresa, para que el bot pueda elegir a cuál
  *  transferir según de qué se trate (ver herramienta transferir_a_humano). */
@@ -333,10 +331,13 @@ export async function internalRoutes(app: FastifyInstance) {
   // lib/elevenlabs.ts: el ttsProvider nativo de ConversationRelay no puede
   // usar voces privadas, así que generamos el audio nosotros y se lo damos a
   // Twilio como un archivo para reproducir ("play"), no como texto.
-  // La URL firmada dura poco (Twilio la pide casi al instante) y el archivo
-  // en el bucket queda huérfano — igual que cualquier objeto temporal, se
-  // puede limpiar con una política de expiración del lado del bucket
-  // (ej. lifecycle rule a 1 día) sin que la plataforma tenga que borrarlo.
+  //
+  // Devuelve el audio CRUDO (no una URL) — el voice-server lo sirve él
+  // mismo en memoria (ver server.ts, /tts-audio/:id) en vez de subirlo a
+  // S3 y generar una URL firmada. Eso le ahorra a cada turno un viaje de
+  // ida y vuelta a AWS (PutObject + presign) antes de que Twilio pueda
+  // empezar a reproducir — importa porque esto pasa en plena llamada en
+  // vivo, no es una operación en segundo plano.
   app.post<{ Params: { empresaId: string }; Body: { texto?: string } }>(
     "/internal/empresas/:empresaId/tts",
     async (req, reply) => {
@@ -350,10 +351,7 @@ export async function internalRoutes(app: FastifyInstance) {
 
       try {
         const audio = await sintetizarVoz(empresaId, texto);
-        const key = `tts-temporal/${empresaId}/${randomUUID()}.mp3`;
-        const urlStorage = await subirGrabacion({ key, body: audio, contentType: "audio/mpeg" });
-        const url = await urlFirmadaGrabacion(urlStorage, 120);
-        reply.send({ url });
+        reply.header("content-type", "audio/mpeg").send(audio);
       } catch (err) {
         app.log.error({ err, empresaId }, "Error sintetizando voz con ElevenLabs");
         reply.code(502).send({ error: err instanceof Error ? err.message : "Error desconocido" });

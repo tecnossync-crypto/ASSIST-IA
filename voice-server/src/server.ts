@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { config } from "dotenv";
 
 // El .env vive en la raíz del monorepo, no en voice-server/.
@@ -32,12 +33,46 @@ process.on("unhandledRejection", (reason) => {
 
 const PORT = Number(process.env.VOICE_SERVER_PORT ?? process.env.PORT ?? 3002);
 
+// Audio de voz clonada (ElevenLabs) pendiente de que Twilio lo descargue —
+// ver audioTemporalUrl() más abajo. En memoria nada más: son archivos de
+// segundos de duración que se sirven una sola vez y se descartan; no hace
+// falta persistirlos ni un storage externo (eso es justo lo que se
+// eliminó — ver comentario en hablar()).
+const audiosTemporales = new Map<string, Buffer>();
+
+function audioTemporalUrl(audio: Buffer): string {
+  const id = randomUUID();
+  audiosTemporales.set(id, audio);
+  // Red de seguridad: si por lo que sea Twilio nunca llega a pedirlo (la
+  // llamada se cae antes, un error raro, etc.), esto evita que el mapa
+  // crezca sin límite con audios que nadie va a reclamar.
+  setTimeout(() => audiosTemporales.delete(id), 2 * 60 * 1000).unref();
+  return `${process.env.PUBLIC_BASE_URL}/tts-audio/${id}`;
+}
+
 const httpServer = createServer((req, res) => {
   if (req.url === "/health") {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true, service: "voz-ia-voice-server" }));
     return;
   }
+
+  const match = req.url?.match(/^\/tts-audio\/([\w-]+)$/);
+  if (match) {
+    const audio = audiosTemporales.get(match[1]);
+    if (!audio) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    // Se sirve una sola vez — Twilio lo pide justo cuando manda el "play" y
+    // no lo va a volver a pedir; no hace falta dejarlo colgado en memoria.
+    audiosTemporales.delete(match[1]);
+    res.writeHead(200, { "content-type": "audio/mpeg", "content-length": audio.length });
+    res.end(audio);
+    return;
+  }
+
   res.writeHead(404);
   res.end();
 });
@@ -111,8 +146,8 @@ function enviar(ws: WebSocket, mensaje: ConversationRelayOutgoing) {
 async function hablar(ws: WebSocket, session: ConversationSession, texto: string) {
   if (session.usaVozClonada()) {
     try {
-      const url = await sintetizarVozElevenLabs(session.empresaId, texto);
-      enviar(ws, { type: "play", source: url, interruptible: true });
+      const audio = await sintetizarVozElevenLabs(session.empresaId, texto);
+      enviar(ws, { type: "play", source: audioTemporalUrl(audio), interruptible: true });
       return;
     } catch (err) {
       console.error(`[${session.callSid}] Error sintetizando con ElevenLabs, uso voz por defecto:`, err);

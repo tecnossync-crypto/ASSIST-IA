@@ -80,7 +80,11 @@ export async function sintetizarVoz(empresaId: string, texto: string): Promise<B
     },
     body: JSON.stringify({
       text: texto,
-      model_id: "eleven_turbo_v2_5", // baja latencia — importa en una llamada en vivo
+      // El modelo de MENOR latencia que ofrece ElevenLabs — pensado
+      // justo para agentes de voz conversacionales en vivo, más rápido
+      // que "eleven_turbo_v2_5" (que igual sería una buena alternativa si
+      // este llegara a fallar por falta de soporte de idioma, etc.).
+      model_id: "eleven_flash_v2_5",
       voice_settings: { stability: 0.5, similarity_boost: 0.8 },
     }),
   });
