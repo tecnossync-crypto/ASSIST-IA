@@ -88,3 +88,16 @@ export async function registrarDato(callSid: string, campo: string, valor: strin
     body: JSON.stringify({ campo, valor }),
   });
 }
+
+// Empresas con voz clonada (tts_provider="elevenlabs"): el backend genera el
+// audio con la API de ElevenLabs y sube el archivo, devolviendo una URL
+// firmada de corta duración que Twilio pueda descargar de inmediato (ver
+// server.ts, hablar()).
+export async function sintetizarVozElevenLabs(empresaId: string, texto: string): Promise<string> {
+  const res = await internalFetch(`/internal/empresas/${empresaId}/tts`, {
+    method: "POST",
+    body: JSON.stringify({ texto }),
+  });
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}

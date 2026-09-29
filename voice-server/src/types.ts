@@ -30,6 +30,11 @@ export type ConversationRelayIncoming =
 
 export type ConversationRelayOutgoing =
   | { type: "text"; token: string; last: boolean }
+  // Empresas con voz clonada de ElevenLabs: en vez de dejar que Twilio
+  // sintetice el texto (su ttsProvider="ElevenLabs" no acepta voces
+  // privadas), el backend ya generó el audio y esto le pide a Twilio que
+  // simplemente lo reproduzca — ver server.ts, hablar().
+  | { type: "play"; source: string; interruptible?: boolean; preemptible?: boolean }
   | { type: "end"; handoffData?: string };
 
 export interface EmpresaConfig {
@@ -46,6 +51,12 @@ export interface EmpresaConfig {
     instrucciones_extra?: string;
   };
   horario_atencion?: Record<string, unknown>;
+  // Si tts_provider="elevenlabs", esta llamada debe sintetizarse por nuestra
+  // cuenta con la voz clonada (voz_agente = voice_id) — ver session.ts,
+  // usaVozClonada(). Para google/amazon (o sin nada = default), el texto se
+  // manda tal cual a ConversationRelay y Twilio lo sintetiza directamente.
+  voz_agente?: string | null;
+  tts_provider?: string | null;
   campos_personalizados?: { nombre: string; descripcion?: string }[];
   duracion_maxima_llamada_segundos?: number;
   tiempo_respuesta_segundos?: number;

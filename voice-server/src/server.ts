@@ -10,6 +10,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { ConversationSession } from "./session.js";
 import type { ConversationRelayIncoming, ConversationRelayOutgoing } from "./types.js";
 import { registrarSupervisionStream } from "./supervision-stream.js";
+import { sintetizarVozElevenLabs } from "./backend-client.js";
 
 // Red de seguridad a nivel de proceso: este servidor sostiene TODAS las
 // llamadas de IA en curso en memoria (una ConversationSession por
@@ -57,6 +58,33 @@ function enviar(ws: WebSocket, mensaje: ConversationRelayOutgoing) {
   ws.send(JSON.stringify(mensaje), (err) => {
     if (err) console.error("[ws] error enviando mensaje a ConversationRelay:", err);
   });
+}
+
+/**
+ * Hace que el agente "diga" un texto — decide solo si eso significa mandar
+ * el texto a ConversationRelay (caso normal: Twilio lo sintetiza con Google/
+ * Amazon/su catálogo de ElevenLabs) o, si la empresa tiene una voz CLONADA
+ * propia, sintetizarlo nosotros mismos con la API real de ElevenLabs y
+ * pedirle a Twilio que solo reproduzca ese audio ya generado ("play") — ver
+ * ConversationSession.usaVozClonada() y lib/elevenlabs.ts en el backend para
+ * el porqué (el ttsProvider nativo de Twilio no soporta voces privadas).
+ *
+ * Si la síntesis con ElevenLabs falla (cuenta sin plan que lo permita, API
+ * caída, etc.), cae de vuelta al texto normal en vez de dejar al cliente en
+ * silencio — se pierde la voz clonada en ese turno puntual, pero la llamada
+ * sigue.
+ */
+async function hablar(ws: WebSocket, session: ConversationSession, texto: string) {
+  if (session.usaVozClonada()) {
+    try {
+      const url = await sintetizarVozElevenLabs(session.empresaId, texto);
+      enviar(ws, { type: "play", source: url, interruptible: true });
+      return;
+    } catch (err) {
+      console.error(`[${session.callSid}] Error sintetizando con ElevenLabs, uso voz por defecto:`, err);
+    }
+  }
+  enviar(ws, { type: "text", token: texto, last: true });
 }
 
 wss.on("connection", (ws) => {
@@ -124,7 +152,7 @@ wss.on("connection", (ws) => {
 
           const saludo = session.saludoInicial();
           session.registrarTurnoAgente(saludo);
-          enviar(ws, { type: "text", token: saludo, last: true });
+          await hablar(ws, session, saludo);
 
           // Gestor de llamadas: si se llega al límite de duración, avisa y
           // corta — no queda esperando a que el LLM decida terminar solo.
@@ -139,14 +167,10 @@ wss.on("connection", (ws) => {
             try {
               if (!session) return;
               console.log(`[${session.callSid}] duración máxima alcanzada, cerrando llamada`);
-              session.registrarTurnoAgente(
-                "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo."
-              );
-              enviar(ws, {
-                type: "text",
-                token: "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo.",
-                last: true,
-              });
+              const despedidaPorLimite =
+                "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo.";
+              session.registrarTurnoAgente(despedidaPorLimite);
+              await hablar(ws, session, despedidaPorLimite);
               finalizadaManualmente = true;
               await session.finalizar();
               enviar(ws, { type: "end" });
@@ -188,7 +212,7 @@ wss.on("connection", (ws) => {
           if (pausaMs > 0) await new Promise((r) => setTimeout(r, pausaMs));
 
           if (resultado.textoRespuesta) {
-            enviar(ws, { type: "text", token: resultado.textoRespuesta, last: true });
+            await hablar(ws, session, resultado.textoRespuesta);
           } else {
             console.error(`[${session.callSid}] correrTurno devolvió texto vacío — no se envió nada al cliente`);
           }
