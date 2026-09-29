@@ -51,9 +51,25 @@ export function twimlConnectVoiceAgent(opts: {
   // fallaba en silencio: el texto se generaba bien (se veía en los logs) y
   // nunca se escuchaba nada, ni el saludo inicial. Se normaliza acá,
   // sin importar cómo haya quedado guardado en la base.
+  // OJO (importante): cuando tts_provider="elevenlabs" es una voz CLONADA
+  // (Instant Voice Cloning), NUNCA se le pasa a Twilio como
+  // ttsProvider="ElevenLabs"/voice=<ese voice_id> — el voice_id es privado
+  // de la cuenta de ElevenLabs de la empresa y Twilio solo reconoce su
+  // propio catálogo de voces ElevenLabs. Si se manda igual, Twilio rechaza
+  // la conexión entera con el error 64101 "ConversationRelay: Invalid
+  // Parameter" ANTES de mandar el mensaje "setup" — la llamada se conecta y
+  // se corta al instante, sin ningún rastro en los logs propios (visto en
+  // producción: WebSocket se abre y se cierra con code=1006 sin ningún
+  // mensaje intercambiado). Por eso las voces clonadas se sintetizan aparte
+  // (ver lib/elevenlabs.ts sintetizarVoz() y voice-server/src/server.ts,
+  // hablar()) y se mandan como mensaje "play" — este atributo de
+  // ttsProvider/voice del TwiML solo importa para el saludo inicial (que
+  // sale por acá) y como respaldo si esa síntesis llega a fallar en algún
+  // turno.
   const PROVEEDORES_TTS: Record<string, string> = { google: "Google", amazon: "Amazon", elevenlabs: "ElevenLabs" };
-  const ttsProviderFinal = PROVEEDORES_TTS[(ttsProvider || "google").toLowerCase()] ?? "Google";
-  const vozFinal = voz || "es-US-Neural2-A";
+  const esVozClonada = (ttsProvider || "").toLowerCase() === "elevenlabs";
+  const ttsProviderFinal = esVozClonada ? "Google" : PROVEEDORES_TTS[(ttsProvider || "google").toLowerCase()] ?? "Google";
+  const vozFinal = esVozClonada ? "es-US-Neural2-A" : voz || "es-US-Neural2-A";
   const vozAttr = ` ttsProvider="${ttsProviderFinal}" voice="${vozFinal}"`;
 
   // Sin esto, Twilio reconoce lo que dice el cliente asumiendo inglés
