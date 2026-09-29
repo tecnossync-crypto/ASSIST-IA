@@ -12,10 +12,12 @@ import { WebSocketServer, WebSocket } from "ws";
  * Comparte el mismo httpServer que ConversationRelay (/voice-stream) en un
  * path distinto (/supervision-stream), así que no hace falta otro puerto.
  */
-export function registrarSupervisionStream(httpServer: Server) {
-  // perMessageDeflate: false — ver server.ts (mismo motivo: compresión
-  // WebSocket detrás de Caddy corrompía los frames en producción).
-  const wss = new WebSocketServer({ server: httpServer, path: "/supervision-stream", perMessageDeflate: false });
+// noServer: true — ver server.ts (comentario largo junto al otro
+// WebSocketServer): comparte el mismo httpServer que ConversationRelay, así
+// que el "upgrade" se despacha a mano desde ahí en vez de que cada instancia
+// enganche su propio listener (eso era lo que corrompía los frames).
+export function registrarSupervisionStream(_httpServer: Server) {
+  const wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
   const oyentesPorCallSid = new Map<string, Set<WebSocket>>();
 
   function agregarOyente(callSid: string, ws: WebSocket) {
