@@ -35,7 +35,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
       }
 
       try {
-        const { to, porCentralPropia } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, porCentralPropia, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
@@ -45,6 +45,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           statusCallbackMethod: "POST",
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
+          sendDigits,
         });
 
         app.log.info({ callSid: call.sid, numero, porCentralPropia }, "Llamada saliente (IA) originada");
@@ -88,7 +89,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
       const parametroUsuario = usuarioId ? `&usuarioId=${encodeURIComponent(usuarioId)}` : "";
 
       try {
-        const { to, porCentralPropia } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, porCentralPropia, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
@@ -102,6 +103,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           statusCallbackMethod: "POST",
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
+          sendDigits,
         });
 
         app.log.info(

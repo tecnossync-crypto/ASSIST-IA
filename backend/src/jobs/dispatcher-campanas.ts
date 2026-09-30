@@ -59,7 +59,7 @@ async function originarLlamadaContacto(
   }
 
   try {
-    const { to } = resolverDestinoSaliente(contacto.numero, twilioEmpresa.centralPropia);
+    const { to, sendDigits } = resolverDestinoSaliente(contacto.numero, twilioEmpresa.centralPropia);
     await twilioEmpresa.client.calls.create({
       to,
       from: twilioEmpresa.fromNumber,
@@ -69,6 +69,7 @@ async function originarLlamadaContacto(
       statusCallbackMethod: "POST",
       statusCallbackEvent: ["completed"],
       timeout: twilioEmpresa.timeoutTimbrado,
+      sendDigits,
     });
   } catch (err) {
     console.error(`[campaña] error originando llamada a ${contacto.numero}:`, err);

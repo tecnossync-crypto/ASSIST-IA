@@ -85,7 +85,7 @@ export async function clienteTwilioEmpresa(empresaId: string) {
 export function resolverDestinoSaliente(
   numero: string,
   centralPropia: CentralPropiaConfig | null
-): { to: string; porCentralPropia: boolean } {
+): { to: string; porCentralPropia: boolean; sendDigits?: string } {
   if (!centralPropia?.saliente) {
     return { to: numero, porCentralPropia: false };
   }
@@ -97,5 +97,13 @@ export function resolverDestinoSaliente(
   return {
     to: `sip:${credenciales}${numeroLimpio}@${centralPropia.dominio}`,
     porCentralPropia: true,
+    // El DISA de la central (que recibe la llamada y la vuelve a marcar
+    // hacia afuera por su propio troncal, ej. Claro) pide un PIN antes de
+    // dar línea — como esta llamada la origina la plataforma sin nadie
+    // presente para teclearlo, se manda solo por DTMF apenas se conecta.
+    // "w" = pausa de ~0.5s (varias para darle tiempo al DISA a contestar
+    // antes de mandar el tono), "#" al final porque el DISA espera esa
+    // tecla para confirmar el PIN.
+    sendDigits: centralPropia.password ? `wwww${centralPropia.password}#` : undefined,
   };
 }

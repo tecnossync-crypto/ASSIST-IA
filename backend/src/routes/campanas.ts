@@ -197,7 +197,7 @@ export async function campanasRoutes(app: FastifyInstance) {
       const campanaContactoId = contactoPrueba.rows[0].id;
 
       try {
-        const { to } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
@@ -207,6 +207,7 @@ export async function campanasRoutes(app: FastifyInstance) {
           statusCallbackMethod: "POST",
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
+          sendDigits,
         });
 
         app.log.info({ callSid: call.sid, numero, campanaId: id }, "Llamada de prueba de campaña originada");

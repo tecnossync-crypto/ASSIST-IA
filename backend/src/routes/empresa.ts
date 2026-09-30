@@ -27,6 +27,10 @@ export async function empresaRoutes(app: FastifyInstance) {
               tiempo_respuesta_segundos, enrutamiento_llamadas, retencion_grabaciones_dias, api_key,
               central_propia_activa, central_propia_dominio, central_propia_auth_tipo,
               central_propia_usuario, central_propia_saliente, central_propia_entrante,
+              -- Ojo: si central_propia_auth_tipo='ip', este campo ya no es
+              -- la contraseña del troncal SIP (ese modelo no usa
+              -- credenciales) sino el PIN del DISA de la central que deja
+              -- volver a marcar hacia afuera — ver resolverDestinoSaliente().
               (central_propia_password_enc IS NOT NULL) AS central_propia_tiene_password
        FROM empresas WHERE id = $1`,
       [empresaId]

@@ -23,7 +23,7 @@ export async function iniciarLlamadaIA(opts: { empresaId: string; numero: string
   // Si la empresa vinculó su propia central telefónica (PBX) para
   // salientes, la llamada sale por ahí (su troncal, ej. Claro) en vez de
   // por la red de Twilio — ver twilio-empresa.ts. Inactivo por defecto.
-  const { to, porCentralPropia } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+  const { to, porCentralPropia, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
 
   const call = await twilioEmpresa.client.calls.create({
     to,
@@ -34,6 +34,7 @@ export async function iniciarLlamadaIA(opts: { empresaId: string; numero: string
     statusCallbackMethod: "POST",
     statusCallbackEvent: ["completed"],
     timeout: twilioEmpresa.timeoutTimbrado,
+    sendDigits,
   });
 
   console.log(

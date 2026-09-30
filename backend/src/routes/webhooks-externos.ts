@@ -119,7 +119,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       await asegurarContacto(empresaId, numero);
 
       try {
-        const { to } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
@@ -129,6 +129,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           statusCallbackMethod: "POST",
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
+          sendDigits,
         });
 
         app.log.info({ callSid: call.sid, numero, origen }, "Llamada originada vía webhook externo");
@@ -240,7 +241,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       params.set("origenExterno", origen?.trim() || "externo");
 
       try {
-        const { to } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
@@ -250,6 +251,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           statusCallbackMethod: "POST",
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
+          sendDigits,
         });
 
         app.log.info({ callSid: call.sid, numero, origen }, "Llamada a agente originada vía webhook externo");
