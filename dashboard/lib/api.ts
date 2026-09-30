@@ -840,6 +840,7 @@ export interface Cola {
   nombre: string;
   enrutamiento: { modo: ModoEnrutamiento; turno_actual?: number };
   agentes_asignados: number;
+  extension_central_propia: string | null;
 }
 
 export async function listarAgentes(): Promise<Agente[]> {
@@ -1134,4 +1135,13 @@ export async function actualizarEnrutamientoCola(id: string, modo: ModoEnrutamie
 export async function eliminarCola(id: string): Promise<void> {
   const res = await fetch(new URL(`/api/colas/${id}`, BACKEND_URL), { method: "DELETE" });
   if (!res.ok) throw new Error(`Error eliminando cola: HTTP ${res.status}`);
+}
+
+export async function actualizarExtensionCentralPropiaCola(id: string, extension: string | null): Promise<void> {
+  const res = await fetch(new URL(`/api/colas/${id}/extension-central-propia`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ extension }),
+  });
+  if (!res.ok) throw new Error(`Error actualizando extensión de central propia: HTTP ${res.status}`);
 }

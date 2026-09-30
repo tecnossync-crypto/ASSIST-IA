@@ -5,6 +5,7 @@ import {
   twimlColgar,
   twimlEsperarConferencia,
   twimlUnirseConferenciaComoAgente,
+  twimlTransferirCentralPropia,
 } from "../lib/twiml.js";
 import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
 import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
@@ -298,11 +299,72 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       return;
     }
 
+    // Sin agentes de la plataforma disponibles — si la cola tiene una
+    // extensión de la central propia configurada (Grandstream) y la empresa
+    // la tiene activa para entrantes, se intenta ahí antes de rendirse. Ver
+    // twimlTransferirCentralPropia() para el aviso de que esto no se ha
+    // probado todavía contra una PBX real.
+    if (row.cola_id) {
+      const cola = await pool.query<{ extension_central_propia: string | null }>(
+        "SELECT extension_central_propia FROM colas WHERE id = $1",
+        [row.cola_id]
+      );
+      const extension = cola.rows[0]?.extension_central_propia;
+      if (extension) {
+        const twilioEmpresa = await clienteTwilioEmpresa(row.empresa_id);
+        if (twilioEmpresa?.centralPropia?.entrante) {
+          app.log.info(
+            { callSid, colaId: row.cola_id, extension },
+            "Sin agentes de la plataforma — transfiriendo a extensión de la central propia"
+          );
+          reply.type("text/xml").send(
+            twimlTransferirCentralPropia({
+              extension,
+              dominio: twilioEmpresa.centralPropia.dominio,
+              usuario: twilioEmpresa.centralPropia.usuario,
+              password: twilioEmpresa.centralPropia.password,
+              publicBaseUrl,
+              callSid,
+            })
+          );
+          return;
+        }
+      }
+    }
+
     app.log.warn({ callSid }, "Transferencia sin agentes disponibles");
     reply
       .type("text/xml")
       .send(twimlColgar("En este momento no hay agentes disponibles. Por favor intente más tarde."));
   });
+
+  // action de <Dial><Sip> en twimlTransferirCentralPropia() — Twilio pide
+  // esto si la llamada a la extensión de la central no se pudo completar
+  // (ocupado, no contestó, error de la PBX). DialCallStatus distingue "el
+  // otro lado sí contestó y ya colgaron" (completed) de "nunca contestó".
+  app.post<{ Querystring: { callSid?: string } }>(
+    "/webhooks/twilio/central-propia-fallback",
+    async (req, reply) => {
+      const body = req.body as Record<string, string>;
+      const dialCallStatus = body.DialCallStatus;
+
+      if (dialCallStatus === "completed") {
+        // Ya se habló con alguien en la central y esa pierna colgó — cortar
+        // sin decir nada más, igual que cuando cuelga un agente de la
+        // plataforma.
+        reply.type("text/xml").send(twimlColgar());
+        return;
+      }
+
+      app.log.warn(
+        { callSid: req.query.callSid, dialCallStatus },
+        "Extensión de la central propia no contestó/falló"
+      );
+      reply
+        .type("text/xml")
+        .send(twimlColgar("En este momento no hay agentes disponibles. Por favor intente más tarde."));
+    }
+  );
 
   app.post<{ Querystring: { campanaContactoId?: string } }>(
     "/webhooks/twilio/call-status",

@@ -3,6 +3,7 @@ import { listarAgentes, listarColas, obtenerEmpresa } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { EnrutamientoForm } from "@/components/EnrutamientoForm";
 import { ColaEnrutamientoSelect } from "@/components/ColaEnrutamientoSelect";
+import { ColaExtensionCentralPropia } from "@/components/ColaExtensionCentralPropia";
 import { BotonAccion } from "@/components/BotonAccion";
 import { NuevoAgenteForm } from "@/components/NuevoAgenteForm";
 import { CambiarPasswordAgente } from "@/components/CambiarPasswordAgente";
@@ -68,6 +69,7 @@ export default async function AgentesPage() {
                 <p className="text-xs text-muted">{c.agentes_asignados} agente(s) asignado(s)</p>
               </div>
               <div className="flex items-center gap-3">
+                <ColaExtensionCentralPropia colaId={c.id} valorInicial={c.extension_central_propia} />
                 <ColaEnrutamientoSelect colaId={c.id} modoActual={c.enrutamiento?.modo ?? "todos"} />
                 <BotonAccion
                   accion={eliminarColaAction.bind(null, c.id)}

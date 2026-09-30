@@ -214,6 +214,44 @@ export function twimlUnirseConferenciaComoAgente(opts: { conferenciaNombre: stri
 </Response>`;
 }
 
+function escaparXml(valor: string): string {
+  return valor.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// Transferencia de una llamada de IA hacia una extensión de la central propia
+// (PBX Grandstream) en vez de un agente conectado a la plataforma — ver
+// empresas.central_propia_* y colas.extension_central_propia. A diferencia
+// del dial SALIENTE (lib/twilio-empresa.ts, resolverDestinoSaliente — que
+// arma una URI SIP a mano y Twilio la disca directo), acá usamos el propio
+// atributo username/password de <Sip>, la forma documentada de Twilio para
+// autenticar por digest contra un servidor SIP de terceros — más confiable
+// que la URI armada a mano, pero SIGUE sin haberse probado contra la
+// Grandstream real: falta esa prueba en vivo antes de confiar en que
+// funciona igual que se ve en la documentación.
+// action: si la llamada a la extensión falla (ocupado, no contesta, etc.),
+// Twilio vuelve a pedir TwiML acá en vez de simplemente colgar — así se le
+// puede decir algo al cliente en vez de dejarlo con la llamada muerta.
+export function twimlTransferirCentralPropia(opts: {
+  extension: string;
+  dominio: string;
+  usuario?: string | null;
+  password?: string | null;
+  publicBaseUrl: string;
+  callSid: string;
+}): string {
+  const { extension, dominio, usuario, password, publicBaseUrl, callSid } = opts;
+  const authAttrs =
+    usuario && password
+      ? ` username="${escaparXml(usuario)}" password="${escaparXml(password)}"`
+      : "";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Dial action="${publicBaseUrl}/webhooks/twilio/central-propia-fallback?callSid=${encodeURIComponent(callSid)}" method="POST">
+    <Sip${authAttrs}>sip:${escaparXml(extension)}@${escaparXml(dominio)}</Sip>
+  </Dial>
+</Response>`;
+}
+
 export function twimlColgar(mensaje?: string): string {
   const say = mensaje ? `<Say language="es-MX">${mensaje}</Say>` : "";
   return `<?xml version="1.0" encoding="UTF-8"?>

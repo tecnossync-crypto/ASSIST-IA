@@ -15,7 +15,7 @@ export async function colasRoutes(app: FastifyInstance) {
     }
 
     const result = await pool.query(
-      `SELECT c.id, c.nombre, c.enrutamiento,
+      `SELECT c.id, c.nombre, c.enrutamiento, c.extension_central_propia,
               (SELECT count(*) FROM usuarios u WHERE u.cola_id = c.id) AS agentes_asignados
        FROM colas c WHERE c.empresa_id = $1 ORDER BY c.creado_en`,
       [empresaId]
@@ -51,6 +51,28 @@ export async function colasRoutes(app: FastifyInstance) {
         `UPDATE colas SET enrutamiento = jsonb_set(enrutamiento, '{modo}', to_jsonb($2::text))
          WHERE id = $1 RETURNING id`,
         [id, modo]
+      );
+      if (result.rows.length === 0) {
+        reply.code(404).send({ error: "no encontrada" });
+        return;
+      }
+      reply.send({ ok: true });
+    }
+  );
+
+  // Extensión/interno de la central propia (Grandstream) al que se transfiere
+  // una llamada de IA de esta cola cuando no hay agentes de la plataforma
+  // disponibles — ver webhooks-twilio.ts (post-relay) y twiml.ts
+  // (twimlTransferirCentralPropia). null/"" la desactiva para esa cola.
+  app.put<{ Params: { id: string }; Body: { extension: string | null } }>(
+    "/api/colas/:id/extension-central-propia",
+    async (req, reply) => {
+      const { id } = req.params;
+      const extension = req.body.extension?.trim() || null;
+
+      const result = await pool.query(
+        `UPDATE colas SET extension_central_propia = $2 WHERE id = $1 RETURNING id`,
+        [id, extension]
       );
       if (result.rows.length === 0) {
         reply.code(404).send({ error: "no encontrada" });
