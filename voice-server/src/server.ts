@@ -41,12 +41,46 @@ const httpServer = createServer((req, res) => {
   res.end();
 });
 
-const wss = new WebSocketServer({ server: httpServer, path: "/voice-stream" });
+// perMessageDeflate: false — la librería "ws" activa compresión WebSocket
+// por defecto; se apaga porque no hace falta comprimir mensajes JSON tan
+// chicos (esto por sí solo NO era la causa del bug de abajo, pero tampoco
+// hay razón para dejarlo activo).
+//
+// noServer: true — CAUSA RAÍZ real de un bug confirmado en producción:
+// "Invalid WebSocket frame: RSV1 must be clear" / "reserved bits must be
+// 0" (confirmado con wscat, con un cliente Python independiente, e
+// incluso reproducido con un servidor mínimo de 20 líneas). Antes, este
+// WebSocketServer y el de supervision-stream.ts se creaban CADA UNO con
+// `{ server: httpServer, path: "..." }` — eso hace que CADA instancia
+// enganche su PROPIO listener al evento "upgrade" del mismo httpServer.
+// Con dos instancias escuchando el mismo evento, ws se pisa el buffer del
+// handshake entre sí y corrompe los frames de la conexión que sí hace
+// match — Twilio (o cualquier cliente) veía la conexión abrirse y
+// cortarse al instante, sin ningún mensaje intercambiado. La forma
+// correcta, documentada por la propia librería "ws" para compartir un
+// httpServer entre varios WebSocketServer, es usar noServer:true en cada
+// uno y enganchar el evento "upgrade" UNA SOLA VEZ, despachando a mano
+// según el path (ver el server.on("upgrade", ...) más abajo).
+const wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
 
 // Segundo WebSocket, mismo httpServer, otro path — audio en vivo para
 // Supervisión (ver supervision-stream.ts). Totalmente independiente de
 // ConversationRelay: si esto falla, no afecta la llamada en sí.
-registrarSupervisionStream(httpServer);
+const wssSupervision = registrarSupervisionStream(httpServer);
+
+// Único punto que escucha "upgrade" en todo el proceso — ver el comentario
+// largo junto a `wss` de arriba sobre por qué NO se puede dejar que cada
+// WebSocketServer enganche su propio listener con la opción `path`.
+httpServer.on("upgrade", (req, socket, head) => {
+  const { pathname } = new URL(req.url ?? "", "http://localhost");
+  if (pathname === "/voice-stream") {
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+  } else if (pathname === "/supervision-stream") {
+    wssSupervision.handleUpgrade(req, socket, head, (ws) => wssSupervision.emit("connection", ws, req));
+  } else {
+    socket.destroy();
+  }
+});
 
 function enviar(ws: WebSocket, mensaje: ConversationRelayOutgoing) {
   // ws.send() puede fallar en silencio (sin tirar excepción) si la conexión
