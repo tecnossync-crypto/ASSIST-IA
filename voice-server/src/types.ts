@@ -26,6 +26,10 @@ export type ConversationRelayIncoming =
   | {
       type: "dtmf";
       digit: string;
+    }
+  | {
+      type: "error";
+      description: string;
     };
 
 export type ConversationRelayOutgoing =

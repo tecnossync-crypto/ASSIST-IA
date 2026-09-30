@@ -307,6 +307,15 @@ wss.on("connection", (ws) => {
         case "dtmf":
           // Tonos de teclado. No usados todavía (guion es 100% por voz).
           break;
+
+        case "error":
+          // Antes esto no tenía case propio — el switch lo dejaba pasar en
+          // silencio (solo se veía "[ws] tipo=error" sin ningún detalle).
+          // Este es el mensaje que Twilio manda cuando algo falla del lado
+          // de ConversationRelay (ej. no pudo descargar/reproducir un
+          // "play"), y es justo lo que hace falta ver para diagnosticar.
+          console.error(`[${session?.callSid ?? "?"}] Error reportado por ConversationRelay: ${msg.description}`);
+          break;
       }
     } catch (err) {
       console.error("Error procesando mensaje de ConversationRelay:", err);
