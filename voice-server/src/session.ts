@@ -21,6 +21,16 @@ export class ConversationSession {
   private empresa: EmpresaConfig | null = null;
   private saludo = "";
 
+  // ConversationRelay puede mandar varios "prompt" con last=true casi
+  // seguidos para lo que en realidad es una sola frase del cliente (corta
+  // la transcripción cuando detecta una pausa, aunque el cliente no haya
+  // terminado de hablar). Sin esto, cada uno disparaba su propia llamada
+  // al LLM + síntesis de voz de forma independiente, y las respuestas
+  // (casi idénticas) se reproducían una tras otra — el cliente escuchaba
+  // el mismo mensaje repetido. Cada prompt entrante pide un turno nuevo;
+  // solo la respuesta del turno MÁS RECIENTE se llega a decir.
+  private turnoVigente = 0;
+
   constructor(
     public readonly callSid: string,
     public readonly empresaId: string,
@@ -73,6 +83,17 @@ export class ConversationSession {
 
   registrarTurnoAgente(texto: string) {
     this.turnos.push({ hablante: "agente", texto, timestamp: new Date().toISOString() });
+  }
+
+  /** Reserva un turno nuevo — llamar justo al recibir cada "prompt" final. */
+  nuevoTurno(): number {
+    this.turnoVigente += 1;
+    return this.turnoVigente;
+  }
+
+  /** Falso si ya llegó un "prompt" más nuevo mientras este turno se procesaba. */
+  esTurnoVigente(idTurno: number): boolean {
+    return idTurno === this.turnoVigente;
   }
 
   /**

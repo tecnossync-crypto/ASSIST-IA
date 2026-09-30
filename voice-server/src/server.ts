@@ -119,6 +119,13 @@ httpServer.on("upgrade", (req, socket, head) => {
 });
 
 function enviar(ws: WebSocket, mensaje: ConversationRelayOutgoing) {
+  // La conexión puede haberse cerrado mientras se generaba/sintetizaba la
+  // respuesta (colgó, o ya se mandó "end" antes) — intentar enviar igual
+  // solo ensucia los logs con "WebSocket is not open", no hace nada útil.
+  if (ws.readyState !== WebSocket.OPEN) {
+    console.log(`[ws] se descarta envío, socket ya no está abierto (readyState=${ws.readyState})`);
+    return;
+  }
   // ws.send() puede fallar en silencio (sin tirar excepción) si la conexión
   // ya no está abierta, o emitir el error por el evento 'error' del socket
   // en vez de por una excepción normal — ninguno de los dos se veía en los
@@ -262,6 +269,16 @@ wss.on("connection", (ws) => {
             return;
           }
 
+          // ConversationRelay corta la transcripción del cliente en cuanto
+          // detecta una pausa, aunque en realidad siga hablando — eso manda
+          // varios "prompt" con last=true seguidos para una sola frase real.
+          // Sin este control, cada uno disparaba su propia respuesta (LLM +
+          // síntesis de voz) y el cliente escuchaba el mismo mensaje
+          // repetido, una tras otra. Se reserva el turno ANTES de procesar;
+          // si al terminar ya hay uno más nuevo (llegó otro "prompt" mientras
+          // este se generaba), se descarta esta respuesta en vez de decirla.
+          const idTurno = session.nuevoTurno();
+
           // Red de seguridad extra: aunque correrTurno ya no debería tirar
           // por un fallo de herramienta (ver llm.ts), si por cualquier otra
           // razón esto falla (la API de OpenAI no responde, etc.), antes se
@@ -275,10 +292,20 @@ wss.on("connection", (ws) => {
             resultado = { textoRespuesta: "Disculpe, tuve un problema técnico. ¿Puede repetir eso, por favor?" };
           }
 
+          if (!session.esTurnoVigente(idTurno)) {
+            console.log(`[${session.callSid}] turno ${idTurno} descartado — ya llegó un prompt más nuevo`);
+            return;
+          }
+
           console.log(`[ws] respuesta generada: "${resultado.textoRespuesta}"`);
 
           const pausaMs = session.tiempoRespuestaSegundos() * 1000;
           if (pausaMs > 0) await new Promise((r) => setTimeout(r, pausaMs));
+
+          if (!session.esTurnoVigente(idTurno)) {
+            console.log(`[${session.callSid}] turno ${idTurno} descartado tras la pausa — ya llegó un prompt más nuevo`);
+            return;
+          }
 
           if (resultado.textoRespuesta) {
             await hablar(ws, session, resultado.textoRespuesta);
