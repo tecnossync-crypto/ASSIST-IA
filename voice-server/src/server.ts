@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { config } from "dotenv";
 
 // El .env vive en la raíz del monorepo, no en voice-server/.
@@ -10,6 +11,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { ConversationSession } from "./session.js";
 import type { ConversationRelayIncoming, ConversationRelayOutgoing } from "./types.js";
 import { registrarSupervisionStream } from "./supervision-stream.js";
+import { sintetizarVozElevenLabs } from "./backend-client.js";
 
 // Red de seguridad a nivel de proceso: este servidor sostiene TODAS las
 // llamadas de IA en curso en memoria (una ConversationSession por
@@ -31,12 +33,46 @@ process.on("unhandledRejection", (reason) => {
 
 const PORT = Number(process.env.VOICE_SERVER_PORT ?? process.env.PORT ?? 3002);
 
+// Audio de voz clonada (ElevenLabs) pendiente de que Twilio lo descargue —
+// ver audioTemporalUrl() más abajo. En memoria nada más: son archivos de
+// segundos de duración que se sirven una sola vez y se descartan; no hace
+// falta persistirlos ni un storage externo (eso es justo lo que se
+// eliminó — ver comentario en hablar()).
+const audiosTemporales = new Map<string, Buffer>();
+
+function audioTemporalUrl(audio: Buffer): string {
+  const id = randomUUID();
+  audiosTemporales.set(id, audio);
+  // Red de seguridad: si por lo que sea Twilio nunca llega a pedirlo (la
+  // llamada se cae antes, un error raro, etc.), esto evita que el mapa
+  // crezca sin límite con audios que nadie va a reclamar.
+  setTimeout(() => audiosTemporales.delete(id), 2 * 60 * 1000).unref();
+  return `${process.env.PUBLIC_BASE_URL}/tts-audio/${id}`;
+}
+
 const httpServer = createServer((req, res) => {
   if (req.url === "/health") {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true, service: "voz-ia-voice-server" }));
     return;
   }
+
+  const match = req.url?.match(/^\/tts-audio\/([\w-]+)$/);
+  if (match) {
+    const audio = audiosTemporales.get(match[1]);
+    if (!audio) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    // Se sirve una sola vez — Twilio lo pide justo cuando manda el "play" y
+    // no lo va a volver a pedir; no hace falta dejarlo colgado en memoria.
+    audiosTemporales.delete(match[1]);
+    res.writeHead(200, { "content-type": "audio/mpeg", "content-length": audio.length });
+    res.end(audio);
+    return;
+  }
+
   res.writeHead(404);
   res.end();
 });
@@ -91,6 +127,33 @@ function enviar(ws: WebSocket, mensaje: ConversationRelayOutgoing) {
   ws.send(JSON.stringify(mensaje), (err) => {
     if (err) console.error("[ws] error enviando mensaje a ConversationRelay:", err);
   });
+}
+
+/**
+ * Hace que el agente "diga" un texto — decide solo si eso significa mandar
+ * el texto a ConversationRelay (caso normal: Twilio lo sintetiza con Google/
+ * Amazon/su catálogo de ElevenLabs) o, si la empresa tiene una voz CLONADA
+ * propia, sintetizarlo nosotros mismos con la API real de ElevenLabs y
+ * pedirle a Twilio que solo reproduzca ese audio ya generado ("play") — ver
+ * ConversationSession.usaVozClonada() y lib/elevenlabs.ts en el backend para
+ * el porqué (el ttsProvider nativo de Twilio no soporta voces privadas).
+ *
+ * Si la síntesis con ElevenLabs falla (cuenta sin plan que lo permita, API
+ * caída, etc.), cae de vuelta al texto normal en vez de dejar al cliente en
+ * silencio — se pierde la voz clonada en ese turno puntual, pero la llamada
+ * sigue.
+ */
+async function hablar(ws: WebSocket, session: ConversationSession, texto: string) {
+  if (session.usaVozClonada()) {
+    try {
+      const audio = await sintetizarVozElevenLabs(session.empresaId, texto);
+      enviar(ws, { type: "play", source: audioTemporalUrl(audio), interruptible: true });
+      return;
+    } catch (err) {
+      console.error(`[${session.callSid}] Error sintetizando con ElevenLabs, uso voz por defecto:`, err);
+    }
+  }
+  enviar(ws, { type: "text", token: texto, last: true });
 }
 
 wss.on("connection", (ws) => {
@@ -158,7 +221,7 @@ wss.on("connection", (ws) => {
 
           const saludo = session.saludoInicial();
           session.registrarTurnoAgente(saludo);
-          enviar(ws, { type: "text", token: saludo, last: true });
+          await hablar(ws, session, saludo);
 
           // Gestor de llamadas: si se llega al límite de duración, avisa y
           // corta — no queda esperando a que el LLM decida terminar solo.
@@ -173,14 +236,10 @@ wss.on("connection", (ws) => {
             try {
               if (!session) return;
               console.log(`[${session.callSid}] duración máxima alcanzada, cerrando llamada`);
-              session.registrarTurnoAgente(
-                "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo."
-              );
-              enviar(ws, {
-                type: "text",
-                token: "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo.",
-                last: true,
-              });
+              const despedidaPorLimite =
+                "Hemos llegado al tiempo máximo para esta llamada, así que la voy a finalizar aquí. Gracias por su tiempo.";
+              session.registrarTurnoAgente(despedidaPorLimite);
+              await hablar(ws, session, despedidaPorLimite);
               finalizadaManualmente = true;
               await session.finalizar();
               enviar(ws, { type: "end" });
@@ -222,7 +281,7 @@ wss.on("connection", (ws) => {
           if (pausaMs > 0) await new Promise((r) => setTimeout(r, pausaMs));
 
           if (resultado.textoRespuesta) {
-            enviar(ws, { type: "text", token: resultado.textoRespuesta, last: true });
+            await hablar(ws, session, resultado.textoRespuesta);
           } else {
             console.error(`[${session.callSid}] correrTurno devolvió texto vacío — no se envió nada al cliente`);
           }
@@ -247,6 +306,15 @@ wss.on("connection", (ws) => {
 
         case "dtmf":
           // Tonos de teclado. No usados todavía (guion es 100% por voz).
+          break;
+
+        case "error":
+          // Antes esto no tenía case propio — el switch lo dejaba pasar en
+          // silencio (solo se veía "[ws] tipo=error" sin ningún detalle).
+          // Este es el mensaje que Twilio manda cuando algo falla del lado
+          // de ConversationRelay (ej. no pudo descargar/reproducir un
+          // "play"), y es justo lo que hace falta ver para diagnosticar.
+          console.error(`[${session?.callSid ?? "?"}] Error reportado por ConversationRelay: ${msg.description}`);
           break;
       }
     } catch (err) {

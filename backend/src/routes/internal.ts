@@ -3,6 +3,7 @@ import { pool } from "../db/pool.js";
 import { requireInternalKey } from "../lib/internal-auth.js";
 import { upsertContacto } from "../lib/contactos.js";
 import { aplicarVariablesContacto } from "../lib/variables-prompt.js";
+import { sintetizarVoz } from "../lib/elevenlabs.js";
 
 /** Colas/departamentos de la empresa, para que el bot pueda elegir a cuál
  *  transferir según de qué se trate (ver herramienta transferir_a_humano). */
@@ -211,7 +212,7 @@ export async function internalRoutes(app: FastifyInstance) {
       const { numero } = req.query;
 
       const result = await pool.query(
-        `SELECT nombre, guion_agente, horario_atencion, voz_agente, campos_personalizados,
+        `SELECT nombre, guion_agente, horario_atencion, voz_agente, tts_provider, campos_personalizados,
                 duracion_maxima_llamada_segundos, tiempo_respuesta_segundos
          FROM empresas WHERE id = $1`,
         [empresaId]
@@ -253,7 +254,7 @@ export async function internalRoutes(app: FastifyInstance) {
 
       const [empresa, campana] = await Promise.all([
         pool.query(
-          `SELECT nombre, guion_agente, horario_atencion, voz_agente, campos_personalizados,
+          `SELECT nombre, guion_agente, horario_atencion, voz_agente, tts_provider, campos_personalizados,
                   duracion_maxima_llamada_segundos, tiempo_respuesta_segundos
            FROM empresas WHERE id = $1`,
           [empresaId]
@@ -302,7 +303,7 @@ export async function internalRoutes(app: FastifyInstance) {
       const { empresa_id: empresaId, prompt, numero } = solicitud.rows[0];
 
       const empresa = await pool.query(
-        `SELECT nombre, guion_agente, horario_atencion, voz_agente, campos_personalizados,
+        `SELECT nombre, guion_agente, horario_atencion, voz_agente, tts_provider, campos_personalizados,
                 duracion_maxima_llamada_segundos, tiempo_respuesta_segundos
          FROM empresas WHERE id = $1`,
         [empresaId]
@@ -322,6 +323,39 @@ export async function internalRoutes(app: FastifyInstance) {
       ]);
 
       reply.send({ ...empresaRow, guion_agente: guionConVariables, colas, contacto_conocido: contactoConocido });
+    }
+  );
+
+  // El voice-server llama esto en cada turno cuando la empresa usa una voz
+  // clonada (tts_provider="elevenlabs") — ver sintetizarVoz() y el porqué en
+  // lib/elevenlabs.ts: el ttsProvider nativo de ConversationRelay no puede
+  // usar voces privadas, así que generamos el audio nosotros y se lo damos a
+  // Twilio como un archivo para reproducir ("play"), no como texto.
+  //
+  // Devuelve el audio CRUDO (no una URL) — el voice-server lo sirve él
+  // mismo en memoria (ver server.ts, /tts-audio/:id) en vez de subirlo a
+  // S3 y generar una URL firmada. Eso le ahorra a cada turno un viaje de
+  // ida y vuelta a AWS (PutObject + presign) antes de que Twilio pueda
+  // empezar a reproducir — importa porque esto pasa en plena llamada en
+  // vivo, no es una operación en segundo plano.
+  app.post<{ Params: { empresaId: string }; Body: { texto?: string } }>(
+    "/internal/empresas/:empresaId/tts",
+    async (req, reply) => {
+      const { empresaId } = req.params;
+      const { texto } = req.body ?? {};
+
+      if (!texto || !texto.trim()) {
+        reply.code(400).send({ error: "texto es requerido" });
+        return;
+      }
+
+      try {
+        const audio = await sintetizarVoz(empresaId, texto);
+        reply.header("content-type", "audio/mpeg").send(audio);
+      } catch (err) {
+        app.log.error({ err, empresaId }, "Error sintetizando voz con ElevenLabs");
+        reply.code(502).send({ error: err instanceof Error ? err.message : "Error desconocido" });
+      }
     }
   );
 }

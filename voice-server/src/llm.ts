@@ -171,9 +171,13 @@ export async function correrTurno(opts: {
   // Loop de tool-use: el modelo puede pedir varias herramientas antes de dar
   // la respuesta de texto final que hay que hablarle al cliente.
   for (let iteracion = 0; iteracion < 4; iteracion++) {
+    // 220 en vez de 512: en una llamada las respuestas deben ser cortas de
+    // todas formas (nadie quiere un párrafo largo leído en voz alta), y
+    // menos tokens por generar = respuesta más rápida — esto le pega
+    // directo a la sensación de "el bot tarda en responder".
     const respuesta = await openai.chat.completions.create({
       model: MODEL,
-      max_tokens: 512,
+      max_tokens: 220,
       messages: [{ role: "system", content: systemPrompt }, ...historial],
       tools: TOOLS,
     });
