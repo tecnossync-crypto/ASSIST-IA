@@ -71,23 +71,31 @@ export async function sintetizarVoz(empresaId: string, texto: string): Promise<B
   }
   const apiKey = desencriptar(fila.elevenlabs_api_key_enc);
 
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${fila.voz_agente}`, {
-    method: "POST",
-    headers: {
-      "xi-api-key": apiKey,
-      "content-type": "application/json",
-      accept: "audio/mpeg",
-    },
-    body: JSON.stringify({
-      text: texto,
-      // El modelo de MENOR latencia que ofrece ElevenLabs — pensado
-      // justo para agentes de voz conversacionales en vivo, más rápido
-      // que "eleven_turbo_v2_5" (que igual sería una buena alternativa si
-      // este llegara a fallar por falta de soporte de idioma, etc.).
-      model_id: "eleven_flash_v2_5",
-      voice_settings: { stability: 0.5, similarity_boost: 0.8 },
-    }),
-  });
+  // output_format=mp3_22050_32: una llamada telefónica no necesita alta
+  // fidelidad (Twilio igual la va a bajar de calidad al mandarla por la
+  // red de voz) — pedir un bitrate más bajo hace que ElevenLabs genere el
+  // archivo más rápido y que pese menos, lo que ayuda a que "play" llegue
+  // antes a Twilio. Es un parámetro de la URL (query string), no del JSON.
+  const res = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${fila.voz_agente}?output_format=mp3_22050_32`,
+    {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "content-type": "application/json",
+        accept: "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text: texto,
+        // El modelo de MENOR latencia que ofrece ElevenLabs — pensado
+        // justo para agentes de voz conversacionales en vivo, más rápido
+        // que "eleven_turbo_v2_5" (que igual sería una buena alternativa si
+        // este llegara a fallar por falta de soporte de idioma, etc.).
+        model_id: "eleven_flash_v2_5",
+        voice_settings: { stability: 0.5, similarity_boost: 0.8 },
+      }),
+    }
+  );
 
   if (!res.ok) {
     const detalle = await res.text().catch(() => "");
