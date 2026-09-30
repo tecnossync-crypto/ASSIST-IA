@@ -60,14 +60,21 @@ const httpServer = createServer((req, res) => {
   const match = req.url?.match(/^\/tts-audio\/([\w-]+)$/);
   if (match) {
     const audio = audiosTemporales.get(match[1]);
+    console.log(`[tts-audio] método=${req.method} id=${match[1]} encontrado=${!!audio}`);
     if (!audio) {
       res.writeHead(404);
       res.end();
       return;
     }
-    // Se sirve una sola vez — Twilio lo pide justo cuando manda el "play" y
-    // no lo va a volver a pedir; no hace falta dejarlo colgado en memoria.
-    audiosTemporales.delete(match[1]);
+    // Antes esto se borraba de memoria apenas se servía una vez, asumiendo
+    // que Twilio solo lo pide una vez para reproducirlo. Pero si Twilio (o
+    // cualquier proxy en el medio) hace una petición previa de verificación
+    // (ej. un HEAD o un GET con Range para sondear el archivo antes de
+    // reproducirlo), esa primera petición ya borraba el audio y la
+    // reproducción real caía en un 404 silencioso — el WebSocket mostraba
+    // el "play" como enviado, pero nunca sonaba nada en la llamada. Ahora
+    // se deja disponible hasta que expire el timeout (2 min) de arriba,
+    // sin importar cuántas veces se pida.
     res.writeHead(200, { "content-type": "audio/mpeg", "content-length": audio.length });
     res.end(audio);
     return;
