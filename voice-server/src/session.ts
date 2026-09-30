@@ -63,14 +63,6 @@ export class ConversationSession {
     return this.saludo || `Gracias por llamar a ${this.empresa?.nombre ?? "nuestra empresa"}, ¿en qué le puedo ayudar?`;
   }
 
-  /** Si true, hay que sintetizar el audio nosotros mismos (ver server.ts,
-   *  hablar()) en vez de dejar que ConversationRelay lo haga — el
-   *  ttsProvider="ElevenLabs" nativo de Twilio no soporta voces clonadas
-   *  privadas, solo su propio catálogo (ver lib/elevenlabs.ts). */
-  usaVozClonada(): boolean {
-    return this.empresa?.tts_provider === "elevenlabs" && !!this.empresa?.voz_agente;
-  }
-
   registrarTurnoAgente(texto: string) {
     this.turnos.push({ hablante: "agente", texto, timestamp: new Date().toISOString() });
   }

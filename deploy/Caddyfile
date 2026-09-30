@@ -11,13 +11,6 @@
 		reverse_proxy voice-server:3002
 	}
 
-	# Audio temporal de voces clonadas (ElevenLabs) — Twilio lo descarga acá
-	# justo cuando le mandamos un mensaje "play" por ConversationRelay. Ver
-	# voice-server/src/server.ts (audioTemporalUrl / GET /tts-audio/:id).
-	handle /tts-audio* {
-		reverse_proxy voice-server:3002
-	}
-
 	# Todo lo demás (webhooks de Twilio, /internal, /api, /health) va al backend.
 	handle {
 		reverse_proxy backend:3001
