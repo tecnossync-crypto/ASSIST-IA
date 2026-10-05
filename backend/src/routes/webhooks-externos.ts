@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { empresaPorApiKey } from "../lib/api-keys.js";
 import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
+import { registrarFallbackCentral } from "../lib/fallback-central.js";
 import { asegurarContacto, upsertContacto } from "../lib/contactos.js";
 import { registrarWebhookRecibido } from "../lib/webhooks-log.js";
 import { evaluarReglaApiLlamadas } from "../lib/reglas-api-llamadas.js";
@@ -119,7 +120,10 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       await asegurarContacto(empresaId, numero);
 
       try {
-        const { to, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, sendDigits, urlExtra, porCentralPropia } = resolverDestinoSaliente(
+          numero,
+          twilioEmpresa.centralPropia
+        );
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
@@ -130,6 +134,13 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
           sendDigits,
+        });
+
+        registrarFallbackCentral(call.sid, porCentralPropia, {
+          empresaId,
+          numero,
+          voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&webhookLlamadaId=${llamadaWebhookId}`,
+          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
         });
 
         app.log.info({ callSid: call.sid, numero, origen }, "Llamada originada vía webhook externo");
@@ -241,7 +252,10 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       params.set("origenExterno", origen?.trim() || "externo");
 
       try {
-        const { to, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, sendDigits, urlExtra, porCentralPropia } = resolverDestinoSaliente(
+          numero,
+          twilioEmpresa.centralPropia
+        );
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
@@ -252,6 +266,13 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
           sendDigits,
+        });
+
+        registrarFallbackCentral(call.sid, porCentralPropia, {
+          empresaId,
+          numero,
+          voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-normal?${params.toString()}`,
+          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
         });
 
         app.log.info({ callSid: call.sid, numero, origen }, "Llamada a agente originada vía webhook externo");

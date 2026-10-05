@@ -14,6 +14,7 @@ import { asegurarContacto } from "../lib/contactos.js";
 import { ejecutarFlujosTrabajo } from "../lib/flujos-trabajo.js";
 import { usuarioIdDesdeIdentidad } from "../lib/agentes.js";
 import { iniciarConferenciaConAgentes } from "../lib/conferencia-agentes.js";
+import { descartarFallbackCentral, reintentarDirectoSiCorresponde } from "../lib/fallback-central.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -393,6 +394,24 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       const { campanaContactoId } = req.query;
 
       app.log.info({ callSid, status, duration, campanaContactoId }, "Actualización de estado de llamada");
+
+      // Llamada que salió por la central propia y la central no respondió:
+      // se reintenta directo por Twilio y NO se procesa como fallida (ni se
+      // reprograma la campaña ni se disparan flujos de "no contesta") — el
+      // reintento tiene su propio ciclo de estado. Cualquier otro resultado
+      // descarta el respaldo pendiente.
+      if (status === "failed") {
+        const reintentada = await reintentarDirectoSiCorresponde(callSid).catch((err) => {
+          app.log.error({ err, callSid }, "Error reintentando la llamada directo por Twilio");
+          return false;
+        });
+        if (reintentada) {
+          reply.send({ ok: true });
+          return;
+        }
+      } else {
+        descartarFallbackCentral(callSid);
+      }
 
       if (status === "completed") {
         await pool.query(

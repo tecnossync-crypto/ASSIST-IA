@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
+import { registrarFallbackCentral } from "../lib/fallback-central.js";
 import { generarTokenVoz } from "../lib/voice-token.js";
 
 /**
@@ -46,6 +47,13 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
           sendDigits,
+        });
+
+        registrarFallbackCentral(call.sid, porCentralPropia, {
+          empresaId,
+          numero,
+          voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}`,
+          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
         });
 
         app.log.info({ callSid: call.sid, numero, porCentralPropia }, "Llamada saliente (IA) originada");
@@ -104,6 +112,13 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
           sendDigits,
+        });
+
+        registrarFallbackCentral(call.sid, porCentralPropia, {
+          empresaId,
+          numero,
+          voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-normal?empresaId=${empresaId}${parametroCola}${parametroUsuario}`,
+          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
         });
 
         app.log.info(

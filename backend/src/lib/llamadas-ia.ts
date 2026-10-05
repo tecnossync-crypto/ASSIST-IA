@@ -1,5 +1,6 @@
 import { clienteTwilioEmpresa, resolverDestinoSaliente } from "./twilio-empresa.js";
 import { asegurarContacto } from "./contactos.js";
+import { registrarFallbackCentral } from "./fallback-central.js";
 
 /**
  * Origina una llamada saliente con IA (el bot contesta y lleva la
@@ -35,6 +36,13 @@ export async function iniciarLlamadaIA(opts: { empresaId: string; numero: string
     statusCallbackEvent: ["completed"],
     timeout: twilioEmpresa.timeoutTimbrado,
     sendDigits,
+  });
+
+  registrarFallbackCentral(call.sid, porCentralPropia, {
+    empresaId,
+    numero,
+    voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}`,
+    statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
   });
 
   console.log(

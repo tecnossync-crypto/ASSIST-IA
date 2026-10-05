@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
+import { registrarFallbackCentral } from "../lib/fallback-central.js";
 
 /**
  * CRUD de campañas de llamadas salientes masivas + su lista de contactos.
@@ -197,7 +198,10 @@ export async function campanasRoutes(app: FastifyInstance) {
       const campanaContactoId = contactoPrueba.rows[0].id;
 
       try {
-        const { to, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, sendDigits, urlExtra, porCentralPropia } = resolverDestinoSaliente(
+          numero,
+          twilioEmpresa.centralPropia
+        );
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
@@ -208,6 +212,13 @@ export async function campanasRoutes(app: FastifyInstance) {
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
           sendDigits,
+        });
+
+        registrarFallbackCentral(call.sid, porCentralPropia, {
+          empresaId,
+          numero,
+          voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&campanaContactoId=${campanaContactoId}`,
+          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status?campanaContactoId=${campanaContactoId}`,
         });
 
         app.log.info({ callSid: call.sid, numero, campanaId: id }, "Llamada de prueba de campaña originada");

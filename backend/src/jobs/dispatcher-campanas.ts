@@ -1,5 +1,6 @@
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
+import { registrarFallbackCentral } from "../lib/fallback-central.js";
 
 // Cuántos contactos se marcan "listos para llamar" por cada tick. Es el
 // control de ritmo: con TICK_MS=20s y LOTE=3, salen ~9 llamadas/minuto por
@@ -59,8 +60,11 @@ async function originarLlamadaContacto(
   }
 
   try {
-    const { to, sendDigits, urlExtra } = resolverDestinoSaliente(contacto.numero, twilioEmpresa.centralPropia);
-    await twilioEmpresa.client.calls.create({
+    const { to, sendDigits, urlExtra, porCentralPropia } = resolverDestinoSaliente(
+      contacto.numero,
+      twilioEmpresa.centralPropia
+    );
+    const llamadaCampana = await twilioEmpresa.client.calls.create({
       to,
       from: twilioEmpresa.fromNumber,
       url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${contacto.empresa_id}&campanaContactoId=${contacto.id}${urlExtra}`,
@@ -70,6 +74,12 @@ async function originarLlamadaContacto(
       statusCallbackEvent: ["completed"],
       timeout: twilioEmpresa.timeoutTimbrado,
       sendDigits,
+    });
+    registrarFallbackCentral(llamadaCampana.sid, porCentralPropia, {
+      empresaId: contacto.empresa_id,
+      numero: contacto.numero,
+      voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${contacto.empresa_id}&campanaContactoId=${contacto.id}`,
+      statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status?campanaContactoId=${contacto.id}`,
     });
   } catch (err) {
     console.error(`[campaña] error originando llamada a ${contacto.numero}:`, err);
