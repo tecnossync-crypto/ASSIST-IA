@@ -197,11 +197,11 @@ export async function campanasRoutes(app: FastifyInstance) {
       const campanaContactoId = contactoPrueba.rows[0].id;
 
       try {
-        const { to, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
-          url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&campanaContactoId=${campanaContactoId}`,
+          url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&campanaContactoId=${campanaContactoId}${urlExtra}`,
           method: "POST",
           statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status?campanaContactoId=${campanaContactoId}`,
           statusCallbackMethod: "POST",

@@ -85,9 +85,9 @@ export async function clienteTwilioEmpresa(empresaId: string) {
 export function resolverDestinoSaliente(
   numero: string,
   centralPropia: CentralPropiaConfig | null
-): { to: string; porCentralPropia: boolean; sendDigits?: string } {
+): { to: string; porCentralPropia: boolean; sendDigits?: string; urlExtra: string } {
   if (!centralPropia?.saliente) {
-    return { to: numero, porCentralPropia: false };
+    return { to: numero, porCentralPropia: false, urlExtra: "" };
   }
 
   const numeroLimpio = numero.replace(/^\+/, "");
@@ -97,6 +97,12 @@ export function resolverDestinoSaliente(
   return {
     to: `sip:${credenciales}${numeroLimpio}@${centralPropia.dominio}`,
     porCentralPropia: true,
+    // Cuando la llamada sale por la central, Twilio reporta como "To" la
+    // dirección SIP (sip:...@dominio) y no el teléfono real del cliente, y
+    // además contesta el DISA (no el cliente). Estos parámetros se agregan
+    // al final de la URL del webhook para que ahí se recupere el número
+    // real y la IA sepa que debe esperar a oír al cliente antes de hablar.
+    urlExtra: `&viaCentral=1&numero=${encodeURIComponent(numero)}`,
     // El DISA de la central (que recibe la llamada y la vuelve a marcar
     // hacia afuera por su propio troncal, ej. Claro) pide un PIN y luego
     // espera que se TECLEE el número de destino — no usa el que viene en

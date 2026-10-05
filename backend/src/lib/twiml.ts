@@ -13,6 +13,10 @@ export function twimlConnectVoiceAgent(opts: {
   ttsProvider?: string | null;
   campanaContactoId?: string | null;
   webhookLlamadaId?: string | null;
+  // true cuando la llamada salió por la central propia: Twilio considera
+  // "contestada" la llamada cuando contesta el DISA de la central, no el
+  // cliente, así que la IA no puede saludar sola — espera a oír al cliente.
+  esperarVozCliente?: boolean;
   publicBaseUrl: string;
 }): string {
   const {
@@ -24,6 +28,7 @@ export function twimlConnectVoiceAgent(opts: {
     ttsProvider,
     campanaContactoId,
     webhookLlamadaId,
+    esperarVozCliente,
     publicBaseUrl,
   } = opts;
 
@@ -103,6 +108,9 @@ export function twimlConnectVoiceAgent(opts: {
   const parametroNumeroCliente = numeroCliente
     ? `\n      <Parameter name="numeroCliente" value="${numeroCliente}" />`
     : "";
+  const parametroEsperarVoz = esperarVozCliente
+    ? `\n      <Parameter name="esperarVozCliente" value="1" />`
+    : "";
 
   // Bifurca el audio crudo (cliente + voz del bot) al mismo voice-server,
   // en un WebSocket aparte (/supervision-stream, no interfiere con
@@ -142,7 +150,7 @@ export function twimlConnectVoiceAgent(opts: {
   <Connect>
     <ConversationRelay url="${voiceWsUrl}"${idiomaAttr}${vozAttr}>
       <Parameter name="empresaId" value="${empresaId}" />
-      <Parameter name="callSid" value="${callSid}" />${parametroCampana}${parametroWebhook}${parametroNumeroCliente}
+      <Parameter name="callSid" value="${callSid}" />${parametroCampana}${parametroWebhook}${parametroNumeroCliente}${parametroEsperarVoz}
     </ConversationRelay>
   </Connect>
   <Redirect method="POST">${publicBaseUrl}/webhooks/twilio/post-relay</Redirect>

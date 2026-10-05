@@ -23,12 +23,12 @@ export async function iniciarLlamadaIA(opts: { empresaId: string; numero: string
   // Si la empresa vinculó su propia central telefónica (PBX) para
   // salientes, la llamada sale por ahí (su troncal, ej. Claro) en vez de
   // por la red de Twilio — ver twilio-empresa.ts. Inactivo por defecto.
-  const { to, porCentralPropia, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+  const { to, porCentralPropia, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
 
   const call = await twilioEmpresa.client.calls.create({
     to,
     from: twilioEmpresa.fromNumber,
-    url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}`,
+    url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}${urlExtra}`,
     method: "POST",
     statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
     statusCallbackMethod: "POST",

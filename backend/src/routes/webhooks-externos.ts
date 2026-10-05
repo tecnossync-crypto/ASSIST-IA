@@ -119,11 +119,11 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       await asegurarContacto(empresaId, numero);
 
       try {
-        const { to, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
-          url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&webhookLlamadaId=${llamadaWebhookId}`,
+          url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&webhookLlamadaId=${llamadaWebhookId}${urlExtra}`,
           method: "POST",
           statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
           statusCallbackMethod: "POST",
@@ -241,11 +241,11 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       params.set("origenExterno", origen?.trim() || "externo");
 
       try {
-        const { to, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
-          url: `${publicBaseUrl}/webhooks/twilio/voice-normal?${params.toString()}`,
+          url: `${publicBaseUrl}/webhooks/twilio/voice-normal?${params.toString()}${urlExtra}`,
           method: "POST",
           statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
           statusCallbackMethod: "POST",

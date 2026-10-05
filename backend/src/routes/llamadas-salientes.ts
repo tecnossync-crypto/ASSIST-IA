@@ -35,11 +35,11 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
       }
 
       try {
-        const { to, porCentralPropia, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, porCentralPropia, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
-          url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}`,
+          url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}${urlExtra}`,
           method: "POST",
           statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
           statusCallbackMethod: "POST",
@@ -89,7 +89,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
       const parametroUsuario = usuarioId ? `&usuarioId=${encodeURIComponent(usuarioId)}` : "";
 
       try {
-        const { to, porCentralPropia, sendDigits } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
+        const { to, porCentralPropia, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
         const call = await twilioEmpresa.client.calls.create({
           to,
           from: twilioEmpresa.fromNumber,
@@ -97,7 +97,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           // la cola elegida o de la empresa) se decide en
           // /webhooks/twilio/voice-normal, al momento en que el cliente
           // contesta — no acá al originar.
-          url: `${publicBaseUrl}/webhooks/twilio/voice-normal?empresaId=${empresaId}${parametroCola}${parametroUsuario}`,
+          url: `${publicBaseUrl}/webhooks/twilio/voice-normal?empresaId=${empresaId}${parametroCola}${parametroUsuario}${urlExtra}`,
           method: "POST",
           statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
           statusCallbackMethod: "POST",

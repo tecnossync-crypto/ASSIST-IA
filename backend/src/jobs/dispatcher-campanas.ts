@@ -59,11 +59,11 @@ async function originarLlamadaContacto(
   }
 
   try {
-    const { to, sendDigits } = resolverDestinoSaliente(contacto.numero, twilioEmpresa.centralPropia);
+    const { to, sendDigits, urlExtra } = resolverDestinoSaliente(contacto.numero, twilioEmpresa.centralPropia);
     await twilioEmpresa.client.calls.create({
       to,
       from: twilioEmpresa.fromNumber,
-      url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${contacto.empresa_id}&campanaContactoId=${contacto.id}`,
+      url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${contacto.empresa_id}&campanaContactoId=${contacto.id}${urlExtra}`,
       method: "POST",
       statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status?campanaContactoId=${contacto.id}`,
       statusCallbackMethod: "POST",

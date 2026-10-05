@@ -85,6 +85,12 @@ export class ConversationSession {
     this.turnos.push({ hablante: "agente", texto, timestamp: new Date().toISOString() });
   }
 
+  /** Solo anota lo que dijo el cliente en la transcripción, sin pasarlo al modelo
+   *  (ej. el "¿aló?" con el que contesta, que se responde con el saludo fijo). */
+  registrarTurnoCliente(texto: string) {
+    this.turnos.push({ hablante: "cliente", texto, timestamp: new Date().toISOString() });
+  }
+
   /** Reserva un turno nuevo — llamar justo al recibir cada "prompt" final. */
   nuevoTurno(): number {
     this.turnoVigente += 1;

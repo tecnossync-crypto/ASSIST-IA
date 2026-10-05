@@ -74,14 +74,26 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   // Twilio llega acá cuando contestan una llamada saliente que nosotros
   // originamos (ver POST /api/llamadas/salientes). empresaId viaja en la
   // query string porque nosotros armamos esta URL al crear la llamada.
-  app.post<{ Querystring: { empresaId?: string; campanaContactoId?: string; webhookLlamadaId?: string } }>(
+  app.post<{
+    Querystring: {
+      empresaId?: string;
+      campanaContactoId?: string;
+      webhookLlamadaId?: string;
+      viaCentral?: string;
+      numero?: string;
+    };
+  }>(
     "/webhooks/twilio/voice-outbound",
     async (req, reply) => {
       const body = req.body as Record<string, string>;
       const callSid = body.CallSid;
       const from = body.From;
-      const to = body.To;
-      const { empresaId, campanaContactoId, webhookLlamadaId } = req.query;
+      const { empresaId, campanaContactoId, webhookLlamadaId, viaCentral, numero } = req.query;
+      // Si salió por la central propia, "To" es la dirección SIP y contesta el
+      // DISA — el teléfono real del cliente viaja en la query (ver urlExtra en
+      // lib/twilio-empresa.ts).
+      const to = numero || body.To;
+      const salioPorCentral = viaCentral === "1";
 
       app.log.info({ callSid, from, to, empresaId, campanaContactoId, webhookLlamadaId }, "Llamada saliente contestada");
 
@@ -129,6 +141,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           voz: voz.rows[0]?.voz_agente ?? null,
           ttsProvider: voz.rows[0]?.tts_provider ?? null,
           campanaContactoId,
+          esperarVozCliente: salioPorCentral,
           publicBaseUrl,
         })
       );
@@ -141,11 +154,17 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   // según el enrutamiento configurado por la empresa (todos | round_robin |
   // disponibilidad). empresaId viaja en la query string porque nosotros
   // armamos esta URL al crear la llamada.
-  app.post<{ Querystring: { empresaId?: string; colaId?: string; origenExterno?: string; usuarioId?: string } }>(
+  app.post<{
+    Querystring: { empresaId?: string; colaId?: string; origenExterno?: string; usuarioId?: string; numero?: string };
+  }>(
     "/webhooks/twilio/voice-normal",
     async (req, reply) => {
-      const { empresaId, colaId, origenExterno, usuarioId } = req.query;
+      const { empresaId, colaId, origenExterno, usuarioId, numero } = req.query;
       const body = req.body as Record<string, string>;
+      // Si salió por la central propia, "To" es la dirección SIP — el
+      // teléfono real del cliente viaja en la query (ver urlExtra en
+      // lib/twilio-empresa.ts).
+      const numeroCliente = numero || body.To;
       const publicBaseUrl = process.env.PUBLIC_BASE_URL;
 
       if (!empresaId || !publicBaseUrl) {
@@ -167,11 +186,11 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
          VALUES ($1, $2, 'saliente', $3, $4, 'en_curso', $5, $6)
          ON CONFLICT (call_sid) DO UPDATE SET call_sid = EXCLUDED.call_sid
          RETURNING id`,
-        [empresaId, body.CallSid, body.From, body.To, colaId ?? null, origenExterno ?? null]
+        [empresaId, body.CallSid, body.From, numeroCliente, colaId ?? null, origenExterno ?? null]
       );
       const llamadaId = llamada.rows[0].id;
       const conferenciaNombre = `llamada-${llamadaId}`;
-      await asegurarContacto(empresaId, body.To);
+      await asegurarContacto(empresaId, numeroCliente);
 
       const { identidades } = await iniciarConferenciaConAgentes({
         empresaId,

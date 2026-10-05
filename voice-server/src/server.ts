@@ -178,6 +178,13 @@ wss.on("connection", (ws) => {
   let session: ConversationSession | null = null;
   let finalizadaManualmente = false;
   let temporizadorLimite: NodeJS.Timeout | null = null;
+  // Llamadas que salen por la central propia: Twilio ya las considera
+  // "contestadas" cuando contesta el DISA de la central, antes de que el
+  // cliente levante el teléfono. Hablar de una vez sería saludar al tono de
+  // timbrado — se espera a oír la primera voz del cliente (ej. "¿aló?") y
+  // recién ahí se dice el saludo.
+  let esperandoPrimeraVoz = false;
+  let saludoPendiente = "";
 
   ws.on("message", async (raw) => {
     let msg: ConversationRelayIncoming;
@@ -234,8 +241,13 @@ wss.on("connection", (ws) => {
           }
 
           const saludo = session.saludoInicial();
-          session.registrarTurnoAgente(saludo);
-          await hablar(ws, session, saludo);
+          if (msg.customParameters?.esperarVozCliente === "1") {
+            esperandoPrimeraVoz = true;
+            saludoPendiente = saludo;
+          } else {
+            session.registrarTurnoAgente(saludo);
+            await hablar(ws, session, saludo);
+          }
 
           // Gestor de llamadas: si se llega al límite de duración, avisa y
           // corta — no queda esperando a que el LLM decida terminar solo.
@@ -285,6 +297,16 @@ wss.on("connection", (ws) => {
           // si al terminar ya hay uno más nuevo (llegó otro "prompt" mientras
           // este se generaba), se descarta esta respuesta en vez de decirla.
           const idTurno = session.nuevoTurno();
+
+          if (esperandoPrimeraVoz) {
+            // Primera voz del cliente tras contestar: se le responde con el
+            // saludo de siempre en vez de mandar su "¿aló?" al modelo.
+            esperandoPrimeraVoz = false;
+            session.registrarTurnoCliente(msg.voicePrompt);
+            session.registrarTurnoAgente(saludoPendiente);
+            await hablar(ws, session, saludoPendiente);
+            break;
+          }
 
           // Red de seguridad extra: aunque correrTurno ya no debería tirar
           // por un fallo de herramienta (ver llm.ts), si por cualquier otra
