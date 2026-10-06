@@ -332,8 +332,25 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     // twimlTransferirCentralPropia() para el aviso sobre pruebas en vivo.
     if (destino !== "plataforma") {
       const twilioEmpresa = await clienteTwilioEmpresa(row.empresa_id);
-      if (twilioEmpresa?.centralPropia?.entrante) {
+      if (!twilioEmpresa?.centralPropia?.entrante) {
+        app.log.warn(
+          {
+            callSid,
+            destino,
+            twilioConfigurado: !!twilioEmpresa,
+            centralActivaConDominio: !!twilioEmpresa?.centralPropia,
+            entrante: twilioEmpresa?.centralPropia?.entrante ?? null,
+          },
+          "Destino con central, pero la central propia no está activa/con dominio o 'entrantes' está apagado"
+        );
+      } else {
         const extensiones = await extensionesDeTransferencia(row.empresa_id, row.cola_id);
+        if (extensiones.length === 0) {
+          app.log.warn(
+            { callSid, destino, colaId: row.cola_id },
+            "Destino con central, pero no hay extensiones activas (ni del departamento ni generales)"
+          );
+        }
         if (extensiones.length > 0) {
           const central = twilioEmpresa.centralPropia;
           app.log.info(
