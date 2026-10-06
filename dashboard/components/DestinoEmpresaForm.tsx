@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { guardarDestinoEmpresaAction } from "@/app/(app)/configuracion/enrutamiento/actions";
 import type { DestinoLlamadas } from "@/lib/api";
 
@@ -28,12 +29,36 @@ const OPCIONES: { valor: DestinoLlamadas; titulo: string; descripcion: string }[
 /**
  * Dónde se atiende una llamada que la IA transfiere a una persona. Cada
  * departamento puede pisar esta elección (ver más abajo, en Colas).
+ *
+ * Es un componente controlado a propósito: con radios no controlados dentro
+ * de un <form action>, React 19 reinicia el formulario al terminar de
+ * guardar y la opción elegida volvía sola a la anterior.
  */
 export function DestinoEmpresaForm({ destinoActual }: { destinoActual: DestinoLlamadas }) {
-  const formRef = useRef<HTMLFormElement>(null);
+  const [valor, setValor] = useState<DestinoLlamadas>(destinoActual);
+  const [resultado, setResultado] = useState<{ ok?: boolean; error?: string } | null>(null);
+  const [guardando, startTransition] = useTransition();
+
+  useEffect(() => {
+    setValor(destinoActual);
+  }, [destinoActual]);
+
+  function cambiar(nuevo: DestinoLlamadas) {
+    const anterior = valor;
+    setValor(nuevo);
+    setResultado(null);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("destino", nuevo);
+      const r = await guardarDestinoEmpresaAction(formData);
+      setResultado(r);
+      if (r.error) setValor(anterior);
+      else setTimeout(() => setResultado(null), 2500);
+    });
+  }
 
   return (
-    <form ref={formRef} action={guardarDestinoEmpresaAction} className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2">
       {OPCIONES.map((o) => (
         <label
           key={o.valor}
@@ -43,8 +68,9 @@ export function DestinoEmpresaForm({ destinoActual }: { destinoActual: DestinoLl
             type="radio"
             name="destino"
             value={o.valor}
-            defaultChecked={destinoActual === o.valor}
-            onChange={() => formRef.current?.requestSubmit()}
+            checked={valor === o.valor}
+            disabled={guardando}
+            onChange={() => cambiar(o.valor)}
             className="mt-1"
           />
           <span>
@@ -53,6 +79,23 @@ export function DestinoEmpresaForm({ destinoActual }: { destinoActual: DestinoLl
           </span>
         </label>
       ))}
-    </form>
+      <div className="h-4 text-xs">
+        {guardando && (
+          <span className="flex items-center gap-1.5 text-muted">
+            <Loader2 size={12} className="animate-spin" /> Guardando…
+          </span>
+        )}
+        {resultado?.ok && (
+          <span className="flex items-center gap-1.5 text-emerald-600">
+            <CheckCircle2 size={12} /> Guardado.
+          </span>
+        )}
+        {resultado?.error && (
+          <span className="flex items-center gap-1.5 text-red-600">
+            <XCircle size={12} /> {resultado.error}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

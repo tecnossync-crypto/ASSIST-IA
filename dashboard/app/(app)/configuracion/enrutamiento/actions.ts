@@ -18,21 +18,39 @@ function destinoValido(valor: FormDataEntryValue | null): DestinoLlamadas | null
   return (DESTINOS as string[]).includes(v) ? (v as DestinoLlamadas) : null;
 }
 
-export async function guardarDestinoEmpresaAction(formData: FormData) {
-  const destino = destinoValido(formData.get("destino"));
-  if (!destino) return;
-  await actualizarDestinoEmpresa(destino);
-  revalidatePath("/configuracion/enrutamiento");
-  await auditar("actualizar", "enrutamiento_destino", { destino });
+export interface ResultadoGuardado {
+  ok?: boolean;
+  error?: string;
 }
 
-export async function guardarDestinoColaAction(formData: FormData) {
+// Devuelven el error en vez de tirarlo: una Server Action que lanza una
+// excepción en producción solo muestra un mensaje genérico (o nada), y el
+// selector parecía "deshacerse solo" sin decir por qué.
+export async function guardarDestinoEmpresaAction(formData: FormData): Promise<ResultadoGuardado> {
+  const destino = destinoValido(formData.get("destino"));
+  if (!destino) return { error: "Destino no válido." };
+  try {
+    await actualizarDestinoEmpresa(destino);
+    revalidatePath("/configuracion/enrutamiento");
+    await auditar("actualizar", "enrutamiento_destino", { destino });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo guardar." };
+  }
+  return { ok: true };
+}
+
+export async function guardarDestinoColaAction(formData: FormData): Promise<ResultadoGuardado> {
   const id = String(formData.get("id"));
   // "" = usar el destino de la empresa.
   const destino = destinoValido(formData.get("destino"));
-  await actualizarDestinoCola(id, destino);
-  revalidatePath("/configuracion/enrutamiento");
-  await auditar("actualizar", "cola_destino", { id, destino });
+  try {
+    await actualizarDestinoCola(id, destino);
+    revalidatePath("/configuracion/enrutamiento");
+    await auditar("actualizar", "cola_destino", { id, destino });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo guardar." };
+  }
+  return { ok: true };
 }
 
 export interface EstadoExtension {
