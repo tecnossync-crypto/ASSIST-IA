@@ -391,6 +391,16 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       const body = req.body as Record<string, string>;
       const dialCallStatus = body.DialCallStatus;
 
+      app.log.info(
+        {
+          callSid: req.query.callSid,
+          dialCallStatus,
+          dialCallDuration: body.DialCallDuration,
+          dialSipResponseCode: body.DialSipResponseCode,
+        },
+        "Resultado de la transferencia a extensiones de la central"
+      );
+
       if (dialCallStatus === "completed") {
         // Ya se habló con alguien en la central y esa pierna colgó — cortar
         // sin decir nada más, igual que cuando cuelga un agente de la
