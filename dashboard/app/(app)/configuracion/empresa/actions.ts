@@ -61,7 +61,7 @@ export async function guardarCentralPropiaAction(
     return { error: err instanceof Error ? err.message : "Error guardando la configuración." };
   }
 
-  revalidatePath("/configuracion/empresa");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("actualizar", "central_propia", { activa, dominio, saliente, entrante });
   return { ok: true };
 }

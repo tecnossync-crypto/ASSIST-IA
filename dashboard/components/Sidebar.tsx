@@ -1,8 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Phone, Megaphone, Users, Settings, Radio, LogOut, X, Terminal } from "lucide-react";
+import {
+  LayoutDashboard,
+  Phone,
+  Megaphone,
+  Users,
+  Settings,
+  Radio,
+  LogOut,
+  X,
+  Terminal,
+  ChevronDown,
+  Building2,
+  Bot,
+  Workflow,
+  Headset,
+  Network,
+  Plug,
+  HardDrive,
+  History,
+} from "lucide-react";
 import { cerrarSesionAction } from "@/app/logout/actions";
 import { useMobileNav } from "./MobileNavContext";
 
@@ -11,8 +31,21 @@ const ITEMS = [
   { href: "/llamadas", label: "Llamadas", Icon: Phone },
   { href: "/campanas", label: "Campañas", Icon: Megaphone },
   { href: "/contactos", label: "Contactos", Icon: Users },
+];
+
+// Solo admin. "Registros API" vive acá (aunque su ruta es /api-logs) para
+// que todo lo de administración quede agrupado bajo Configuración.
+const ITEMS_CONFIGURACION = [
+  { href: "/configuracion/empresa", label: "Empresa", Icon: Building2 },
+  { href: "/configuracion/ia", label: "Inteligencia Artificial", Icon: Bot },
+  { href: "/configuracion/contactos", label: "Contactos", Icon: Users },
+  { href: "/configuracion/flujos", label: "Flujos de trabajo", Icon: Workflow },
+  { href: "/configuracion/agentes", label: "Agentes", Icon: Headset },
+  { href: "/configuracion/enrutamiento", label: "Enrutamiento", Icon: Network },
+  { href: "/configuracion/integraciones", label: "Integraciones", Icon: Plug },
   { href: "/api-logs", label: "Registros API", Icon: Terminal },
-  { href: "/configuracion", label: "Configuración", Icon: Settings },
+  { href: "/configuracion/almacenamiento", label: "Almacenamiento", Icon: HardDrive },
+  { href: "/configuracion/auditoria", label: "Auditoría", Icon: History },
 ];
 
 // Admin y supervisor — no operador.
@@ -34,11 +67,17 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
   // agente individual — el middleware ya bloquea estas rutas por URL
   // directa, esto es solo para no mostrarle un link a algo que no puede
   // abrir).
-  const items = (
-    veSupervision ? [...ITEMS.slice(0, 2), ...ITEMS_SUPERVISION, ...ITEMS.slice(2)] : ITEMS
-  )
-    .filter((i) => (i.href !== "/configuracion" && i.href !== "/api-logs") || esAdmin)
-    .filter((i) => !esOperador || !["/", "/campanas", "/contactos"].includes(i.href));
+  const items = (veSupervision ? [...ITEMS.slice(0, 2), ...ITEMS_SUPERVISION, ...ITEMS.slice(2)] : ITEMS).filter(
+    (i) => !esOperador || !["/", "/campanas", "/contactos"].includes(i.href)
+  );
+
+  // El submenú de Configuración se abre solo cuando se está dentro de
+  // alguna de sus pantallas, y se puede abrir/cerrar a mano.
+  const dentroDeConfiguracion = pathname.startsWith("/configuracion") || pathname.startsWith("/api-logs");
+  const [configAbierto, setConfigAbierto] = useState(dentroDeConfiguracion);
+  useEffect(() => {
+    if (dentroDeConfiguracion) setConfigAbierto(true);
+  }, [dentroDeConfiguracion]);
 
   return (
     <>
@@ -97,6 +136,60 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
               </Link>
             );
           })}
+
+          {esAdmin && (
+            <div>
+              <div
+                className={
+                  "flex items-center rounded-lg text-sm transition-colors " +
+                  (dentroDeConfiguracion ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")
+                }
+              >
+                <Link
+                  href="/configuracion"
+                  onClick={() => {
+                    setConfigAbierto(true);
+                    setAbierto(false);
+                  }}
+                  className="flex flex-1 items-center gap-3 px-3 py-2"
+                >
+                  <Settings size={16} strokeWidth={2} />
+                  Configuración
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setConfigAbierto((v) => !v)}
+                  aria-label={configAbierto ? "Contraer Configuración" : "Desplegar Configuración"}
+                  aria-expanded={configAbierto}
+                  className="px-3 py-2"
+                >
+                  <ChevronDown size={15} className={"transition-transform " + (configAbierto ? "rotate-180" : "")} />
+                </button>
+              </div>
+
+              {configAbierto && (
+                <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-2">
+                  {ITEMS_CONFIGURACION.map(({ href, label, Icon }) => {
+                    const activo = pathname.startsWith(href);
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setAbierto(false)}
+                        className={
+                          "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors " +
+                          (activo ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")
+                        }
+                      >
+                        <Icon size={14} strokeWidth={2} />
+                        {label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </nav>
 
         <div className="mt-auto px-4 py-4">

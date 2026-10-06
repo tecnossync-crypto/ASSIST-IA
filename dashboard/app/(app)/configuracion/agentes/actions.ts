@@ -79,6 +79,7 @@ export async function crearAgenteAction(
   }
 
   revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("crear", "agente", { nombre, email, rol });
   return { passwordGenerada, nombreCreado: nombre, emailCreado: email };
 }
@@ -86,6 +87,7 @@ export async function crearAgenteAction(
 export async function eliminarAgenteAction(id: string) {
   await eliminarAgente(id);
   revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("eliminar", "agente", { id });
 }
 
@@ -111,6 +113,7 @@ export async function cambiarPasswordAgenteAction(
   }
 
   revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("actualizar", "agente_password", { id });
   return { ok: true };
 }
@@ -134,6 +137,7 @@ export async function cambiarIdExternoAgenteAction(
   }
 
   revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("actualizar", "agente_id_externo", { id, idExterno });
   return { ok: true };
 }
@@ -142,6 +146,7 @@ export async function actualizarEnrutamientoAction(formData: FormData) {
   const modo = String(formData.get("modo") ?? "todos") as ModoEnrutamiento;
   await actualizarEnrutamiento(modo);
   revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("actualizar", "enrutamiento_general", { modo });
 }
 
@@ -150,6 +155,7 @@ export async function crearColaAction(formData: FormData) {
   if (!nombre) return;
   await crearCola(nombre);
   revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("crear", "cola", { nombre });
 }
 
@@ -158,12 +164,14 @@ export async function actualizarEnrutamientoColaAction(formData: FormData) {
   const modo = String(formData.get("modo") ?? "todos") as ModoEnrutamiento;
   await actualizarEnrutamientoCola(id, modo);
   revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("actualizar", "cola", { id, modo });
 }
 
 export async function eliminarColaAction(id: string) {
   await eliminarCola(id);
   revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("eliminar", "cola", { id });
 }
 
@@ -172,5 +180,6 @@ export async function actualizarExtensionCentralPropiaColaAction(formData: FormD
   const extension = String(formData.get("extension") ?? "").trim() || null;
   await actualizarExtensionCentralPropiaCola(id, extension);
   revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
   await auditar("actualizar", "cola_extension_central_propia", { id, extension });
 }

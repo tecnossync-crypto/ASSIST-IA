@@ -1,5 +1,17 @@
 import Link from "next/link";
-import { Building2, Bot, Users, Workflow, Headset, History, Plug, HardDrive, ChevronRight } from "lucide-react";
+import {
+  Building2,
+  Bot,
+  Users,
+  Workflow,
+  Headset,
+  History,
+  Plug,
+  HardDrive,
+  ChevronRight,
+  Network,
+  Terminal,
+} from "lucide-react";
 
 const SECCIONES = [
   {
@@ -33,6 +45,12 @@ const SECCIONES = [
     descripcion: "Quiénes reciben las llamadas normales, organizados por cola.",
   },
   {
+    href: "/configuracion/enrutamiento",
+    Icon: Network,
+    titulo: "Enrutamiento",
+    descripcion: "Tu central telefónica, las colas y cómo se reparten las llamadas.",
+  },
+  {
     href: "/configuracion/auditoria",
     Icon: History,
     titulo: "Auditoría",
@@ -43,6 +61,12 @@ const SECCIONES = [
     Icon: Plug,
     titulo: "Integraciones",
     descripcion: "API para pedir llamadas por webhook, y conexiones con otras plataformas.",
+  },
+  {
+    href: "/api-logs",
+    Icon: Terminal,
+    titulo: "Registros API",
+    descripcion: "Qué llegó a los webhooks públicos y qué llamadas se pidieron por API.",
   },
   {
     href: "/configuracion/almacenamiento",

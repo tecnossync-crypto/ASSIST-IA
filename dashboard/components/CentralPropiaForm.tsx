@@ -76,14 +76,19 @@ export function CentralPropiaForm({ empresa }: { empresa: EmpresaConfig }) {
         )}
       </div>
 
-      {authTipo === "credenciales" && (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="password" className="text-sm font-medium text-ink-2">
-            Contraseña SIP {empresa.central_propia_tiene_password && "(ya hay una guardada — deja vacío para no cambiarla)"}
-          </label>
-          <input id="password" name="password" type="password" placeholder="••••••••" className={CAMPO} />
-        </div>
-      )}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="password" className="text-sm font-medium text-ink-2">
+          {authTipo === "credenciales" ? "Contraseña SIP" : "PIN del DISA de la central"}{" "}
+          {empresa.central_propia_tiene_password && "(ya hay uno guardado — deja vacío para no cambiarlo)"}
+        </label>
+        <input id="password" name="password" type="password" placeholder="••••••••" className={CAMPO} />
+        {authTipo === "ip" && (
+          <p className="text-xs text-muted">
+            Es el PIN del DISA de tu central: la plataforma lo marca sola, junto con el número, para que la llamada
+            salga por tu troncal. Debe ser el mismo que tiene configurado el DISA.
+          </p>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-4">
         <label className="flex items-center gap-2 text-sm text-ink-2">
