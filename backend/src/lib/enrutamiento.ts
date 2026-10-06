@@ -19,9 +19,14 @@ export async function destinoDeTransferencia(empresaId: string, colaId: string |
 }
 
 /**
- * Extensiones de la central que deben sonar: las activas de la cola; si la
- * cola no tiene ninguna (o la llamada no tiene cola), las activas "generales"
- * (sin departamento).
+ * Extensiones de la central que deben sonar:
+ * 1. Las activas de la cola de la llamada.
+ * 2. Si la cola no tiene ninguna (o no hay cola): las activas "generales"
+ *    (sin departamento).
+ * 3. Si ni así hay, y la llamada NO tiene departamento (la IA no eligió uno):
+ *    todas las activas de la central, para no perder la llamada. Si la llamada
+ *    sí tiene departamento pero este no tiene extensiones, NO se marca a los
+ *    de otros departamentos.
  */
 export async function extensionesDeTransferencia(empresaId: string, colaId: string | null): Promise<string[]> {
   if (colaId) {
@@ -35,5 +40,11 @@ export async function extensionesDeTransferencia(empresaId: string, colaId: stri
     "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND cola_id IS NULL AND activa = true ORDER BY numero",
     [empresaId]
   );
-  return generales.rows.map((r) => r.numero);
+  if (generales.rows.length > 0 || colaId) return generales.rows.map((r) => r.numero);
+
+  const todas = await pool.query<{ numero: string }>(
+    "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND activa = true ORDER BY numero",
+    [empresaId]
+  );
+  return todas.rows.map((r) => r.numero);
 }
