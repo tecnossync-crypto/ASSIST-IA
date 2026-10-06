@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Users, Database, Tags, Upload, ArrowUpRight } from "lucide-react";
-import { obtenerEmpresa } from "@/lib/api";
+import { obtenerEmpresa, listarEtiquetasHuerfanas, listarCamposHuerfanos } from "@/lib/api";
+import { DatosHuerfanos } from "@/components/DatosHuerfanos";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { EditorCamposPersonalizados } from "@/components/EditorCamposPersonalizados";
 import { EditorEtiquetas } from "@/components/EditorEtiquetas";
@@ -8,7 +9,12 @@ import { FormConFeedback } from "@/components/FormConFeedback";
 import { guardarContactosConfigAction } from "./actions";
 
 export default async function ContactosConfigPage() {
-  const empresa = await obtenerEmpresa();
+  const [empresa, etiquetasHuerfanas, camposHuerfanos] = await Promise.all([
+    obtenerEmpresa(),
+    // Si esto falla (ej. backend sin desplegar todavía) la pantalla igual carga.
+    listarEtiquetasHuerfanas().catch(() => []),
+    listarCamposHuerfanos().catch(() => []),
+  ]);
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
@@ -33,6 +39,8 @@ export default async function ContactosConfigPage() {
         </div>
         <ArrowUpRight size={16} className="text-muted" />
       </Link>
+
+      <DatosHuerfanos etiquetas={etiquetasHuerfanas} campos={camposHuerfanos} />
 
       <FormConFeedback action={guardarContactosConfigAction} className="flex flex-col gap-6">
         <section className="rounded-lg border border-edge bg-surface p-5">

@@ -1233,3 +1233,26 @@ export async function eliminarCampoCatalogo(nombre: string): Promise<void> {
   const res = await fetch(urlCatalogo("/api/campos-personalizados", nombre), { method: "DELETE" });
   await leerJson(res, "Error eliminando el campo");
 }
+
+export interface ElementoHuerfano {
+  nombre: string;
+  contactos: number;
+}
+
+// Etiquetas/campos que siguen guardados en contactos pero ya no existen en la
+// configuración de la empresa.
+export async function listarEtiquetasHuerfanas(): Promise<ElementoHuerfano[]> {
+  const url = new URL("/api/etiquetas/huerfanas", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  const data = await leerJson<{ etiquetas: ElementoHuerfano[] }>(res, "Error listando etiquetas sin configurar");
+  return data.etiquetas;
+}
+
+export async function listarCamposHuerfanos(): Promise<ElementoHuerfano[]> {
+  const url = new URL("/api/campos-personalizados/huerfanos", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  const data = await leerJson<{ campos: ElementoHuerfano[] }>(res, "Error listando campos sin configurar");
+  return data.campos;
+}

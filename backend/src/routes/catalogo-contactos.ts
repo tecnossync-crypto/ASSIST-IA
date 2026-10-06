@@ -23,6 +23,47 @@ export async function catalogoContactosRoutes(app: FastifyInstance) {
       OR (accion = 'agregar_etiqueta' AND accion_datos ->> 'etiqueta' = $2)
     )`;
 
+  // Etiquetas y campos que SIGUEN guardados en contactos pero ya no están en
+  // el catálogo de la empresa (ej. se borraron antes de que la eliminación
+  // limpiara los contactos). Se quitan con los mismos DELETE de abajo.
+  app.get<{ Querystring: { empresaId?: string } }>("/api/etiquetas/huerfanas", async (req, reply) => {
+    const { empresaId } = req.query;
+    if (!empresaId) {
+      reply.code(400).send({ error: "empresaId es requerido" });
+      return;
+    }
+    const r = await pool.query<{ nombre: string; contactos: number }>(
+      `SELECT t AS nombre, count(*)::int AS contactos
+       FROM contactos c, unnest(c.etiquetas) AS t
+       WHERE c.empresa_id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM empresas e, jsonb_array_elements(e.etiquetas_disponibles) x
+           WHERE e.id = $1 AND x ->> 'nombre' = t)
+       GROUP BY t ORDER BY t`,
+      [empresaId]
+    );
+    reply.send({ etiquetas: r.rows });
+  });
+
+  app.get<{ Querystring: { empresaId?: string } }>("/api/campos-personalizados/huerfanos", async (req, reply) => {
+    const { empresaId } = req.query;
+    if (!empresaId) {
+      reply.code(400).send({ error: "empresaId es requerido" });
+      return;
+    }
+    const r = await pool.query<{ nombre: string; contactos: number }>(
+      `SELECT k AS nombre, count(*)::int AS contactos
+       FROM contactos c, jsonb_object_keys(c.datos) AS k
+       WHERE c.empresa_id = $1
+         AND NOT EXISTS (
+           SELECT 1 FROM empresas e, jsonb_array_elements(e.campos_personalizados) x
+           WHERE e.id = $1 AND x ->> 'nombre' = k)
+       GROUP BY k ORDER BY k`,
+      [empresaId]
+    );
+    reply.send({ campos: r.rows });
+  });
+
   app.get<{ Querystring: { empresaId?: string; nombre?: string } }>(
     "/api/etiquetas/impacto",
     async (req, reply) => {
