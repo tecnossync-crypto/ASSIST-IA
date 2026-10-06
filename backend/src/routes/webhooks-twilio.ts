@@ -15,6 +15,7 @@ import { ejecutarFlujosTrabajo } from "../lib/flujos-trabajo.js";
 import { usuarioIdDesdeIdentidad } from "../lib/agentes.js";
 import { iniciarConferenciaConAgentes } from "../lib/conferencia-agentes.js";
 import { descartarFallbackCentral, reintentarDirectoSiCorresponde } from "../lib/fallback-central.js";
+import { destinoDeTransferencia, extensionesDeTransferencia } from "../lib/enrutamiento.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -304,45 +305,50 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       return;
     }
 
-    const conferenciaNombre = `llamada-${row.id}`;
-    const { identidades } = await iniciarConferenciaConAgentes({
-      empresaId: row.empresa_id,
-      llamadaId: row.id,
-      conferenciaNombre,
-      colaId: row.cola_id,
-      publicBaseUrl,
-    });
+    // Dónde se atiende (plataforma / central / ambos) lo decide la cola o,
+    // si no tiene, la empresa — ver Configuración → Enrutamiento.
+    const destino = await destinoDeTransferencia(row.empresa_id, row.cola_id);
 
-    if (identidades.length > 0) {
-      app.log.info({ callSid, identidades }, "Transfiriendo llamada del bot a agente(s) disponible(s)");
-      reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl }));
-      return;
+    if (destino !== "central") {
+      const conferenciaNombre = `llamada-${row.id}`;
+      const { identidades } = await iniciarConferenciaConAgentes({
+        empresaId: row.empresa_id,
+        llamadaId: row.id,
+        conferenciaNombre,
+        colaId: row.cola_id,
+        publicBaseUrl,
+      });
+
+      if (identidades.length > 0) {
+        app.log.info({ callSid, identidades }, "Transfiriendo llamada del bot a agente(s) disponible(s)");
+        reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl }));
+        return;
+      }
     }
 
-    // Sin agentes de la plataforma disponibles — si la cola tiene una
-    // extensión de la central propia configurada (Grandstream) y la empresa
-    // la tiene activa para entrantes, se intenta ahí antes de rendirse. Ver
-    // twimlTransferirCentralPropia() para el aviso de que esto no se ha
-    // probado todavía contra una PBX real.
-    if (row.cola_id) {
-      const cola = await pool.query<{ extension_central_propia: string | null }>(
-        "SELECT extension_central_propia FROM colas WHERE id = $1",
-        [row.cola_id]
-      );
-      const extension = cola.rows[0]?.extension_central_propia;
-      if (extension) {
-        const twilioEmpresa = await clienteTwilioEmpresa(row.empresa_id);
-        if (twilioEmpresa?.centralPropia?.entrante) {
+    // A las extensiones de la central: directo si el destino es "central", o
+    // como respaldo si es "ambos" y no había agentes de la plataforma. Solo si
+    // la empresa tiene la central activa para entrantes. Ver
+    // twimlTransferirCentralPropia() para el aviso sobre pruebas en vivo.
+    if (destino !== "plataforma") {
+      const twilioEmpresa = await clienteTwilioEmpresa(row.empresa_id);
+      if (twilioEmpresa?.centralPropia?.entrante) {
+        const extensiones = await extensionesDeTransferencia(row.empresa_id, row.cola_id);
+        if (extensiones.length > 0) {
+          const central = twilioEmpresa.centralPropia;
           app.log.info(
-            { callSid, colaId: row.cola_id, extension },
-            "Sin agentes de la plataforma — transfiriendo a extensión de la central propia"
+            { callSid, colaId: row.cola_id, destino, extensiones },
+            "Transfiriendo llamada de la IA a extensiones de la central propia"
           );
+          // Con autenticación por IP, "usuario/password" no son credenciales
+          // SIP (la contraseña guardada ahí es el PIN del DISA) — no se mandan.
+          const conCredenciales = central.authTipo === "credenciales";
           reply.type("text/xml").send(
             twimlTransferirCentralPropia({
-              extension,
-              dominio: twilioEmpresa.centralPropia.dominio,
-              usuario: twilioEmpresa.centralPropia.usuario,
-              password: twilioEmpresa.centralPropia.password,
+              extensiones,
+              dominio: central.dominio,
+              usuario: conCredenciales ? central.usuario : null,
+              password: conCredenciales ? central.password : null,
               publicBaseUrl,
               callSid,
             })
@@ -352,7 +358,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       }
     }
 
-    app.log.warn({ callSid }, "Transferencia sin agentes disponibles");
+    app.log.warn({ callSid, destino }, "Transferencia sin agentes disponibles");
     reply
       .type("text/xml")
       .send(twimlColgar("En este momento no hay agentes disponibles. Por favor intente más tarde."));

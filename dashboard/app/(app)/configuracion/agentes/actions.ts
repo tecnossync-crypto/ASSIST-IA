@@ -10,7 +10,6 @@ import {
   actualizarEnrutamiento,
   crearCola,
   actualizarEnrutamientoCola,
-  actualizarExtensionCentralPropiaCola,
   eliminarCola,
   type ModoEnrutamiento,
 } from "@/lib/api";
@@ -175,11 +174,3 @@ export async function eliminarColaAction(id: string) {
   await auditar("eliminar", "cola", { id });
 }
 
-export async function actualizarExtensionCentralPropiaColaAction(formData: FormData) {
-  const id = String(formData.get("id"));
-  const extension = String(formData.get("extension") ?? "").trim() || null;
-  await actualizarExtensionCentralPropiaCola(id, extension);
-  revalidatePath("/configuracion/agentes");
-  revalidatePath("/configuracion/enrutamiento");
-  await auditar("actualizar", "cola_extension_central_propia", { id, extension });
-}

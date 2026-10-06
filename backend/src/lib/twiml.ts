@@ -228,7 +228,7 @@ function escaparXml(valor: string): string {
 
 // Transferencia de una llamada de IA hacia una extensión de la central propia
 // (PBX Grandstream) en vez de un agente conectado a la plataforma — ver
-// empresas.central_propia_* y colas.extension_central_propia. A diferencia
+// empresas.central_propia_* y la tabla extensiones_central. A diferencia
 // del dial SALIENTE (lib/twilio-empresa.ts, resolverDestinoSaliente — que
 // arma una URI SIP a mano y Twilio la disca directo), acá usamos el propio
 // atributo username/password de <Sip>, la forma documentada de Twilio para
@@ -239,23 +239,28 @@ function escaparXml(valor: string): string {
 // action: si la llamada a la extensión falla (ocupado, no contesta, etc.),
 // Twilio vuelve a pedir TwiML acá en vez de simplemente colgar — así se le
 // puede decir algo al cliente en vez de dejarlo con la llamada muerta.
+// Varias extensiones en el mismo <Dial> suenan A LA VEZ y la primera que
+// contesta se queda con la llamada.
 export function twimlTransferirCentralPropia(opts: {
-  extension: string;
+  extensiones: string[];
   dominio: string;
   usuario?: string | null;
   password?: string | null;
   publicBaseUrl: string;
   callSid: string;
 }): string {
-  const { extension, dominio, usuario, password, publicBaseUrl, callSid } = opts;
+  const { extensiones, dominio, usuario, password, publicBaseUrl, callSid } = opts;
   const authAttrs =
     usuario && password
       ? ` username="${escaparXml(usuario)}" password="${escaparXml(password)}"`
       : "";
+  const destinos = extensiones
+    .map((ext) => `    <Sip${authAttrs}>sip:${escaparXml(ext)}@${escaparXml(dominio)}</Sip>`)
+    .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial action="${publicBaseUrl}/webhooks/twilio/central-propia-fallback?callSid=${encodeURIComponent(callSid)}" method="POST">
-    <Sip${authAttrs}>sip:${escaparXml(extension)}@${escaparXml(dominio)}</Sip>
+  <Dial timeout="30" action="${publicBaseUrl}/webhooks/twilio/central-propia-fallback?callSid=${encodeURIComponent(callSid)}" method="POST">
+${destinos}
   </Dial>
 </Response>`;
 }

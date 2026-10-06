@@ -840,7 +840,7 @@ export interface Cola {
   nombre: string;
   enrutamiento: { modo: ModoEnrutamiento; turno_actual?: number };
   agentes_asignados: number;
-  extension_central_propia: string | null;
+  destino_llamadas: "plataforma" | "central" | "ambos" | null;
 }
 
 export async function listarAgentes(): Promise<Agente[]> {
@@ -1137,11 +1137,59 @@ export async function eliminarCola(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Error eliminando cola: HTTP ${res.status}`);
 }
 
-export async function actualizarExtensionCentralPropiaCola(id: string, extension: string | null): Promise<void> {
-  const res = await fetch(new URL(`/api/colas/${id}/extension-central-propia`, BACKEND_URL), {
-    method: "PUT",
+export type DestinoLlamadas = "plataforma" | "central" | "ambos";
+
+export interface ExtensionCentral {
+  id: string;
+  numero: string;
+  nombre: string | null;
+  cola_id: string | null;
+  cola_nombre: string | null;
+  activa: boolean;
+}
+
+export async function obtenerEnrutamiento(): Promise<{ destino: DestinoLlamadas; extensiones: ExtensionCentral[] }> {
+  const url = new URL("/api/enrutamiento", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo el enrutamiento: HTTP ${res.status}`);
+  return res.json();
+}
+
+async function enviarJson(path: string, method: string, body: unknown, errorPrefijo: string): Promise<void> {
+  const res = await fetch(new URL(path, BACKEND_URL), {
+    method,
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ extension }),
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Error actualizando extensión de central propia: HTTP ${res.status}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `${errorPrefijo}: HTTP ${res.status}`);
+  }
+}
+
+export async function actualizarDestinoEmpresa(destino: DestinoLlamadas): Promise<void> {
+  await enviarJson("/api/enrutamiento/destino", "PUT", { empresaId: EMPRESA_ID, destino }, "Error guardando el destino");
+}
+
+export async function actualizarDestinoCola(colaId: string, destino: DestinoLlamadas | null): Promise<void> {
+  await enviarJson(`/api/colas/${colaId}/destino`, "PUT", { empresaId: EMPRESA_ID, destino }, "Error guardando el destino de la cola");
+}
+
+export async function crearExtensionCentral(data: { numero: string; nombre?: string; colaId?: string | null }): Promise<void> {
+  await enviarJson("/api/extensiones", "POST", { empresaId: EMPRESA_ID, ...data }, "Error creando la extensión");
+}
+
+export async function actualizarExtensionCentral(
+  id: string,
+  data: { nombre?: string | null; colaId?: string | null; activa?: boolean }
+): Promise<void> {
+  await enviarJson(`/api/extensiones/${id}`, "PUT", { empresaId: EMPRESA_ID, ...data }, "Error actualizando la extensión");
+}
+
+export async function eliminarExtensionCentral(id: string): Promise<void> {
+  const url = new URL(`/api/extensiones/${id}`, BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Error eliminando la extensión: HTTP ${res.status}`);
 }
