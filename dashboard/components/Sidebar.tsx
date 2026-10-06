@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -35,17 +35,37 @@ const ITEMS = [
 
 // Solo admin. "Registros API" vive acá (aunque su ruta es /api-logs) para
 // que todo lo de administración quede agrupado bajo Configuración.
-const ITEMS_CONFIGURACION = [
-  { href: "/configuracion/empresa", label: "Empresa", Icon: Building2 },
-  { href: "/configuracion/ia", label: "Inteligencia Artificial", Icon: Bot },
-  { href: "/configuracion/contactos", label: "Contactos", Icon: Users },
-  { href: "/configuracion/flujos", label: "Flujos de trabajo", Icon: Workflow },
-  { href: "/configuracion/agentes", label: "Agentes", Icon: Headset },
-  { href: "/configuracion/enrutamiento", label: "Enrutamiento", Icon: Network },
-  { href: "/configuracion/integraciones", label: "Integraciones", Icon: Plug },
-  { href: "/api-logs", label: "Registros API", Icon: Terminal },
-  { href: "/configuracion/almacenamiento", label: "Almacenamiento", Icon: HardDrive },
-  { href: "/configuracion/auditoria", label: "Auditoría", Icon: History },
+const GRUPOS_CONFIGURACION = [
+  {
+    titulo: "Negocio",
+    items: [
+      { href: "/configuracion/empresa", label: "Empresa", Icon: Building2 },
+      { href: "/configuracion/ia", label: "Inteligencia Artificial", Icon: Bot },
+      { href: "/configuracion/contactos", label: "Contactos", Icon: Users },
+      { href: "/configuracion/flujos", label: "Flujos de trabajo", Icon: Workflow },
+    ],
+  },
+  {
+    titulo: "Equipo",
+    items: [
+      { href: "/configuracion/agentes", label: "Agentes", Icon: Headset },
+      { href: "/configuracion/enrutamiento", label: "Enrutamiento", Icon: Network },
+    ],
+  },
+  {
+    titulo: "Conexiones",
+    items: [
+      { href: "/configuracion/integraciones", label: "Integraciones", Icon: Plug },
+      { href: "/api-logs", label: "Registros API", Icon: Terminal },
+    ],
+  },
+  {
+    titulo: "Sistema",
+    items: [
+      { href: "/configuracion/almacenamiento", label: "Almacenamiento", Icon: HardDrive },
+      { href: "/configuracion/auditoria", label: "Auditoría", Icon: History },
+    ],
+  },
 ];
 
 // Admin y supervisor — no operador.
@@ -55,6 +75,10 @@ function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/);
   return ((partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "")).toUpperCase() || "?";
 }
+
+const CLASE_ITEM_BASE = "relative flex items-center rounded-md transition-colors";
+const CLASE_ACTIVO = "bg-white/10 text-white";
+const CLASE_INACTIVO = "text-slate-400 hover:bg-white/5 hover:text-white";
 
 export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | null }) {
   const pathname = usePathname();
@@ -79,6 +103,40 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
     if (dentroDeConfiguracion) setConfigAbierto(true);
   }, [dentroDeConfiguracion]);
 
+  // Indicadores de "hay más arriba/abajo" cuando la lista es más alta que la
+  // pantalla (degradado discreto en el borde), en vez de que el usuario
+  // tenga que adivinar que el menú sigue.
+  const navRef = useRef<HTMLElement>(null);
+  const [masArriba, setMasArriba] = useState(false);
+  const [masAbajo, setMasAbajo] = useState(false);
+  const medirScroll = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    setMasArriba(el.scrollTop > 4);
+    setMasAbajo(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  }, []);
+
+  useEffect(() => {
+    medirScroll();
+    const el = navRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(medirScroll);
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, [medirScroll, configAbierto]);
+
+  // Al abrir Configuración o cambiar de pantalla, lleva a la vista la opción
+  // activa para no tener que buscarla desplazando el menú a mano.
+  useEffect(() => {
+    if (!configAbierto) return;
+    const t = setTimeout(() => {
+      const activo = navRef.current?.querySelector<HTMLElement>("[data-activo='true']");
+      activo?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }, 220);
+    return () => clearTimeout(t);
+  }, [configAbierto, pathname]);
+
   return (
     <>
       {/* Fondo oscuro detrás del panel cuando está abierto en celular/tablet
@@ -98,7 +156,7 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
           (abierto ? "translate-x-0" : "-translate-x-full")
         }
       >
-        <div className="flex flex-shrink-0 items-center justify-between px-5 py-5">
+        <div className="flex flex-shrink-0 items-center justify-between px-5 py-4">
           <Link href="/" className="flex items-center gap-2.5" onClick={() => setAbierto(false)}>
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-black text-white shadow shadow-indigo-500/30">
               V
@@ -118,86 +176,125 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
           </button>
         </div>
 
-        {/* min-h-0 + overflow-y-auto: con el submenú de Configuración
-            desplegado la lista puede ser más alta que la pantalla; así
-            scrollea sola y el usuario/cerrar sesión de abajo no se tapa. */}
-        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-3 pb-3">
-          {items.map(({ href, label, Icon }) => {
-            const activo = href === "/" ? pathname === "/" : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setAbierto(false)}
-                className={
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors " +
-                  (activo ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")
-                }
-              >
-                <Icon size={16} strokeWidth={2} />
-                {label}
-              </Link>
-            );
-          })}
+        {/* La lista scrollea por dentro (min-h-0 + overflow-y-auto) para que
+            el usuario y "cerrar sesión" de abajo nunca se tapen; los
+            degradados avisan cuando hay más contenido arriba o abajo. */}
+        <div className="relative min-h-0 flex-1">
+          <nav
+            ref={navRef}
+            onScroll={medirScroll}
+            className="h-full overflow-y-auto overscroll-contain px-3 pb-3 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/15 [&::-webkit-scrollbar-track]:bg-transparent"
+          >
+            <div className="flex flex-col gap-0.5">
+              {items.map(({ href, label, Icon }) => {
+                const activo = href === "/" ? pathname === "/" : pathname.startsWith(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setAbierto(false)}
+                    className={`${CLASE_ITEM_BASE} gap-3 px-3 py-1.5 text-sm ${activo ? CLASE_ACTIVO : CLASE_INACTIVO}`}
+                  >
+                    <Icon size={16} strokeWidth={2} />
+                    {label}
+                  </Link>
+                );
+              })}
 
-          {esAdmin && (
-            <div>
-              <div
-                className={
-                  "flex items-center rounded-lg text-sm transition-colors " +
-                  (dentroDeConfiguracion ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")
-                }
-              >
-                <Link
-                  href="/configuracion"
-                  onClick={() => {
-                    setConfigAbierto(true);
-                    setAbierto(false);
-                  }}
-                  className="flex flex-1 items-center gap-3 px-3 py-2"
-                >
-                  <Settings size={16} strokeWidth={2} />
-                  Configuración
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setConfigAbierto((v) => !v)}
-                  aria-label={configAbierto ? "Contraer Configuración" : "Desplegar Configuración"}
-                  aria-expanded={configAbierto}
-                  className="px-3 py-2"
-                >
-                  <ChevronDown size={15} className={"transition-transform " + (configAbierto ? "rotate-180" : "")} />
-                </button>
-              </div>
+              {esAdmin && (
+                <div className="mt-1 border-t border-white/5 pt-1">
+                  <div
+                    className={`${CLASE_ITEM_BASE} text-sm ${dentroDeConfiguracion ? CLASE_ACTIVO : CLASE_INACTIVO}`}
+                  >
+                    <Link
+                      href="/configuracion"
+                      onClick={() => {
+                        setConfigAbierto(true);
+                        setAbierto(false);
+                      }}
+                      className="flex flex-1 items-center gap-3 px-3 py-1.5"
+                    >
+                      <Settings size={16} strokeWidth={2} />
+                      Configuración
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setConfigAbierto((v) => !v)}
+                      aria-label={configAbierto ? "Contraer Configuración" : "Desplegar Configuración"}
+                      aria-expanded={configAbierto}
+                      className="rounded-md px-3 py-1.5 hover:bg-white/5"
+                    >
+                      <ChevronDown
+                        size={15}
+                        className={"transition-transform duration-200 " + (configAbierto ? "rotate-180" : "")}
+                      />
+                    </button>
+                  </div>
 
-              {configAbierto && (
-                <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-2">
-                  {ITEMS_CONFIGURACION.map(({ href, label, Icon }) => {
-                    const activo = pathname.startsWith(href);
-                    return (
-                      <Link
-                        key={href}
-                        href={href}
-                        onClick={() => setAbierto(false)}
-                        className={
-                          "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] transition-colors " +
-                          (activo ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white")
-                        }
-                      >
-                        <Icon size={14} strokeWidth={2} />
-                        {label}
-                      </Link>
-                    );
-                  })}
+                  {/* Despliegue animado: la fila crece de 0 a su alto real
+                      (grid-template-rows 0fr -> 1fr), sin saltos. */}
+                  <div
+                    className={
+                      "grid transition-[grid-template-rows] duration-200 ease-out " +
+                      (configAbierto ? "grid-rows-[1fr]" : "grid-rows-[0fr]")
+                    }
+                    aria-hidden={!configAbierto}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="ml-[18px] mt-1 flex flex-col gap-2 border-l border-white/10 pb-1 pl-2">
+                        {GRUPOS_CONFIGURACION.map((grupo) => (
+                          <div key={grupo.titulo} className="flex flex-col gap-0.5">
+                            <p className="px-3 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                              {grupo.titulo}
+                            </p>
+                            {grupo.items.map(({ href, label, Icon }) => {
+                              const activo = pathname.startsWith(href);
+                              return (
+                                <Link
+                                  key={href}
+                                  href={href}
+                                  tabIndex={configAbierto ? 0 : -1}
+                                  data-activo={activo}
+                                  onClick={() => setAbierto(false)}
+                                  className={`${CLASE_ITEM_BASE} gap-2.5 px-3 py-1 text-[13px] ${activo ? CLASE_ACTIVO : CLASE_INACTIVO}`}
+                                >
+                                  {activo && (
+                                    <span className="absolute -left-[9px] top-1 bottom-1 w-0.5 rounded-full bg-indigo-400" />
+                                  )}
+                                  <Icon size={14} strokeWidth={2} />
+                                  {label}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          )}
-        </nav>
+          </nav>
 
-        <div className="mt-auto flex-shrink-0 px-4 py-4">
+          <div
+            aria-hidden="true"
+            className={
+              "pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-slate-900 to-transparent transition-opacity " +
+              (masArriba ? "opacity-100" : "opacity-0")
+            }
+          />
+          <div
+            aria-hidden="true"
+            className={
+              "pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-900/95 to-transparent transition-opacity " +
+              (masAbajo ? "opacity-100" : "opacity-0")
+            }
+          />
+        </div>
+
+        <div className="flex-shrink-0 border-t border-white/10 px-4 py-3">
           {sesion && (
-            <div className="mb-3 flex items-center gap-2.5 border-t border-white/10 pt-3">
+            <div className="flex items-center gap-2.5">
               <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-xs font-bold text-white">
                 {iniciales(sesion.nombre)}
               </span>
@@ -210,14 +307,13 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
                   type="submit"
                   aria-label="Cerrar sesión"
                   title="Cerrar sesión"
-                  className="text-slate-400 hover:text-white"
+                  className="rounded-md p-1.5 text-slate-400 hover:bg-white/5 hover:text-white"
                 >
                   <LogOut size={14} />
                 </button>
               </form>
             </div>
           )}
-          <p className="px-1 text-xs text-slate-500">Plataforma de Voz IA</p>
         </div>
       </aside>
     </>
