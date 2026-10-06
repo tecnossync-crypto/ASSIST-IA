@@ -1193,3 +1193,43 @@ export async function eliminarExtensionCentral(id: string): Promise<void> {
   const res = await fetch(url, { method: "DELETE" });
   if (!res.ok) throw new Error(`Error eliminando la extensión: HTTP ${res.status}`);
 }
+
+export interface ImpactoEliminacionCatalogo {
+  contactos: number;
+  flujos?: { id: string; nombre: string }[];
+}
+
+async function leerJson<T>(res: Response, errorPrefijo: string): Promise<T> {
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `${errorPrefijo}: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+function urlCatalogo(path: string, nombre: string): URL {
+  const url = new URL(path, BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  url.searchParams.set("nombre", nombre);
+  return url;
+}
+
+export async function obtenerImpactoEtiqueta(nombre: string): Promise<ImpactoEliminacionCatalogo> {
+  const res = await fetch(urlCatalogo("/api/etiquetas/impacto", nombre), { cache: "no-store" });
+  return leerJson(res, "Error calculando el impacto");
+}
+
+export async function eliminarEtiquetaCatalogo(nombre: string): Promise<void> {
+  const res = await fetch(urlCatalogo("/api/etiquetas", nombre), { method: "DELETE" });
+  await leerJson(res, "Error eliminando la etiqueta");
+}
+
+export async function obtenerImpactoCampo(nombre: string): Promise<ImpactoEliminacionCatalogo> {
+  const res = await fetch(urlCatalogo("/api/campos-personalizados/impacto", nombre), { cache: "no-store" });
+  return leerJson(res, "Error calculando el impacto");
+}
+
+export async function eliminarCampoCatalogo(nombre: string): Promise<void> {
+  const res = await fetch(urlCatalogo("/api/campos-personalizados", nombre), { method: "DELETE" });
+  await leerJson(res, "Error eliminando el campo");
+}

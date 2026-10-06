@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Trash2, Tag } from "lucide-react";
 import type { EtiquetaDisponible } from "@/lib/api";
+import { EliminarCatalogoModal } from "./EliminarCatalogoModal";
 
 const COLORES = [
   { valor: "indigo", clase: "bg-indigo-500" },
@@ -14,13 +15,21 @@ const COLORES = [
 
 export function EditorEtiquetas({ valorInicial }: { valorInicial: EtiquetaDisponible[] }) {
   const [etiquetas, setEtiquetas] = useState<EtiquetaDisponible[]>(valorInicial);
+  const [porEliminar, setPorEliminar] = useState<string | null>(null);
 
   function agregar() {
     setEtiquetas([...etiquetas, { nombre: "", color: "indigo" }]);
   }
 
+  // Una etiqueta que ya estaba guardada puede estar en contactos y flujos:
+  // se confirma en un modal que muestra el impacto y la limpia de todos
+  // lados. Una recién agregada (sin guardar) no existe todavía en ningún
+  // lado, así que se quita directo.
   function quitar(i: number) {
-    setEtiquetas(etiquetas.filter((_, idx) => idx !== i));
+    const nombre = etiquetas[i].nombre.trim();
+    const yaGuardada = nombre !== "" && valorInicial.some((e) => e.nombre === nombre);
+    if (yaGuardada) setPorEliminar(nombre);
+    else setEtiquetas(etiquetas.filter((_, idx) => idx !== i));
   }
 
   function actualizar(i: number, campo: Partial<EtiquetaDisponible>) {
@@ -81,8 +90,20 @@ export function EditorEtiquetas({ valorInicial }: { valorInicial: EtiquetaDispon
 
       <p className="text-xs text-muted">
         Catálogo de etiquetas disponibles para organizar contactos (se asignan manualmente o desde un flujo de
-        trabajo).
+        trabajo). Al eliminar una, se quita también de todos los contactos que la tienen.
       </p>
+
+      {porEliminar && (
+        <EliminarCatalogoModal
+          tipo="etiqueta"
+          nombre={porEliminar}
+          onCerrar={() => setPorEliminar(null)}
+          onEliminado={() => {
+            setEtiquetas((prev) => prev.filter((e) => e.nombre.trim() !== porEliminar));
+            setPorEliminar(null);
+          }}
+        />
+      )}
     </div>
   );
 }

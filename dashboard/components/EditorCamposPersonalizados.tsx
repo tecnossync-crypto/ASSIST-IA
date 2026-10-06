@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Trash2, ListPlus, ChevronDown, ChevronRight, X, Type, Calendar, List } from "lucide-react";
 import { generarApiName, sanearApiName, type CampoPersonalizado, type TipoCampoPersonalizado } from "@/lib/api";
+import { EliminarCatalogoModal } from "./EliminarCatalogoModal";
 
 const TIPOS: { valor: TipoCampoPersonalizado; label: string; Icon: typeof Type }[] = [
   { valor: "texto", label: "Texto", Icon: Type },
@@ -31,6 +32,7 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
   const [importarAbierto, setImportarAbierto] = useState(false);
   const [textoImportar, setTextoImportar] = useState("");
   const [opcionNueva, setOpcionNueva] = useState<Record<number, string>>({});
+  const [porEliminar, setPorEliminar] = useState<string | null>(null);
 
   function estaExpandido(i: number, c: CampoPersonalizado): boolean {
     return expandidos.has(i) || !c.nombre.trim();
@@ -71,8 +73,14 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
     setImportarAbierto(false);
   }
 
+  // Un campo que ya estaba guardado puede tener valores en contactos: se
+  // confirma en un modal con el impacto y se borra de todos lados. Uno recién
+  // agregado (sin guardar) se quita directo.
   function quitar(i: number) {
-    setCampos(campos.filter((_, idx) => idx !== i));
+    const nombre = campos[i].nombre.trim();
+    const yaGuardado = nombre !== "" && valorInicial.some((c) => c.nombre === nombre);
+    if (yaGuardado) setPorEliminar(nombre);
+    else setCampos(campos.filter((_, idx) => idx !== i));
   }
 
   function actualizar(i: number, campo: Partial<CampoPersonalizado>) {
@@ -309,8 +317,21 @@ export function EditorCamposPersonalizados({ valorInicial }: { valorInicial: Cam
       <p className="text-xs text-muted">
         El agente pedirá estos datos durante la llamada y quedarán guardados en el perfil de cada contacto. El
         "api_name" es la clave técnica y estable que usan las integraciones (Zoho, etc.) para mapear este campo —
-        no cambia aunque edites el nombre visible.
+        no cambia aunque edites el nombre visible. Al eliminar un campo, su valor se borra también de todos los
+        contactos.
       </p>
+
+      {porEliminar && (
+        <EliminarCatalogoModal
+          tipo="campo"
+          nombre={porEliminar}
+          onCerrar={() => setPorEliminar(null)}
+          onEliminado={() => {
+            setCampos((prev) => prev.filter((c) => c.nombre.trim() !== porEliminar));
+            setPorEliminar(null);
+          }}
+        />
+      )}
     </div>
   );
 }

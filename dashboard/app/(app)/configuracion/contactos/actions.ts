@@ -1,7 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { actualizarEmpresa, obtenerEmpresa, type CampoPersonalizado, type EtiquetaDisponible } from "@/lib/api";
+import {
+  actualizarEmpresa,
+  obtenerEmpresa,
+  obtenerImpactoEtiqueta,
+  obtenerImpactoCampo,
+  eliminarEtiquetaCatalogo,
+  eliminarCampoCatalogo,
+  type CampoPersonalizado,
+  type EtiquetaDisponible,
+} from "@/lib/api";
 import { auditar } from "@/lib/session";
 
 export async function guardarContactosConfigAction(formData: FormData) {
@@ -42,4 +51,35 @@ export async function guardarContactosConfigAction(formData: FormData) {
     campos: campos_personalizados.map((c) => c.nombre),
     etiquetas: etiquetas_disponibles.map((e) => e.nombre),
   });
+}
+
+export type TipoCatalogo = "etiqueta" | "campo";
+
+export interface ResultadoImpacto {
+  contactos?: number;
+  flujos?: { id: string; nombre: string }[];
+  error?: string;
+}
+
+// Devuelven el error en vez de lanzarlo: en producción una Server Action que
+// lanza solo muestra un mensaje genérico y el modal no sabría qué decir.
+export async function obtenerImpactoCatalogoAction(tipo: TipoCatalogo, nombre: string): Promise<ResultadoImpacto> {
+  try {
+    return tipo === "etiqueta" ? await obtenerImpactoEtiqueta(nombre) : await obtenerImpactoCampo(nombre);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo calcular el impacto." };
+  }
+}
+
+export async function eliminarCatalogoAction(tipo: TipoCatalogo, nombre: string): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    if (tipo === "etiqueta") await eliminarEtiquetaCatalogo(nombre);
+    else await eliminarCampoCatalogo(nombre);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo eliminar." };
+  }
+  revalidatePath("/configuracion/contactos");
+  revalidatePath("/contactos");
+  await auditar("eliminar", tipo === "etiqueta" ? "etiqueta_contactos" : "campo_contactos", { nombre });
+  return { ok: true };
 }
