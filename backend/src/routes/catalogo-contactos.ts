@@ -130,11 +130,17 @@ export async function catalogoContactosRoutes(app: FastifyInstance) {
         reply.code(400).send({ error: "empresaId y nombre son requeridos" });
         return;
       }
-      const contactos = await pool.query<{ total: string }>(
-        "SELECT count(*) AS total FROM contactos WHERE empresa_id = $1 AND datos ? $2",
-        [empresaId, nombre]
-      );
-      reply.send({ contactos: Number(contactos.rows[0].total) });
+      const [contactos, registros] = await Promise.all([
+        pool.query<{ total: string }>(
+          "SELECT count(*) AS total FROM contactos WHERE empresa_id = $1 AND datos ? $2",
+          [empresaId, nombre]
+        ),
+        pool.query<{ total: string }>(
+          "SELECT count(*) AS total FROM datos_llamada WHERE empresa_id = $1 AND campo = $2",
+          [empresaId, nombre]
+        ),
+      ]);
+      reply.send({ contactos: Number(contactos.rows[0].total), registros: Number(registros.rows[0].total) });
     }
   );
 
@@ -162,8 +168,20 @@ export async function catalogoContactosRoutes(app: FastifyInstance) {
            WHERE empresa_id = $1 AND datos ? $2::text`,
           [empresaId, nombre]
         );
+        // También el historial de lo que la IA capturó con este campo en
+        // llamadas (se pidió eliminarlo "de todas partes"). Lo que quedó
+        // escrito dentro de una transcripción o resumen ya generado no se
+        // puede separar y se conserva.
+        const registros = await client.query(
+          "DELETE FROM datos_llamada WHERE empresa_id = $1 AND campo = $2",
+          [empresaId, nombre]
+        );
         await client.query("COMMIT");
-        reply.send({ ok: true, contactosActualizados: contactos.rowCount });
+        reply.send({
+          ok: true,
+          contactosActualizados: contactos.rowCount,
+          registrosEliminados: registros.rowCount,
+        });
       } catch (err) {
         await client.query("ROLLBACK");
         throw err;

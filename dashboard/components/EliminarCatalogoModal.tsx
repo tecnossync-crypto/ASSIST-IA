@@ -69,6 +69,7 @@ export function EliminarCatalogoModal({
   const cargando = impacto === null;
   const fallo = impacto?.error;
   const contactos = impacto?.contactos ?? 0;
+  const registros = impacto?.registros ?? 0;
   const flujos = impacto?.flujos ?? [];
 
   return (
@@ -127,13 +128,18 @@ export function EliminarCatalogoModal({
                   )}
 
                   {!esEtiqueta && (
-                    <p className="text-xs text-muted">
-                      Lo que la IA capturó con este campo en llamadas ya hechas se conserva en el historial de esas
-                      llamadas.
+                    <p>
+                      También se borrarán{" "}
+                      <strong>
+                        {registros} {registros === 1 ? "registro" : "registros"}
+                      </strong>{" "}
+                      de lo que la IA capturó con este campo en llamadas.
                     </p>
                   )}
 
-                  <p className="text-xs font-medium text-red-600">Esta acción no se puede deshacer.</p>
+                  <p className="rounded-md bg-red-50 px-2.5 py-2 text-xs font-medium text-red-700 dark:bg-red-500/10 dark:text-red-300">
+                    Advertencia: esta acción es permanente. Una vez eliminado, no se puede recuperar.
+                  </p>
                 </>
               )}
 

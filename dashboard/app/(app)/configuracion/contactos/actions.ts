@@ -57,6 +57,7 @@ export type TipoCatalogo = "etiqueta" | "campo";
 
 export interface ResultadoImpacto {
   contactos?: number;
+  registros?: number;
   flujos?: { id: string; nombre: string }[];
   error?: string;
 }

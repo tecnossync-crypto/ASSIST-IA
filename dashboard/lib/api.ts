@@ -1196,6 +1196,8 @@ export async function eliminarExtensionCentral(id: string): Promise<void> {
 
 export interface ImpactoEliminacionCatalogo {
   contactos: number;
+  /** Solo campos: registros de datos capturados por la IA en llamadas. */
+  registros?: number;
   flujos?: { id: string; nombre: string }[];
 }
 
