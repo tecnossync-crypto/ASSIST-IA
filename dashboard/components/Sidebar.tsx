@@ -94,11 +94,11 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
 
       <aside
         className={
-          "fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-shrink-0 flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950 transition-transform duration-200 ease-out md:static md:z-auto md:w-60 md:translate-x-0 " +
+          "fixed inset-y-0 left-0 z-50 flex h-full min-h-0 w-64 flex-shrink-0 flex-col overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950 transition-transform duration-200 ease-out md:static md:z-auto md:w-60 md:translate-x-0 " +
           (abierto ? "translate-x-0" : "-translate-x-full")
         }
       >
-        <div className="flex items-center justify-between px-5 py-5">
+        <div className="flex flex-shrink-0 items-center justify-between px-5 py-5">
           <Link href="/" className="flex items-center gap-2.5" onClick={() => setAbierto(false)}>
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-black text-white shadow shadow-indigo-500/30">
               V
@@ -118,7 +118,10 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
           </button>
         </div>
 
-        <nav className="flex flex-col gap-0.5 px-3">
+        {/* min-h-0 + overflow-y-auto: con el submenú de Configuración
+            desplegado la lista puede ser más alta que la pantalla; así
+            scrollea sola y el usuario/cerrar sesión de abajo no se tapa. */}
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-3 pb-3">
           {items.map(({ href, label, Icon }) => {
             const activo = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
@@ -192,7 +195,7 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
           )}
         </nav>
 
-        <div className="mt-auto px-4 py-4">
+        <div className="mt-auto flex-shrink-0 px-4 py-4">
           {sesion && (
             <div className="mb-3 flex items-center gap-2.5 border-t border-white/10 pt-3">
               <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-xs font-bold text-white">
