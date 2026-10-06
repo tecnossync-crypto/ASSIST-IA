@@ -5,6 +5,12 @@ import { upsertContacto } from "../lib/contactos.js";
 import { aplicarVariablesContacto } from "../lib/variables-prompt.js";
 import { sintetizarVoz } from "../lib/elevenlabs.js";
 
+// El modelo a veces inventa un colaId ("gestores_cobros") en vez de usar el id
+// real; si eso llega a la consulta, Postgres tira un 500 por UUID inválido y
+// la herramienta (transferir_a_humano / registrar_solicitud) falla entera.
+// Un colaId que no es UUID se trata como "sin departamento".
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Colas/departamentos de la empresa, para que el bot pueda elegir a cuál
  *  transferir según de qué se trate (ver herramienta transferir_a_humano). */
 async function obtenerColasParaPrompt(empresaId: string): Promise<{ id: string; nombre: string }[]> {
@@ -42,7 +48,7 @@ export async function internalRoutes(app: FastifyInstance) {
       const { callSid } = req.params;
       const { colaId } = req.body ?? {};
 
-      if (colaId) {
+      if (colaId && UUID.test(colaId)) {
         const colaValida = await pool.query(
           `SELECT 1 FROM llamadas l JOIN colas c ON c.empresa_id = l.empresa_id
            WHERE l.call_sid = $1 AND c.id = $2`,
@@ -186,7 +192,7 @@ export async function internalRoutes(app: FastifyInstance) {
     const { id: llamadaId, empresa_id: empresaId } = llamada.rows[0];
 
     let colaIdValida: string | null = null;
-    if (colaId) {
+    if (colaId && UUID.test(colaId)) {
       const cola = await pool.query("SELECT 1 FROM colas WHERE id = $1 AND empresa_id = $2", [colaId, empresaId]);
       if (cola.rows.length > 0) colaIdValida = colaId;
     }
