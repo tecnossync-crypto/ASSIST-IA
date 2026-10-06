@@ -33,6 +33,13 @@ process.on("unhandledRejection", (reason) => {
 
 const PORT = Number(process.env.VOICE_SERVER_PORT ?? process.env.PORT ?? 3002);
 
+// Llamadas por la central: cuánto espera la IA a oír al cliente antes de
+// saludar por su cuenta, y cuánto más antes de preguntar "¿aló?". El primer
+// tiempo es largo a propósito: cubre el marcado y el timbrado (la central
+// contesta primero), para no saludarle al tono de llamada.
+const ESPERA_VOZ_CLIENTE_MS = Number(process.env.ESPERA_VOZ_CLIENTE_MS ?? 18000);
+const ESPERA_REINTENTO_MS = Number(process.env.ESPERA_REINTENTO_MS ?? 12000);
+
 // Audio de voz clonada (ElevenLabs) pendiente de que Twilio lo descargue —
 // ver audioTemporalUrl() más abajo. En memoria nada más: son archivos de
 // segundos de duración que se sirven una sola vez y se descartan; no hace
@@ -185,6 +192,36 @@ wss.on("connection", (ws) => {
   // recién ahí se dice el saludo.
   let esperandoPrimeraVoz = false;
   let saludoPendiente = "";
+  // Pero esperar para siempre dejaba la llamada en blanco cuando el cliente
+  // contestaba y se quedaba callado esperando que hablaran primero: si pasa
+  // un rato sin oírlo, saluda igual, y si aun así no hay respuesta pregunta
+  // una vez "¿aló?, ¿me escucha?".
+  let clienteHablo = false;
+  let temporizadorSilencio: NodeJS.Timeout | null = null;
+
+  function programarSilencioInicial(s: ConversationSession) {
+    temporizadorSilencio = setTimeout(async () => {
+      try {
+        if (!esperandoPrimeraVoz || ws.readyState !== WebSocket.OPEN) return;
+        esperandoPrimeraVoz = false;
+        s.registrarTurnoAgente(saludoPendiente);
+        await hablar(ws, s, saludoPendiente);
+
+        temporizadorSilencio = setTimeout(async () => {
+          try {
+            if (clienteHablo || ws.readyState !== WebSocket.OPEN) return;
+            const reintento = "¿Aló? ¿Me escucha?";
+            s.registrarTurnoAgente(reintento);
+            await hablar(ws, s, reintento);
+          } catch (err) {
+            console.error("Error en el reintento por silencio:", err);
+          }
+        }, ESPERA_REINTENTO_MS);
+      } catch (err) {
+        console.error("Error saludando tras silencio inicial:", err);
+      }
+    }, ESPERA_VOZ_CLIENTE_MS);
+  }
 
   ws.on("message", async (raw) => {
     let msg: ConversationRelayIncoming;
@@ -244,6 +281,7 @@ wss.on("connection", (ws) => {
           if (msg.customParameters?.esperarVozCliente === "1") {
             esperandoPrimeraVoz = true;
             saludoPendiente = saludo;
+            programarSilencioInicial(session);
           } else {
             session.registrarTurnoAgente(saludo);
             await hablar(ws, session, saludo);
@@ -297,6 +335,12 @@ wss.on("connection", (ws) => {
           // si al terminar ya hay uno más nuevo (llegó otro "prompt" mientras
           // este se generaba), se descarta esta respuesta en vez de decirla.
           const idTurno = session.nuevoTurno();
+
+          clienteHablo = true;
+          if (temporizadorSilencio) {
+            clearTimeout(temporizadorSilencio);
+            temporizadorSilencio = null;
+          }
 
           if (esperandoPrimeraVoz) {
             // Primera voz del cliente tras contestar: se le responde con el
@@ -380,6 +424,7 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     if (temporizadorLimite) clearTimeout(temporizadorLimite);
+    if (temporizadorSilencio) clearTimeout(temporizadorSilencio);
     if (finalizadaManualmente) return;
     session?.finalizar().catch((err) => console.error("Error finalizando sesión:", err));
   });
