@@ -30,7 +30,7 @@ const SECCIONES = [
     href: "/configuracion/contactos",
     Icon: Users,
     titulo: "Contactos",
-    descripcion: "Campos a recolectar y etiquetas para organizar clientes.",
+    descripcion: "Campos personalizados y etiquetas para organizar clientes.",
   },
   {
     href: "/configuracion/flujos",

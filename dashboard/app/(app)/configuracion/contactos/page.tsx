@@ -46,11 +46,12 @@ export default async function ContactosConfigPage() {
         <section className="rounded-lg border border-edge bg-surface p-5">
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-ink">
             <Database size={16} className="text-indigo-600" />
-            Campos a recolectar
+            Campos personalizados
           </div>
           <p className="mb-3 text-xs text-muted">
-            Nombre, apellido y teléfono se guardan siempre. Agrega aquí lo que además necesites por este negocio
-            (número de póliza, placa, dirección…). Se guardan en el perfil de cada contacto.
+            Nombre, apellido y teléfono se guardan siempre. Crea aquí los campos propios de tu negocio (número de
+            póliza, placa, dirección…): el agente los pide en la llamada y quedan guardados en el perfil de cada
+            contacto.
           </p>
           <EditorCamposPersonalizados valorInicial={empresa.campos_personalizados ?? []} />
         </section>
