@@ -4,6 +4,7 @@ import { formatBytes } from "@/lib/format";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { FormConFeedback } from "@/components/FormConFeedback";
 import { ConexionZohoWorkDrive } from "@/components/ConexionZohoWorkDrive";
+import { BorrarGrabaciones } from "@/components/BorrarGrabaciones";
 import { guardarRetencionAction } from "./actions";
 
 const PROXIMAMENTE = ["Dropbox", "OneDrive", "Google Drive"];
@@ -87,7 +88,8 @@ export default async function AlmacenamientoPage() {
         <div className="rounded-md bg-surface-2 p-3">
           <p className="mb-1 text-sm font-medium text-ink-2">Exportar grabaciones</p>
           <p className="mb-3 text-xs text-muted">
-            Descarga un .zip con el audio de las llamadas grabadas — sin filtros, exporta todo el historial.
+            Descarga un .zip con las grabaciones en formato .mp3 (una por llamada, nombradas con fecha y número).
+            Sin filtros, exporta todo el historial.
           </p>
           <form
             action="/api/grabaciones/exportar"
@@ -138,6 +140,10 @@ export default async function AlmacenamientoPage() {
               Descargar .zip
             </button>
           </form>
+        </div>
+
+        <div className="mt-4">
+          <BorrarGrabaciones total={uso.totalGrabaciones} />
         </div>
       </section>
 

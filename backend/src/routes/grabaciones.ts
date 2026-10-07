@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { createRequire } from "node:module";
 import { pool } from "../db/pool.js";
-import { streamGrabacion } from "../lib/storage.js";
+import { streamGrabacion, eliminarGrabacion } from "../lib/storage.js";
 
 // El paquete "archiver" es CJS y sus tipos no interoperan bien con
 // NodeNext/ESM — se carga con require() explícito para evitar líos de
@@ -109,7 +109,8 @@ export async function grabacionesRoutes(app: FastifyInstance) {
         });
         const fecha = new Date(g.creado_en).toISOString().slice(0, 10);
         const numero = (g.direccion === "entrante" ? g.numero_origen : g.numero_destino).replace(/[^\d+]/g, "");
-        const nombreArchivo = `${fecha}_${numero}_${g.url_storage.split("/").pop()}`;
+        const original = g.url_storage.split("/").pop() ?? "grabacion";
+        const nombreArchivo = `${fecha}_${numero}_${/\.mp3$/i.test(original) ? original : `${original}.mp3`}`;
         archivo.append(stream, { name: nombreArchivo });
       } catch (err) {
         app.log.warn({ err, urlStorage: g.url_storage }, "No se pudo incluir una grabación en el zip, se omite");
@@ -117,5 +118,39 @@ export async function grabacionesRoutes(app: FastifyInstance) {
     }
 
     await archivo.finalize();
+  });
+
+  // Borra TODAS las grabaciones de la empresa: el audio del storage y su fila
+  // en `grabaciones`. La llamada, su transcripción y su resumen se conservan.
+  // Si el storage falla para un archivo, su fila se deja para poder
+  // reintentar (la respuesta dice cuántas quedaron pendientes).
+  app.delete<{ Querystring: { empresaId?: string } }>("/api/grabaciones", async (req, reply) => {
+    const { empresaId } = req.query;
+    if (!empresaId) {
+      reply.code(400).send({ error: "empresaId es requerido" });
+      return;
+    }
+
+    const todas = await pool.query<{ id: string; url_storage: string }>(
+      "SELECT id, url_storage FROM grabaciones WHERE empresa_id = $1",
+      [empresaId]
+    );
+
+    let borradas = 0;
+    let pendientes = 0;
+    for (const g of todas.rows) {
+      try {
+        await eliminarGrabacion(g.url_storage);
+      } catch (err) {
+        app.log.warn({ err, grabacionId: g.id }, "No se pudo borrar una grabación del storage");
+        pendientes++;
+        continue;
+      }
+      await pool.query("DELETE FROM grabaciones WHERE id = $1 AND empresa_id = $2", [g.id, empresaId]);
+      borradas++;
+    }
+
+    app.log.info({ empresaId, borradas, pendientes }, "Borrado masivo de grabaciones");
+    reply.send({ ok: true, borradas, pendientes });
   });
 }

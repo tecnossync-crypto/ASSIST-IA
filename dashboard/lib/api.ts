@@ -1059,6 +1059,13 @@ export async function obtenerAlmacenamiento(): Promise<AlmacenamientoUso> {
   return res.json();
 }
 
+export async function eliminarTodasGrabaciones(): Promise<{ borradas: number; pendientes: number }> {
+  const url = new URL("/api/grabaciones", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { method: "DELETE" });
+  return leerJson(res, "Error borrando las grabaciones");
+}
+
 // Conexión con Zoho WorkDrive (OAuth) — el cliente inicia sesión con su
 // propia cuenta de Zoho, esto solo consulta/gestiona el estado ya conectado.
 export interface EstadoZohoWorkDrive {
