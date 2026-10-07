@@ -20,7 +20,7 @@ export default async function ContactosConfigPage() {
     <div className="flex max-w-2xl flex-col gap-6">
       <ConfiguracionHeader
         Icon={Users}
-        titulo="Contactos"
+        titulo="Campos de diseño y configuración"
         descripcion="Qué datos recolecta el agente y cómo se organizan tus clientes."
       />
 

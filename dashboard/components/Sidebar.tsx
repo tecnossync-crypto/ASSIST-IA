@@ -41,7 +41,7 @@ const GRUPOS_CONFIGURACION = [
     items: [
       { href: "/configuracion/empresa", label: "Empresa", Icon: Building2 },
       { href: "/configuracion/ia", label: "Inteligencia Artificial", Icon: Bot },
-      { href: "/configuracion/contactos", label: "Contactos", Icon: Users },
+      { href: "/configuracion/contactos", label: "Campos y diseño", Icon: Users },
       { href: "/configuracion/flujos", label: "Flujos de trabajo", Icon: Workflow },
     ],
   },

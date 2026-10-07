@@ -29,7 +29,7 @@ const SECCIONES = [
   {
     href: "/configuracion/contactos",
     Icon: Users,
-    titulo: "Contactos",
+    titulo: "Campos de diseño y configuración",
     descripcion: "Campos personalizados y etiquetas para organizar clientes.",
   },
   {
