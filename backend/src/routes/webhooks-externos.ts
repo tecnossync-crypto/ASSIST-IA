@@ -108,7 +108,10 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       // empresa controla el guion real en vez de confiar en texto libre
       // que a veces es solo una nota de contexto, no un prompt de verdad.
       const reglaAplicada = await evaluarReglaApiLlamadas(empresaId, req.body as Record<string, unknown>);
-      const promptFinal = reglaAplicada?.promptPersonalizado ?? prompt;
+      // Un prompt vacío, de solo espacios o que no sea texto cuenta como "no
+      // mandó prompt": cae al prompt genérico de la empresa.
+      const promptCliente = typeof prompt === "string" && prompt.trim() ? prompt.trim().slice(0, 8000) : undefined;
+      const promptFinal = reglaAplicada?.promptPersonalizado ?? promptCliente;
 
       const solicitud = await pool.query<{ id: string }>(
         `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id)
