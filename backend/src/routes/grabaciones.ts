@@ -1,13 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { createRequire } from "node:module";
+import { ZipArchive } from "archiver";
 import { pool } from "../db/pool.js";
 import { streamGrabacion, eliminarGrabacion } from "../lib/storage.js";
 
-// El paquete "archiver" es CJS y sus tipos no interoperan bien con
-// NodeNext/ESM — se carga con require() explícito para evitar líos de
-// resolución de módulos, es solo una librería de streaming de zip.
-const require = createRequire(import.meta.url);
-const archiver = require("archiver") as (format: string, opts?: Record<string, unknown>) => import("archiver").Archiver;
 
 /**
  * Exportación masiva de grabaciones en un solo .zip — para cuando el
@@ -88,7 +83,7 @@ export async function grabacionesRoutes(app: FastifyInstance) {
       "content-disposition": `attachment; filename="grabaciones-${empresaId}${sufijoRango}.zip"`,
     });
 
-    const archivo = archiver("zip", { zlib: { level: 6 } });
+    const archivo = new ZipArchive({ zlib: { level: 6 } });
     archivo.on("error", (err: Error) => {
       app.log.error(err, "Error armando el zip de grabaciones");
       reply.raw.destroy(err);
