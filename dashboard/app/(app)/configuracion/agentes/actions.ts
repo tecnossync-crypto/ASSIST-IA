@@ -155,8 +155,10 @@ export async function actualizarEnrutamientoColaAction(
   try {
     guardado = await actualizarEnrutamientoCola(id, modo as ModoEnrutamiento);
   } catch (err) {
+    console.error("[cola-modo] fallo al guardar", { id, modo, err });
     return { error: err instanceof Error ? err.message : "No se pudo guardar" };
   }
+  console.log("[cola-modo] guardado", { id, modo, guardado });
   revalidatePath("/configuracion/agentes");
   revalidatePath("/configuracion/enrutamiento");
   try {

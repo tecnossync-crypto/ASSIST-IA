@@ -41,8 +41,9 @@ export async function colasRoutes(app: FastifyInstance) {
     "/api/colas/:id/enrutamiento",
     async (req, reply) => {
       const { id } = req.params;
-      const { modo } = req.body;
-      if (!MODOS_ENRUTAMIENTO.includes(modo)) {
+      const { modo } = req.body ?? ({} as { modo?: ModoEnrutamiento });
+      req.log.info({ id, modo }, "[cola-modo] PUT recibido");
+      if (!MODOS_ENRUTAMIENTO.includes(modo as ModoEnrutamiento)) {
         reply.code(400).send({ error: "modo inválido" });
         return;
       }
