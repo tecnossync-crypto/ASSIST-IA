@@ -14,7 +14,7 @@ const MODOS = [
 
 export function ColaEnrutamientoSelect({ colaId, modoActual }: { colaId: string; modoActual: string }) {
   const [valor, setValor] = useState(modoActual);
-  const [resultado, setResultado] = useState<{ ok?: boolean; error?: string } | null>(null);
+  const [resultado, setResultado] = useState<{ ok?: boolean; error?: string; modo?: string } | null>(null);
   const [guardando, startTransition] = useTransition();
 
   // Si el dato del servidor cambia (se refrescó la página), el selector lo sigue.
@@ -30,6 +30,7 @@ export function ColaEnrutamientoSelect({ colaId, modoActual }: { colaId: string;
       const r = await actualizarEnrutamientoColaAction(colaId, nuevo);
       setResultado(r);
       if (r.error) setValor(anterior);
+      else if (r.modo) setValor(r.modo);
       else setTimeout(() => setResultado(null), 2500);
     });
   }
@@ -38,7 +39,6 @@ export function ColaEnrutamientoSelect({ colaId, modoActual }: { colaId: string;
     <div className="flex items-center gap-1.5">
       <select
         value={valor}
-        disabled={guardando}
         onChange={(e) => cambiar(e.target.value)}
         className="rounded-md border border-edge px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
       >

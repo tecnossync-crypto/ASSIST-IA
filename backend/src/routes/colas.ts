@@ -49,14 +49,14 @@ export async function colasRoutes(app: FastifyInstance) {
 
       const result = await pool.query(
         `UPDATE colas SET enrutamiento = jsonb_set(enrutamiento, '{modo}', to_jsonb($2::text))
-         WHERE id = $1 RETURNING id`,
+         WHERE id = $1 RETURNING id, enrutamiento->>'modo' AS modo`,
         [id, modo]
       );
       if (result.rows.length === 0) {
         reply.code(404).send({ error: "no encontrada" });
         return;
       }
-      reply.send({ ok: true });
+      reply.send({ ok: true, modo: result.rows[0].modo });
     }
   );
 

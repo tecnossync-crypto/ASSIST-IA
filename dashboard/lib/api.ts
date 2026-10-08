@@ -1170,13 +1170,16 @@ export async function crearCola(nombre: string): Promise<void> {
   if (!res.ok) throw new Error(`Error creando cola: HTTP ${res.status}`);
 }
 
-export async function actualizarEnrutamientoCola(id: string, modo: ModoEnrutamiento): Promise<void> {
+export async function actualizarEnrutamientoCola(id: string, modo: ModoEnrutamiento): Promise<ModoEnrutamiento> {
   const res = await fetch(new URL(`/api/colas/${id}/enrutamiento`, BACKEND_URL), {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ modo }),
+    signal: AbortSignal.timeout(10_000),
   });
-  if (!res.ok) throw new Error(`Error actualizando enrutamiento de cola: HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`No se pudo guardar el modo (HTTP ${res.status})`);
+  const data = (await res.json().catch(() => ({}))) as { modo?: ModoEnrutamiento };
+  return data.modo ?? modo;
 }
 
 export async function eliminarCola(id: string): Promise<void> {

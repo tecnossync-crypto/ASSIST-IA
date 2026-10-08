@@ -150,16 +150,21 @@ export async function crearColaAction(formData: FormData) {
 export async function actualizarEnrutamientoColaAction(
   id: string,
   modo: string
-): Promise<{ ok?: boolean; error?: string }> {
+): Promise<{ ok?: boolean; error?: string; modo?: string }> {
+  let guardado: string;
   try {
-    await actualizarEnrutamientoCola(id, modo as ModoEnrutamiento);
+    guardado = await actualizarEnrutamientoCola(id, modo as ModoEnrutamiento);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "No se pudo guardar" };
   }
   revalidatePath("/configuracion/agentes");
   revalidatePath("/configuracion/enrutamiento");
-  await auditar("actualizar", "cola", { id, modo });
-  return { ok: true };
+  try {
+    await auditar("actualizar", "cola", { id, modo: guardado });
+  } catch {
+    // La auditoría no debe impedir que el cambio se vea como guardado.
+  }
+  return { ok: true, modo: guardado };
 }
 
 export async function eliminarColaAction(id: string) {
