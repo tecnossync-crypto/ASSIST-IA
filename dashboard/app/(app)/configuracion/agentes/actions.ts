@@ -147,13 +147,19 @@ export async function crearColaAction(formData: FormData) {
   await auditar("crear", "cola", { nombre });
 }
 
-export async function actualizarEnrutamientoColaAction(formData: FormData) {
-  const id = String(formData.get("id"));
-  const modo = String(formData.get("modo") ?? "todos") as ModoEnrutamiento;
-  await actualizarEnrutamientoCola(id, modo);
+export async function actualizarEnrutamientoColaAction(
+  id: string,
+  modo: string
+): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    await actualizarEnrutamientoCola(id, modo as ModoEnrutamiento);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo guardar" };
+  }
   revalidatePath("/configuracion/agentes");
   revalidatePath("/configuracion/enrutamiento");
   await auditar("actualizar", "cola", { id, modo });
+  return { ok: true };
 }
 
 export async function eliminarColaAction(id: string) {
