@@ -1195,7 +1195,53 @@ export interface ExtensionCentral {
   activa: boolean;
 }
 
-export async function obtenerEnrutamiento(): Promise<{ destino: DestinoLlamadas; extensiones: ExtensionCentral[] }> {
+// Contexto para quien atiende una llamada que la IA transfirió (panel de
+// teléfono → pestaña "Contexto"). Ver backend routes/contexto-transferencias.ts.
+export interface TransferenciaContexto {
+  id: string;
+  estado: string;
+  iniciada_en: string;
+  resumen_en: string | null;
+  numero: string;
+  cola_nombre: string | null;
+  resumen_listo: boolean;
+  contacto: {
+    nombre: string | null;
+    apellido: string | null;
+    etiquetas: string[];
+    datos: Record<string, unknown>;
+  } | null;
+  resumen: {
+    motivo: string | null;
+    solicitud: string | null;
+    resultado: string | null;
+    accion_pendiente: string | null;
+    satisfaccion: "positiva" | "neutral" | "negativa" | null;
+  };
+  datos_capturados: { campo: string; valor: string }[];
+  turnos: { hablante: "agente" | "cliente"; texto: string }[];
+}
+
+export async function listarTransferenciasRecientes(
+  colaId?: string
+): Promise<{ activo: boolean; llamadas: TransferenciaContexto[] }> {
+  const url = new URL("/api/llamadas/transferidas-recientes", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  if (colaId) url.searchParams.set("colaId", colaId);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando transferencias: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function actualizarResumenTransferencia(activo: boolean): Promise<void> {
+  await enviarJson("/api/enrutamiento/resumen", "PUT", { empresaId: EMPRESA_ID, activo }, "Error guardando la opción");
+}
+
+export async function obtenerEnrutamiento(): Promise<{
+  destino: DestinoLlamadas;
+  mostrarResumen: boolean;
+  extensiones: ExtensionCentral[];
+}> {
   const url = new URL("/api/enrutamiento", BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
   const res = await fetch(url, { cache: "no-store" });

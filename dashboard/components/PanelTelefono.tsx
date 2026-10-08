@@ -2,13 +2,59 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Delete, Phone, PhoneOff, Users, History, Loader2, X } from "lucide-react";
-import type { ContactoResumen, LlamadaResumen, Cola } from "@/lib/api";
+import { ClipboardList, Delete, Phone, PhoneOff, Users, History, Loader2, X } from "lucide-react";
+import type { ContactoResumen, LlamadaResumen, Cola, TransferenciaContexto } from "@/lib/api";
 import { useAgenteSoftphone } from "@/components/AgenteSoftphoneContext";
+import { ContextoLlamada } from "@/components/ContextoLlamada";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
 
-type Tab = "marcar" | "contactos" | "recientes";
+type Tab = "marcar" | "contactos" | "recientes" | "contexto";
+
+// Cada cuánto se pregunta si la IA transfirió alguna llamada nueva, y qué tan
+// reciente debe ser para que el panel se abra solo al cargar la página.
+const INTERVALO_CONTEXTO_MS = 4000;
+const RECIENTE_PARA_ABRIR_MS = 2 * 60 * 1000;
+const CLAVE_VISTAS = "contexto-transferencias-vistas";
+
+function leerVistas(): string[] {
+  try {
+    const crudo = window.localStorage.getItem(CLAVE_VISTAS);
+    const lista = crudo ? JSON.parse(crudo) : [];
+    return Array.isArray(lista) ? lista.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarVistas(ids: string[]) {
+  try {
+    window.localStorage.setItem(CLAVE_VISTAS, JSON.stringify(ids.slice(-50)));
+  } catch {
+    // sin almacenamiento: solo se pierde recordar qué se vio
+  }
+}
+
+/** Dos tonos cortos para avisar de una transferencia nueva (si el navegador deja sonar audio). */
+function pitar() {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    [660, 880].forEach((frecuencia, i) => {
+      const osc = ctx.createOscillator();
+      const ganancia = ctx.createGain();
+      osc.frequency.value = frecuencia;
+      ganancia.gain.value = 0.05;
+      osc.connect(ganancia).connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.18);
+      osc.stop(ctx.currentTime + i * 0.18 + 0.14);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 800);
+  } catch {
+    // el navegador bloqueó el audio: el aviso visual basta
+  }
+}
 type EstadoLlamada = "idle" | "marcando" | "en_curso" | "finalizada" | "error";
 
 function formatCronometro(segundos: number): string {
@@ -45,6 +91,15 @@ export function PanelTelefono({ autoAbrir = false }: { autoAbrir?: boolean } = {
   const [colgando, setColgando] = useState(false);
   const callSidRef = useRef<string | null>(null);
 
+  // Contexto de llamadas que la IA transfirió (pestaña "Contexto").
+  const [contexto, setContexto] = useState<TransferenciaContexto[]>([]);
+  const [contextoActivo, setContextoActivo] = useState(false);
+  const [vistas, setVistas] = useState<string[]>([]);
+  // Ids ya conocidos en esta sesión; null hasta la primera respuesta, para no
+  // abrir el panel por transferencias viejas al cargar la página.
+  const conocidasRef = useRef<Set<string> | null>(null);
+  const vistasRef = useRef<string[]>([]);
+
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cronoRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -76,6 +131,64 @@ export function PanelTelefono({ autoAbrir = false }: { autoAbrir?: boolean } = {
   useEffect(() => {
     cargarDatos();
   }, []);
+
+  // Pregunta cada pocos segundos si la IA le pasó una llamada nueva a una
+  // persona. Si hay una que no se ha visto, abre el panel en "Contexto" y
+  // avisa (sonido corto + punto rojo en el botón), así quien contesta sabe de
+  // qué se trata antes de saludar.
+  useEffect(() => {
+    vistasRef.current = leerVistas();
+    setVistas(vistasRef.current);
+    let cancelado = false;
+
+    async function revisar() {
+      try {
+        const res = await fetch("/api/panel/contexto", { cache: "no-store" });
+        if (!res.ok || cancelado) return;
+        const data = (await res.json()) as { activo?: boolean; llamadas?: TransferenciaContexto[] };
+        if (cancelado) return;
+        const llamadas = data.llamadas ?? [];
+        setContextoActivo(!!data.activo);
+        setContexto(llamadas);
+
+        const primera = conocidasRef.current === null;
+        const conocidas = conocidasRef.current ?? new Set<string>();
+        let hayNueva = false;
+        for (const l of llamadas) {
+          if (conocidas.has(l.id)) continue;
+          conocidas.add(l.id);
+          if (vistasRef.current.includes(l.id)) continue;
+          const edad = Date.now() - new Date(l.resumen_en ?? l.iniciada_en).getTime();
+          if (!primera || edad < RECIENTE_PARA_ABRIR_MS) hayNueva = true;
+        }
+        conocidasRef.current = conocidas;
+
+        if (hayNueva) {
+          setAbierto(true);
+          setTab("contexto");
+          pitar();
+        }
+      } catch {
+        // silencioso: se reintenta en el próximo tick
+      }
+    }
+
+    revisar();
+    const intervalo = setInterval(revisar, INTERVALO_CONTEXTO_MS);
+    return () => {
+      cancelado = true;
+      clearInterval(intervalo);
+    };
+  }, []);
+
+  function marcarVista(id: string) {
+    if (vistasRef.current.includes(id)) return;
+    vistasRef.current = [...vistasRef.current, id];
+    setVistas(vistasRef.current);
+    guardarVistas(vistasRef.current);
+  }
+
+  const sinVer = contexto.filter((c) => !vistas.includes(c.id)).length;
 
   function cerrarTodo() {
     if (estado === "marcando" || estado === "en_curso") return; // no cerrar en medio de una llamada
@@ -197,13 +310,20 @@ export function PanelTelefono({ autoAbrir = false }: { autoAbrir?: boolean } = {
   return (
     <div className="fixed inset-x-3 bottom-6 z-50 flex flex-col items-end gap-3 sm:inset-x-auto sm:bottom-8 sm:right-8">
       {abierto && (
-        <div className="w-full max-w-[19rem] overflow-hidden rounded-3xl border border-edge bg-surface shadow-2xl shadow-slate-900/20 ring-1 ring-black/5 sm:w-[19rem]">
+        <div
+          className={
+            "w-full overflow-hidden rounded-3xl border border-edge bg-surface shadow-2xl shadow-slate-900/20 ring-1 ring-black/5 " +
+            (tab === "contexto" ? "max-w-[24rem] sm:w-[24rem]" : "max-w-[19rem] sm:w-[19rem]")
+          }
+        >
           {/* Encabezado */}
           <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4 py-4">
             <div className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-indigo-500/20 blur-2xl" />
             <div className="relative flex items-center justify-between">
               <div>
-                <span className="block text-sm font-semibold text-white">Llamada normal</span>
+                <span className="block text-sm font-semibold text-white">
+                  {tab === "contexto" ? "Contexto de la llamada" : "Llamada normal"}
+                </span>
                 {enLlamada && (
                   <span className="mt-0.5 flex items-center gap-1.5 text-xs text-emerald-300">
                     <span className="relative flex h-1.5 w-1.5">
@@ -227,7 +347,7 @@ export function PanelTelefono({ autoAbrir = false }: { autoAbrir?: boolean } = {
           </div>
 
           <>
-              {colas.length > 0 && (
+              {colas.length > 0 && tab !== "contexto" && (
                 <div className="px-4 pt-3">
                   <select
                     value={colaId}
@@ -245,8 +365,8 @@ export function PanelTelefono({ autoAbrir = false }: { autoAbrir?: boolean } = {
                 </div>
               )}
 
-              {/* Pantalla del "teléfono" */}
-              <div className="px-4 py-4 text-center">
+              {/* Pantalla del "teléfono" (en la pestaña Contexto no hace falta) */}
+              <div className={"px-4 py-4 text-center " + (tab === "contexto" ? "hidden" : "")}>
                 <input
                   value={numero}
                   onChange={(e) => setNumero(e.target.value.replace(/[^\d+*#]/g, ""))}
@@ -269,27 +389,61 @@ export function PanelTelefono({ autoAbrir = false }: { autoAbrir?: boolean } = {
               {/* Pestañas */}
               <div className="flex border-b border-t border-edge">
                 {[
+                  ...(contextoActivo ? [{ id: "contexto" as Tab, label: "Contexto", Icon: ClipboardList }] : []),
                   { id: "marcar" as Tab, label: "Marcar", Icon: Phone },
                   { id: "contactos" as Tab, label: "Contactos", Icon: Users },
                   { id: "recientes" as Tab, label: "Recientes", Icon: History },
-                ].map(({ id, label, Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => !enLlamada && setTab(id)}
-                    disabled={enLlamada}
-                    className={
-                      "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 " +
-                      (tab === id ? "border-b-2 border-indigo-600 text-indigo-700" : "text-muted hover:text-ink-2")
-                    }
-                  >
-                    <Icon size={15} />
-                    {label}
-                  </button>
-                ))}
+                ].map(({ id, label, Icon }) => {
+                  // En plena llamada se bloquean las pestañas de marcar, pero el
+                  // contexto sigue a mano: justo ahí es cuando hace falta.
+                  const bloqueada = enLlamada && id !== "contexto";
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => !bloqueada && setTab(id)}
+                      disabled={bloqueada}
+                      className={
+                        "relative flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 " +
+                        (tab === id ? "border-b-2 border-indigo-600 text-indigo-700" : "text-muted hover:text-ink-2")
+                      }
+                    >
+                      <Icon size={15} />
+                      {label}
+                      {id === "contexto" && sinVer > 0 && (
+                        <span className="absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                          {sinVer}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              <div className="max-h-72 overflow-y-auto p-3">
+              <div className={"overflow-y-auto p-3 " + (tab === "contexto" ? "max-h-[26rem]" : "max-h-72")}>
+                {tab === "contexto" && (
+                  <div className="flex flex-col gap-3">
+                    {contexto.map((c) => (
+                      <ContextoLlamada
+                        key={c.id}
+                        item={c}
+                        visto={vistas.includes(c.id)}
+                        onVisto={() => marcarVista(c.id)}
+                        onLlamar={(num) => {
+                          marcarVista(c.id);
+                          setNumero(num);
+                          setTab("marcar");
+                        }}
+                      />
+                    ))}
+                    {contexto.length === 0 && (
+                      <p className="py-6 text-center text-xs text-muted">
+                        Cuando la IA te transfiera una llamada, aquí verás de qué se trata antes de contestar.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {tab === "marcar" && (
                   <div className="grid grid-cols-3 gap-2">
                     {TECLAS.map((t) => (
@@ -371,7 +525,7 @@ export function PanelTelefono({ autoAbrir = false }: { autoAbrir?: boolean } = {
                 )}
               </div>
 
-              <div className="border-t border-edge p-3">
+              <div className={"border-t border-edge p-3 " + (tab === "contexto" && !enLlamada ? "hidden" : "")}>
                 {enLlamada ? (
                   <button
                     type="button"
@@ -421,6 +575,11 @@ export function PanelTelefono({ autoAbrir = false }: { autoAbrir?: boolean } = {
           className="ts-brand-button relative flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg shadow-indigo-500/40 transition-transform hover:scale-105 active:scale-95"
         >
           <Phone size={22} />
+          {sinVer > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white ring-2 ring-white dark:ring-slate-900">
+              {sinVer}
+            </span>
+          )}
         </button>
       )}
     </div>

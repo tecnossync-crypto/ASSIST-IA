@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  actualizarResumenTransferencia,
   actualizarDestinoCola,
   actualizarDestinoEmpresa,
   actualizarExtensionCentral,
@@ -33,6 +34,17 @@ export async function guardarDestinoEmpresaAction(formData: FormData): Promise<R
     await actualizarDestinoEmpresa(destino);
     revalidatePath("/configuracion/enrutamiento");
     await auditar("actualizar", "enrutamiento_destino", { destino });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo guardar." };
+  }
+  return { ok: true };
+}
+
+export async function guardarResumenTransferenciaAction(activo: boolean): Promise<ResultadoGuardado> {
+  try {
+    await actualizarResumenTransferencia(activo);
+    revalidatePath("/configuracion/enrutamiento");
+    await auditar("actualizar", "resumen_transferencia", { activo });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "No se pudo guardar." };
   }

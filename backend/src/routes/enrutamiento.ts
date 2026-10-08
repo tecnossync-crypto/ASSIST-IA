@@ -20,8 +20,8 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
       return;
     }
 
-    const empresa = await pool.query<{ enrutamiento_destino: Destino }>(
-      "SELECT enrutamiento_destino FROM empresas WHERE id = $1",
+    const empresa = await pool.query<{ enrutamiento_destino: Destino; mostrar_resumen_transferencia: boolean }>(
+      "SELECT enrutamiento_destino, mostrar_resumen_transferencia FROM empresas WHERE id = $1",
       [empresaId]
     );
     if (empresa.rows.length === 0) {
@@ -38,7 +38,23 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
       [empresaId]
     );
 
-    reply.send({ destino: empresa.rows[0].enrutamiento_destino, extensiones: extensiones.rows });
+    reply.send({
+      destino: empresa.rows[0].enrutamiento_destino,
+      mostrarResumen: empresa.rows[0].mostrar_resumen_transferencia,
+      extensiones: extensiones.rows,
+    });
+  });
+
+  // Activa/apaga el contexto para el vendedor (resumen de la conversación con
+  // el bot en el panel de teléfono cuando se le transfiere una llamada).
+  app.put<{ Body: { empresaId: string; activo: boolean } }>("/api/enrutamiento/resumen", async (req, reply) => {
+    const { empresaId, activo } = req.body ?? {};
+    if (!empresaId || typeof activo !== "boolean") {
+      reply.code(400).send({ error: "empresaId y activo (true/false) son requeridos" });
+      return;
+    }
+    await pool.query("UPDATE empresas SET mostrar_resumen_transferencia = $2 WHERE id = $1", [empresaId, activo]);
+    reply.send({ ok: true });
   });
 
   app.put<{ Body: { empresaId: string; destino: Destino } }>("/api/enrutamiento/destino", async (req, reply) => {
