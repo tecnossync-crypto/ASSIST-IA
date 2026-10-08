@@ -44,7 +44,13 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
   });
 
   app.post<{
-    Body: { numero: string; prompt?: string; origen?: string };
+    Body: {
+      numero: string;
+      prompt?: string;
+      origen?: string;
+      fecha_programada?: string;
+      retraso_minutos?: number | string;
+    };
     Headers: { "x-api-key"?: string; "x-prueba-interna"?: string };
   }>(
     "/api/webhooks/llamadas",
@@ -80,7 +86,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         return;
       }
 
-      const { numero, prompt, origen } = req.body ?? {};
+      const { numero, prompt, origen, fecha_programada: fechaProgramada, retraso_minutos: retrasoRaw } = req.body ?? {};
       if (!numero || typeof numero !== "string" || !/^\+?[\d\s()-]{7,}$/.test(numero)) {
         const error = "numero es requerido y debe ser un teléfono válido (ej. +18095551234)";
         await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: false, error, esPrueba });
@@ -93,6 +99,38 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         reply.code(500).send({ error: "PUBLIC_BASE_URL no está configurado" });
         return;
       }
+
+      // Hora opcional en la que debe dispararse la llamada. Dos formas:
+      // - fecha_programada: fecha y hora ISO 8601 CON zona horaria
+      //   (ej. "2026-10-10T15:00:00-04:00"); sin zona sería ambiguo y la
+      //   llamada podría salir horas antes o después de lo que se quería.
+      // - retraso_minutos: llamar dentro de N minutos.
+      // Si vienen las dos, manda fecha_programada. Sin ninguna: llama ya.
+      let programadaPara: Date | null = null;
+      const errorHora = (() => {
+        if (fechaProgramada !== undefined && fechaProgramada !== null && fechaProgramada !== "") {
+          if (typeof fechaProgramada !== "string" || !/(Z|[+-]d{2}:?d{2})$/i.test(fechaProgramada.trim())) {
+            return "fecha_programada debe incluir la zona horaria (ej. 2026-10-10T15:00:00-04:00 o terminar en Z)";
+          }
+          const d = new Date(fechaProgramada.trim());
+          if (Number.isNaN(d.getTime())) return "fecha_programada no es una fecha válida (formato ISO 8601)";
+          if (d.getTime() - Date.now() > 90 * 24 * 60 * 60 * 1000) return "fecha_programada no puede ser a más de 90 días";
+          programadaPara = d;
+        } else if (retrasoRaw !== undefined && retrasoRaw !== null && retrasoRaw !== "") {
+          const n = Number(retrasoRaw);
+          if (!Number.isFinite(n) || n < 0) return "retraso_minutos debe ser un número de minutos (0 o más)";
+          if (n > 90 * 24 * 60) return "retraso_minutos no puede ser a más de 90 días";
+          programadaPara = new Date(Date.now() + Math.floor(n) * 60_000);
+        }
+        return null;
+      })();
+      if (errorHora) {
+        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: false, error: errorHora, esPrueba });
+        reply.code(400).send({ error: errorHora });
+        return;
+      }
+      // Si la hora ya pasó (o es dentro de menos de un minuto) se llama de una vez.
+      const llamarDespues = programadaPara !== null && programadaPara.getTime() - Date.now() > 60_000;
 
       const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
       if (!twilioEmpresa) {
@@ -114,13 +152,34 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       const promptFinal = reglaAplicada?.promptPersonalizado ?? promptCliente;
 
       const solicitud = await pool.query<{ id: string }>(
-        `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [empresaId, numero, promptFinal ?? null, origen ?? null, reglaAplicada?.reglaId ?? null]
+        `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        [
+          empresaId,
+          numero,
+          promptFinal ?? null,
+          origen ?? null,
+          reglaAplicada?.reglaId ?? null,
+          llamarDespues ? programadaPara : null,
+        ]
       );
       const llamadaWebhookId = solicitud.rows[0].id;
 
       await asegurarContacto(empresaId, numero);
+
+      // Con hora futura: no se llama ahora, queda en la cola de llamadas
+      // programadas (la despacha jobs/dispatcher-flujos.ts, con este prompt).
+      if (llamarDespues && programadaPara) {
+        await pool.query(
+          `INSERT INTO llamadas_programadas (empresa_id, numero, fecha_programada, llamada_webhook_id)
+           VALUES ($1, $2, $3, $4)`,
+          [empresaId, numero, programadaPara, llamadaWebhookId]
+        );
+        app.log.info({ numero, origen, programadaPara }, "Llamada vía webhook externo programada");
+        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: true, esPrueba });
+        reply.send({ ok: true, programada: true, fecha_programada: programadaPara.toISOString(), id: llamadaWebhookId });
+        return;
+      }
 
       try {
         const { to, sendDigits, urlExtra, porCentralPropia } = resolverDestinoSaliente(

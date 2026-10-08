@@ -1,3 +1,4 @@
+import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa, resolverDestinoSaliente } from "./twilio-empresa.js";
 import { asegurarContacto } from "./contactos.js";
 import { registrarFallbackCentral } from "./fallback-central.js";
@@ -9,10 +10,17 @@ import { registrarFallbackCentral } from "./fallback-central.js";
  * /api/webhooks/llamadas, factorizado acá para que el disparador de flujos
  * "se agrega una etiqueta" (inmediato o programado) no duplique esta lógica.
  */
-export async function iniciarLlamadaIA(opts: { empresaId: string; numero: string; origen?: string }): Promise<{
+export async function iniciarLlamadaIA(opts: {
+  empresaId: string;
+  numero: string;
+  origen?: string;
+  /** Solicitud de webhook cuyo prompt debe usar esta llamada (ver llamadas_webhook). */
+  llamadaWebhookId?: string;
+}): Promise<{
   callSid: string;
 }> {
-  const { empresaId, numero, origen } = opts;
+  const { empresaId, numero, origen, llamadaWebhookId } = opts;
+  const paramWebhook = llamadaWebhookId ? `&webhookLlamadaId=${llamadaWebhookId}` : "";
   const publicBaseUrl = process.env.PUBLIC_BASE_URL;
   if (!publicBaseUrl) throw new Error("PUBLIC_BASE_URL no está configurado");
 
@@ -29,7 +37,7 @@ export async function iniciarLlamadaIA(opts: { empresaId: string; numero: string
   const call = await twilioEmpresa.client.calls.create({
     to,
     from: twilioEmpresa.fromNumber,
-    url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}${urlExtra}`,
+    url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}${paramWebhook}${urlExtra}`,
     method: "POST",
     statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
     statusCallbackMethod: "POST",
@@ -41,12 +49,15 @@ export async function iniciarLlamadaIA(opts: { empresaId: string; numero: string
   registrarFallbackCentral(call.sid, porCentralPropia, {
     empresaId,
     numero,
-    voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}`,
+    voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}${paramWebhook}`,
     statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
   });
 
   console.log(
     `[llamadas-ia] originada callSid=${call.sid} numero=${numero} origen=${origen ?? "-"}${porCentralPropia ? " (por central propia)" : ""}`
   );
+  if (llamadaWebhookId) {
+    await pool.query("UPDATE llamadas_webhook SET call_sid = $2 WHERE id = $1", [llamadaWebhookId, call.sid]);
+  }
   return { callSid: call.sid };
 }

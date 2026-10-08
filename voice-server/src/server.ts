@@ -39,6 +39,19 @@ const PORT = Number(process.env.VOICE_SERVER_PORT ?? process.env.PORT ?? 3002);
 // contesta primero), para no saludarle al tono de llamada.
 const ESPERA_VOZ_CLIENTE_MS = Number(process.env.ESPERA_VOZ_CLIENTE_MS ?? 18000);
 const ESPERA_REINTENTO_MS = Number(process.env.ESPERA_REINTENTO_MS ?? 12000);
+// Control de inactividad durante la conversación: si el cliente no dice nada
+// tras lo que dijo el bot, primero pregunta si sigue ahí y, si tampoco
+// responde, se despide y CUELGA. Es lo que cierra la llamada cuando el cliente
+// cuelga del lado de la central/operadora y esa señal de colgado nunca llega
+// a Twilio (la llamada quedaba abierta en ambos lados hasta el límite de
+// duración). El tiempo hablando del bot se suma aparte (ver duracionHabladaMs).
+const INACTIVIDAD_AVISO_MS = Number(process.env.INACTIVIDAD_AVISO_MS ?? 20000);
+const INACTIVIDAD_CIERRE_MS = Number(process.env.INACTIVIDAD_CIERRE_MS ?? 15000);
+
+/** Cuánto tarda en decirse un texto (≈ 70 ms por carácter), para no contar eso como silencio del cliente. */
+function duracionHabladaMs(texto: string): number {
+  return Math.min(texto.length * 70, 25000);
+}
 
 // Audio de voz clonada (ElevenLabs) pendiente de que Twilio lo descargue —
 // ver audioTemporalUrl() más abajo. En memoria nada más: son archivos de
@@ -234,6 +247,54 @@ wss.on("connection", (ws) => {
     }
   }
 
+  // Control de inactividad (ver INACTIVIDAD_AVISO_MS arriba).
+  let temporizadorInactividad: NodeJS.Timeout | null = null;
+  let avisosInactividad = 0;
+
+  function cancelarInactividad() {
+    if (temporizadorInactividad) {
+      clearTimeout(temporizadorInactividad);
+      temporizadorInactividad = null;
+    }
+  }
+
+  function armarInactividad(s: ConversationSession, textoDicho: string) {
+    cancelarInactividad();
+    if (finalizadaManualmente) return;
+    const espera = (avisosInactividad === 0 ? INACTIVIDAD_AVISO_MS : INACTIVIDAD_CIERRE_MS) + duracionHabladaMs(textoDicho);
+    temporizadorInactividad = setTimeout(async () => {
+      temporizadorInactividad = null;
+      try {
+        if (ws.readyState !== WebSocket.OPEN || finalizadaManualmente) return;
+        if (avisosInactividad === 0) {
+          avisosInactividad = 1;
+          const aviso = "¿Aló? ¿Sigue ahí?";
+          s.registrarTurnoAgente(aviso);
+          await decir(s, aviso);
+          return;
+        }
+        console.log(`[${s.callSid}] sin respuesta del cliente tras el aviso, se cierra la llamada por inactividad`);
+        const despedida = "Parece que se cortó la comunicación. Gracias por su tiempo, hasta luego.";
+        finalizadaManualmente = true;
+        cancelarReanudacion();
+        if (temporizadorLimite) clearTimeout(temporizadorLimite);
+        s.registrarTurnoAgente(despedida);
+        await hablar(ws, s, despedida);
+        await s.finalizar();
+        enviar(ws, { type: "end" });
+        ws.close();
+      } catch (err) {
+        console.error("Error cerrando la llamada por inactividad:", err);
+      }
+    }, espera);
+  }
+
+  /** Habla y deja armado el control de inactividad (lo cancela cualquier voz real del cliente). */
+  async function decir(s: ConversationSession, texto: string) {
+    await hablar(ws, s, texto);
+    armarInactividad(s, texto);
+  }
+
   function programarReanudacion(s: ConversationSession) {
     cancelarReanudacion();
     if (reanudacionesSeguidas >= MAX_REANUDACIONES_SEGUIDAS || !s.ultimoTextoAgente) return;
@@ -244,7 +305,7 @@ wss.on("connection", (ws) => {
         reanudacionesSeguidas++;
         const texto = textoParaReanudar(s.ultimoTextoAgente);
         console.log(`[${s.callSid}] interrupción sin respuesta del cliente, el bot retoma: "${texto}"`);
-        await hablar(ws, s, texto);
+        await decir(s, texto);
       } catch (err) {
         console.error("Error retomando tras una interrupción:", err);
       }
@@ -257,14 +318,16 @@ wss.on("connection", (ws) => {
         if (!esperandoPrimeraVoz || ws.readyState !== WebSocket.OPEN) return;
         esperandoPrimeraVoz = false;
         s.registrarTurnoAgente(saludoPendiente);
-        await hablar(ws, s, saludoPendiente);
+        await decir(s, saludoPendiente);
 
         temporizadorSilencio = setTimeout(async () => {
           try {
             if (clienteHablo || ws.readyState !== WebSocket.OPEN) return;
             const reintento = "¿Aló? ¿Me escucha?";
             s.registrarTurnoAgente(reintento);
-            await hablar(ws, s, reintento);
+            // Cuenta como el aviso de inactividad: si tampoco responde, se cierra.
+            avisosInactividad = 1;
+            await decir(s, reintento);
           } catch (err) {
             console.error("Error en el reintento por silencio:", err);
           }
@@ -336,7 +399,7 @@ wss.on("connection", (ws) => {
             programarSilencioInicial(session);
           } else {
             session.registrarTurnoAgente(saludo);
-            await hablar(ws, session, saludo);
+            await decir(session, saludo);
           }
 
           // Gestor de llamadas: si se llega al límite de duración, avisa y
@@ -375,7 +438,11 @@ wss.on("connection", (ws) => {
           const sinContenido = esRuidoSinContenido(msg.voicePrompt);
           // Que el cliente esté hablando de verdad (aunque sea parcial)
           // cancela el "retomar lo que decía": se espera a oír su frase.
-          if (!sinContenido) cancelarReanudacion();
+          if (!sinContenido) {
+            cancelarReanudacion();
+            cancelarInactividad();
+            avisosInactividad = 0;
+          }
           if (!msg.last) {
             // ConversationRelay puede mandar prompts parciales; solo actuamos
             // sobre el fragmento final del turno del usuario.
@@ -409,7 +476,7 @@ wss.on("connection", (ws) => {
             esperandoPrimeraVoz = false;
             session.registrarTurnoCliente(msg.voicePrompt);
             session.registrarTurnoAgente(saludoPendiente);
-            await hablar(ws, session, saludoPendiente);
+            await decir(session, saludoPendiente);
             break;
           }
 
@@ -443,12 +510,12 @@ wss.on("connection", (ws) => {
 
           cancelarReanudacion();
           if (resultado.textoRespuesta) {
-            await hablar(ws, session, resultado.textoRespuesta);
+            await decir(session, resultado.textoRespuesta);
           } else if (!resultado.transferSolicitada) {
             // Nunca dejar al cliente en silencio: si el modelo no devolvió
             // texto, se le pide que repita en vez de callarse.
             console.error(`[${session.callSid}] correrTurno devolvió texto vacío — se pide repetir al cliente`);
-            await hablar(ws, session, "Disculpe, no alcancé a escucharle bien. ¿Me puede repetir, por favor?");
+            await decir(session, "Disculpe, no alcancé a escucharle bien. ¿Me puede repetir, por favor?");
           }
 
           if (resultado.transferSolicitada) {
@@ -456,6 +523,7 @@ wss.on("connection", (ws) => {
             // sesión de ConversationRelay para que TwiML caiga al <Redirect>
             // que hace el <Dial> real hacia el humano.
             if (temporizadorLimite) clearTimeout(temporizadorLimite);
+            cancelarInactividad();
             finalizadaManualmente = true;
             await session.finalizar();
             enviar(ws, { type: "end" });
@@ -497,6 +565,7 @@ wss.on("connection", (ws) => {
     if (temporizadorLimite) clearTimeout(temporizadorLimite);
     if (temporizadorSilencio) clearTimeout(temporizadorSilencio);
     cancelarReanudacion();
+    cancelarInactividad();
     if (finalizadaManualmente) return;
     session?.finalizar().catch((err) => console.error("Error finalizando sesión:", err));
   });

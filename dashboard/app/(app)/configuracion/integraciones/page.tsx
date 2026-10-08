@@ -91,6 +91,7 @@ export default async function IntegracionesPage() {
   -d '{
     "numero": "+18095551234",
     "prompt": "Llama para confirmar la cita de mañana a las 3pm",
+    "fecha_programada": "2026-10-10T15:00:00-04:00",
     "origen": "mi-crm"
   }'`}</code>
           </pre>
@@ -103,6 +104,18 @@ export default async function IntegracionesPage() {
             <span className="font-mono text-ink-2">prompt</span> — opcional. Si lo mandas (y ninguna regla de
             abajo aplica), reemplaza el prompt normal del agente solo para esta llamada; si no lo mandas, usa el
             guion configurado en Configuración → Inteligencia Artificial.
+          </li>
+          <li>
+            <span className="font-mono text-ink-2">fecha_programada</span> — opcional. Fecha y hora en que debe
+            salir la llamada, en formato ISO 8601 <strong>con zona horaria</strong>, por ejemplo{" "}
+            <span className="font-mono text-ink-2">2026-10-10T15:00:00-04:00</span>. Sin este campo (o con una hora
+            ya pasada) la llamada sale de inmediato. Máximo 90 días.
+          </li>
+          <li>
+            <span className="font-mono text-ink-2">retraso_minutos</span> — opcional, alternativa a la anterior:
+            llamar dentro de N minutos. Si mandas los dos, manda <span className="font-mono">fecha_programada</span>.
+            Con hora programada, la respuesta trae <span className="font-mono">&quot;programada&quot;: true</span> y
+            el prompt que mandaste se usa cuando llegue la hora.
           </li>
           <li>
             <span className="font-mono text-ink-2">origen</span> — opcional, libre, solo para identificar de
