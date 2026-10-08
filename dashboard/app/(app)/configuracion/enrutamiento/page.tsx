@@ -1,5 +1,7 @@
-import { Network, Layers, Headset, GitFork, PhoneForwarded, ClipboardList } from "lucide-react";
+import { Network, Layers, Headset, GitFork, PhoneForwarded, ClipboardList, Timer } from "lucide-react";
 import { ResumenTransferenciaForm } from "@/components/ResumenTransferenciaForm";
+import { FormConFeedback } from "@/components/FormConFeedback";
+import { guardarColaEsperaAction } from "./actions";
 import { listarColas, obtenerEmpresa, obtenerEnrutamiento } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { CentralPropiaForm } from "@/components/CentralPropiaForm";
@@ -41,6 +43,37 @@ export default async function EnrutamientoPage() {
             (más abajo, en "Central telefónica propia"). Mientras no lo esté, se usan solo los agentes de la plataforma.
           </p>
         )}
+      </section>
+
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
+          <Timer size={16} className="text-indigo-600" />
+          Cola de espera
+        </div>
+        <p className="mb-4 text-xs text-muted">
+          Cuando la IA transfiere una llamada y ningún asesor de la plataforma está activo, el cliente espera en línea
+          con música en vez de que se le cuelgue. Los asesores ven la cola en la pestaña "Cola" del panel de teléfono y
+          eligen "Atender". Solo aplica a llamadas que se atienden en la plataforma; los teléfonos de la central se
+          gestionan con su propia cola en la central.
+        </p>
+        <FormConFeedback action={guardarColaEsperaAction}>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-2">
+            <input type="checkbox" name="activa" defaultChecked={enrutamiento.colaEspera.activa} />
+            Activar la cola de espera
+          </label>
+          <div className="mt-3 flex items-center gap-2 text-sm text-ink-2">
+            Colgar si espera más de
+            <input
+              name="maxMinutos"
+              type="number"
+              min={1}
+              max={60}
+              defaultValue={enrutamiento.colaEspera.maxMinutos}
+              className="w-20 rounded-md border border-edge px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            minutos
+          </div>
+        </FormConFeedback>
       </section>
 
       <section className="rounded-lg border border-edge bg-surface p-5">

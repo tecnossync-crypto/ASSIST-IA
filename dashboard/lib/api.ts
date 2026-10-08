@@ -1237,9 +1237,51 @@ export async function actualizarResumenTransferencia(activo: boolean): Promise<v
   await enviarJson("/api/enrutamiento/resumen", "PUT", { empresaId: EMPRESA_ID, activo }, "Error guardando la opción");
 }
 
+// Cola de espera: clientes que la IA transfirió y esperan en línea porque no
+// había asesores disponibles. Ver backend routes/cola-espera.ts.
+export interface LlamadaEnCola {
+  id: string;
+  numero: string;
+  desde: string;
+  espera_segundos: number;
+  cola_nombre: string | null;
+  contacto_nombre: string | null;
+  motivo: string | null;
+  solicitud: string | null;
+}
+
+export async function listarColaEspera(colaId?: string): Promise<LlamadaEnCola[]> {
+  const url = new URL("/api/cola-espera", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  if (colaId) url.searchParams.set("colaId", colaId);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando la cola de espera: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.llamadas ?? [];
+}
+
+export async function atenderLlamadaCola(llamadaId: string, usuarioId?: string): Promise<void> {
+  await enviarJson(
+    `/api/cola-espera/${encodeURIComponent(llamadaId)}/atender`,
+    "POST",
+    { empresaId: EMPRESA_ID, usuarioId },
+    "No se pudo atender la llamada"
+  );
+}
+
+export async function actualizarColaEspera(activa: boolean, maxMinutos: number): Promise<void> {
+  await enviarJson(
+    "/api/enrutamiento/cola-espera",
+    "PUT",
+    { empresaId: EMPRESA_ID, activa, maxMinutos },
+    "Error guardando la cola de espera"
+  );
+}
+
 export async function obtenerEnrutamiento(): Promise<{
   destino: DestinoLlamadas;
   mostrarResumen: boolean;
+  colaEspera: { activa: boolean; maxMinutos: number };
   extensiones: ExtensionCentral[];
 }> {
   const url = new URL("/api/enrutamiento", BACKEND_URL);

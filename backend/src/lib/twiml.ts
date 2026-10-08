@@ -190,13 +190,25 @@ export function twimlConnectVoiceAgent(opts: {
 // waitUrl: música mientras el cliente espera (antes dependía del default no
 // documentado de Twilio) — mismo audio que se usa para "poner en espera"
 // durante una llamada ya conectada (ver /agente/hold).
-export function twimlEsperarConferencia(opts: { conferenciaNombre: string; publicBaseUrl: string }): string {
-  const { conferenciaNombre, publicBaseUrl } = opts;
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
+export function twimlEsperarConferencia(opts: {
+  conferenciaNombre: string;
+  publicBaseUrl: string;
+  /** false si la llamada ya se está grabando (ej. viene de la IA): evita una segunda grabación duplicada. */
+  grabar?: boolean;
+  /** Aviso que oye el cliente antes de la música (ej. "todos nuestros asesores están ocupados"). */
+  mensajeEspera?: string;
+}): string {
+  const { conferenciaNombre, publicBaseUrl, grabar = true, mensajeEspera } = opts;
+  const grabacion = grabar
+    ? `
   <Start>
     <Recording recordingStatusCallback="${publicBaseUrl}/webhooks/twilio/recording-status" />
-  </Start>
+  </Start>`
+    : "";
+  const aviso = mensajeEspera ? `
+  <Say language="es-MX">${escaparXml(mensajeEspera)}</Say>` : "";
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>${grabacion}${aviso}
   <Dial>
     <Conference
       startConferenceOnEnter="false"
@@ -260,8 +272,16 @@ export function twimlTransferirCentralPropia(opts: {
   password?: string | null;
   publicBaseUrl: string;
   callSid: string;
+  /** true si la llamada NO se estaba grabando: se arranca aquí para que ninguna llamada quede sin grabar. */
+  grabar?: boolean;
 }): string {
-  const { extensiones, dominio, usuario, password, publicBaseUrl, callSid } = opts;
+  const { extensiones, dominio, usuario, password, publicBaseUrl, callSid, grabar = false } = opts;
+  const grabacion = grabar
+    ? `
+  <Start>
+    <Recording recordingStatusCallback="${publicBaseUrl}/webhooks/twilio/recording-status" />
+  </Start>`
+    : "";
   const authAttrs =
     usuario && password
       ? ` username="${escaparXml(usuario)}" password="${escaparXml(password)}"`
@@ -270,7 +290,7 @@ export function twimlTransferirCentralPropia(opts: {
     .map((ext) => `    <Sip${authAttrs}>sip:${escaparXml(ext)}@${escaparXml(dominio)}</Sip>`)
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
+<Response>${grabacion}
   <Dial timeout="30" action="${publicBaseUrl}/webhooks/twilio/central-propia-fallback?callSid=${encodeURIComponent(callSid)}" method="POST">
 ${destinos}
   </Dial>

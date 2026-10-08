@@ -25,6 +25,8 @@ import { colasRoutes } from "./routes/colas.js";
 import { enrutamientoRoutes } from "./routes/enrutamiento.js";
 import { catalogoContactosRoutes } from "./routes/catalogo-contactos.js";
 import { contextoTransferenciasRoutes } from "./routes/contexto-transferencias.js";
+import { colaEsperaRoutes } from "./routes/cola-espera.js";
+import { expirarColaVencida } from "./lib/cola-espera.js";
 import { authRoutes } from "./routes/auth.js";
 import { auditoriaRoutes } from "./routes/auditoria.js";
 import { monitoreoRoutes } from "./routes/monitoreo.js";
@@ -97,6 +99,7 @@ await app.register(colasRoutes);
 await app.register(enrutamientoRoutes);
 await app.register(catalogoContactosRoutes);
 await app.register(contextoTransferenciasRoutes);
+await app.register(colaEsperaRoutes);
 await app.register(authRoutes);
 await app.register(auditoriaRoutes);
 await app.register(monitoreoRoutes);
@@ -140,6 +143,9 @@ if (publicBaseUrl) {
     });
     procesarTickFlujosPendientes().catch((err) => {
       app.log.error(err, "Error en tick de flujos con tiempo de espera");
+    });
+    expirarColaVencida().catch((err) => {
+      app.log.error(err, "Error en tick de la cola de espera");
     });
   }, TICK_MS);
 } else {

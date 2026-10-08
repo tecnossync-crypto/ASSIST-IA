@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  actualizarColaEspera,
   actualizarResumenTransferencia,
   actualizarDestinoCola,
   actualizarDestinoEmpresa,
@@ -49,6 +50,23 @@ export async function guardarResumenTransferenciaAction(activo: boolean): Promis
     return { error: err instanceof Error ? err.message : "No se pudo guardar." };
   }
   return { ok: true };
+}
+
+// Cola de espera (formulario con FormConFeedback): devuelve el error en vez de lanzarlo.
+export async function guardarColaEsperaAction(formData: FormData): Promise<{ error?: string }> {
+  const activa = formData.get("activa") === "on";
+  const maxMinutos = Math.floor(Number(formData.get("maxMinutos") ?? 10));
+  if (!Number.isFinite(maxMinutos) || maxMinutos < 1 || maxMinutos > 60) {
+    return { error: "El tiempo máximo de espera debe ser de 1 a 60 minutos." };
+  }
+  try {
+    await actualizarColaEspera(activa, maxMinutos);
+    revalidatePath("/configuracion/enrutamiento");
+    await auditar("actualizar", "cola_espera", { activa, maxMinutos });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo guardar." };
+  }
+  return {};
 }
 
 export async function guardarDestinoColaAction(formData: FormData): Promise<ResultadoGuardado> {

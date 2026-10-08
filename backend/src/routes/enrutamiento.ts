@@ -20,8 +20,14 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
       return;
     }
 
-    const empresa = await pool.query<{ enrutamiento_destino: Destino; mostrar_resumen_transferencia: boolean }>(
-      "SELECT enrutamiento_destino, mostrar_resumen_transferencia FROM empresas WHERE id = $1",
+    const empresa = await pool.query<{
+      enrutamiento_destino: Destino;
+      mostrar_resumen_transferencia: boolean;
+      cola_espera_activa: boolean;
+      cola_espera_max_minutos: number;
+    }>(
+      `SELECT enrutamiento_destino, mostrar_resumen_transferencia, cola_espera_activa, cola_espera_max_minutos
+       FROM empresas WHERE id = $1`,
       [empresaId]
     );
     if (empresa.rows.length === 0) {
@@ -41,9 +47,33 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
     reply.send({
       destino: empresa.rows[0].enrutamiento_destino,
       mostrarResumen: empresa.rows[0].mostrar_resumen_transferencia,
+      colaEspera: {
+        activa: empresa.rows[0].cola_espera_activa,
+        maxMinutos: empresa.rows[0].cola_espera_max_minutos,
+      },
       extensiones: extensiones.rows,
     });
   });
+
+  // Cola de espera: si no hay asesores disponibles, el cliente espera en línea
+  // (hasta maxMinutos) en vez de que se le cuelgue.
+  app.put<{ Body: { empresaId: string; activa: boolean; maxMinutos: number } }>(
+    "/api/enrutamiento/cola-espera",
+    async (req, reply) => {
+      const { empresaId, activa, maxMinutos } = req.body ?? {};
+      const minutos = Math.floor(Number(maxMinutos));
+      if (!empresaId || typeof activa !== "boolean" || !Number.isFinite(minutos) || minutos < 1 || minutos > 60) {
+        reply.code(400).send({ error: "empresaId, activa (true/false) y maxMinutos (1 a 60) son requeridos" });
+        return;
+      }
+      await pool.query("UPDATE empresas SET cola_espera_activa = $2, cola_espera_max_minutos = $3 WHERE id = $1", [
+        empresaId,
+        activa,
+        minutos,
+      ]);
+      reply.send({ ok: true });
+    }
+  );
 
   // Activa/apaga el contexto para el vendedor (resumen de la conversación con
   // el bot en el panel de teléfono cuando se le transfiere una llamada).

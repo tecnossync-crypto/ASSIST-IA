@@ -1,5 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
+import { colaEsperaConfig, hayAsesoresDisponibles, marcarEnCola } from "../lib/cola-espera.js";
+import { llamadaYaSeGraba } from "../lib/estado-grabacion.js";
 import {
   twimlConnectVoiceAgent,
   twimlColgar,
@@ -23,6 +25,9 @@ import { destinoDeTransferencia, extensionesDeTransferencia } from "../lib/enrut
  * TODO Fase 1: resolver empresa por número destino (multi-tenant real),
  * no un solo ENV fijo.
  */
+const MENSAJE_COLA =
+  "Todos nuestros asesores están atendiendo otras llamadas. Por favor permanezca en línea, en breve lo atenderemos.";
+
 export async function webhooksTwilioRoutes(app: FastifyInstance) {
   app.post("/webhooks/twilio/voice-inbound", async (req, reply) => {
     const body = req.body as Record<string, string>;
@@ -262,7 +267,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     const agenteUsuarioId = identidad ? usuarioIdDesdeIdentidad(identidad) : null;
 
     await pool.query(
-      "UPDATE llamadas SET agente_call_sid = $2, agente_usuario_id = $3, estado = 'en_curso' WHERE id = $1",
+      "UPDATE llamadas SET agente_call_sid = $2, agente_usuario_id = $3, estado = 'en_curso', en_cola_desde = NULL WHERE id = $1",
       [llamadaId, callSid, agenteUsuarioId]
     );
 
@@ -309,20 +314,48 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     // si no tiene, la empresa — ver Configuración → Enrutamiento.
     const destino = await destinoDeTransferencia(row.empresa_id, row.cola_id);
 
+    // La IA arranca una grabación al contestar y sigue activa tras transferir:
+    // si ya hay una corriendo no se arranca otra (quedaría repetida); si por
+    // algo no la hay, se arranca aquí para que ninguna llamada quede sin grabar.
+    const yaGrabando = await llamadaYaSeGraba(await clienteTwilioEmpresa(row.empresa_id), callSid);
+
     if (destino !== "central") {
       const conferenciaNombre = `llamada-${row.id}`;
-      const { identidades } = await iniciarConferenciaConAgentes({
-        empresaId: row.empresa_id,
-        llamadaId: row.id,
-        conferenciaNombre,
-        colaId: row.cola_id,
-        publicBaseUrl,
-      });
+      const cola = await colaEsperaConfig(row.empresa_id);
+      const hayAsesores = await hayAsesoresDisponibles(row.empresa_id, row.cola_id);
 
-      if (identidades.length > 0) {
-        app.log.info({ callSid, identidades }, "Transfiriendo llamada del bot a agente(s) disponible(s)");
-        reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl }));
+      // Sin asesores activos y con la cola de espera encendida: el cliente
+      // espera en línea (con música) en vez de que se le cuelgue, y los
+      // asesores lo ven en la pestaña "Cola" del panel de teléfono.
+      if (!hayAsesores && cola.activa && destino === "plataforma") {
+        await marcarEnCola(row.id, conferenciaNombre);
+        app.log.info({ callSid, colaId: row.cola_id }, "Sin asesores disponibles: el cliente espera en la cola");
+        reply.type("text/xml").send(
+          twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, grabar: !yaGrabando, mensajeEspera: MENSAJE_COLA })
+        );
         return;
+      }
+
+      // Con destino "ambos" y nadie activo en la plataforma se pasa directo a
+      // la central. (Antes se timbraba igual a la identidad genérica del
+      // softphone y el respaldo de la central casi nunca llegaba a usarse.)
+      if (hayAsesores || destino === "plataforma") {
+        const { identidades } = await iniciarConferenciaConAgentes({
+          empresaId: row.empresa_id,
+          llamadaId: row.id,
+          conferenciaNombre,
+          colaId: row.cola_id,
+          publicBaseUrl,
+        });
+
+        if (identidades.length > 0) {
+          app.log.info({ callSid, identidades }, "Transfiriendo llamada del bot a agente(s) disponible(s)");
+          // Mientras nadie conteste, el cliente cuenta como "en cola" (la
+          // conferencia-evento lo saca de ahí cuando un asesor entra).
+          if (cola.activa) await marcarEnCola(row.id, conferenciaNombre);
+          reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, grabar: !yaGrabando }));
+          return;
+        }
       }
     }
 
@@ -368,6 +401,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
               password: conCredenciales ? central.password : null,
               publicBaseUrl,
               callSid,
+              grabar: !yaGrabando,
             })
           );
           return;
@@ -444,6 +478,13 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         }
       } else {
         descartarFallbackCentral(callSid);
+      }
+
+      // Una llamada que terminó ya no espera en la cola (el cliente colgó, etc.).
+      if (["completed", "busy", "no-answer", "failed", "canceled"].includes(status)) {
+        await pool
+          .query("UPDATE llamadas SET en_cola_desde = NULL WHERE call_sid = $1 AND en_cola_desde IS NOT NULL", [callSid])
+          .catch(() => {});
       }
 
       if (status === "completed") {

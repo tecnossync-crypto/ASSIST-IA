@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Delete,
   History,
+  Hourglass,
   Loader2,
   Mic,
   MicOff,
@@ -18,7 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import type { ContactoResumen, LlamadaResumen, Cola, TransferenciaContexto } from "@/lib/api";
+import type { ContactoResumen, LlamadaResumen, Cola, TransferenciaContexto, LlamadaEnCola } from "@/lib/api";
 import { useAgenteSoftphone } from "@/components/AgenteSoftphoneContext";
 import { useSoftphone } from "@/components/SoftphoneContext";
 import { ContextoLlamada } from "@/components/ContextoLlamada";
@@ -26,7 +27,7 @@ import { SelectorEstadoAsesor, opcionDeEstado, useActividadHoy, usePresencia } f
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
 
-type Tab = "marcar" | "contactos" | "recientes" | "contexto";
+type Tab = "marcar" | "contactos" | "recientes" | "contexto" | "cola";
 type EstadoLlamada = "idle" | "marcando" | "en_curso" | "finalizada" | "error";
 
 // Cada cuánto se pregunta si la IA transfirió alguna llamada nueva, y qué tan
@@ -156,6 +157,16 @@ export function PanelTelefono({
   const conocidasRef = useRef<Set<string> | null>(null);
   const vistasRef = useRef<string[]>([]);
 
+  // Cola de espera: clientes que esperan en línea porque no había asesores.
+  const [cola, setCola] = useState<LlamadaEnCola[]>([]);
+  const [colaRecibidaEn, setColaRecibidaEn] = useState(0);
+  const [ahora, setAhora] = useState(0);
+  const [atendiendo, setAtendiendo] = useState<string | null>(null);
+  const [errorCola, setErrorCola] = useState("");
+  const conocidasColaRef = useRef<Set<string> | null>(null);
+  const estadoAsesorRef = useRef<string | null>(null);
+  const enLlamadaRef = useRef(false);
+
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cronoRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -168,6 +179,8 @@ export function PanelTelefono({
   const cronometro = llamadaPropia ? segundos : sp.segundos;
 
   const actividadHoy = useActividadHoy(idAsesor, enLlamada);
+  estadoAsesorRef.current = presencia.estado;
+  enLlamadaRef.current = enLlamada;
 
   function limpiarTemporizadores() {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -265,6 +278,76 @@ export function PanelTelefono({
     };
   }, []);
 
+  // Sondea la cola de espera. Si llega alguien nuevo y estoy activo y libre,
+  // el panel se abre en "Cola" con un aviso sonoro.
+  useEffect(() => {
+    let cancelado = false;
+    async function revisarCola() {
+      try {
+        const res = await fetch("/api/panel/cola", { cache: "no-store" });
+        if (!res.ok || cancelado) return;
+        const data = (await res.json()) as { llamadas?: LlamadaEnCola[] };
+        if (cancelado) return;
+        const llamadas = data.llamadas ?? [];
+        setCola(llamadas);
+        setColaRecibidaEn(Date.now());
+
+        const primera = conocidasColaRef.current === null;
+        const conocidas = conocidasColaRef.current ?? new Set<string>();
+        let hayNueva = false;
+        for (const l of llamadas) {
+          if (conocidas.has(l.id)) continue;
+          conocidas.add(l.id);
+          if (!primera || l.espera_segundos < 120) hayNueva = true;
+        }
+        conocidasColaRef.current = conocidas;
+
+        // Se avisa salvo que el asesor esté en pausa/inactivo (si su estado aún no cargó, también).
+        const estadoAviso = estadoAsesorRef.current;
+        if (hayNueva && estadoAviso !== "descanso" && estadoAviso !== "desconectado" && !enLlamadaRef.current) {
+          setAbierto(true);
+          setTab("cola");
+          pitar();
+        }
+      } catch {
+        // silencioso: se reintenta en el próximo tick
+      }
+    }
+    revisarCola();
+    const intervalo = setInterval(revisarCola, INTERVALO_CONTEXTO_MS);
+    return () => {
+      cancelado = true;
+      clearInterval(intervalo);
+    };
+  }, []);
+
+  // Reloj de 1 s solo mientras se mira la cola (para que el tiempo de espera avance).
+  useEffect(() => {
+    if (tab !== "cola") return;
+    const t = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [tab]);
+
+  async function atenderDeCola(l: LlamadaEnCola) {
+    setAtendiendo(l.id);
+    setErrorCola("");
+    try {
+      const res = await fetch("/api/panel/cola/atender", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ llamadaId: l.id, usuarioId: sesionAgente?.usuarioId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "No se pudo atender la llamada.");
+      // El softphone se conecta solo (autoContestar): aquí solo se refresca la lista.
+      setCola((actual) => actual.filter((x) => x.id !== l.id));
+    } catch (err) {
+      setErrorCola(err instanceof Error ? err.message : "No se pudo atender la llamada.");
+    } finally {
+      setAtendiendo(null);
+    }
+  }
+
   function marcarVista(id: string) {
     if (vistasRef.current.includes(id)) return;
     vistasRef.current = [...vistasRef.current, id];
@@ -273,6 +356,7 @@ export function PanelTelefono({
   }
 
   const sinVer = contexto.filter((c) => !vistas.includes(c.id)).length;
+  const totalAvisos = sinVer + cola.length;
 
   function cerrarTodo() {
     if (sonando || enLlamada) return; // no cerrar en medio de una llamada
@@ -697,7 +781,7 @@ export function PanelTelefono({
               )}
 
               {/* Pantalla del "teléfono" (en la pestaña Contexto no hace falta) */}
-              {tab !== "contexto" && (
+              {tab !== "contexto" && tab !== "cola" && (
                 <div className="px-4 py-4 text-center">
                   <input
                     value={numero}
@@ -721,6 +805,7 @@ export function PanelTelefono({
               {/* Pestañas */}
               <div className="flex border-b border-t border-edge">
                 {[
+                  ...(cola.length > 0 || tab === "cola" ? [{ id: "cola" as Tab, label: "Cola", Icon: Hourglass }] : []),
                   ...(contextoActivo ? [{ id: "contexto" as Tab, label: "Contexto", Icon: ClipboardList }] : []),
                   { id: "marcar" as Tab, label: "Marcar", Icon: Phone },
                   { id: "contactos" as Tab, label: "Contactos", Icon: Users },
@@ -737,6 +822,11 @@ export function PanelTelefono({
                   >
                     <Icon size={15} />
                     {label}
+                    {id === "cola" && cola.length > 0 && (
+                      <span className="absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+                        {cola.length}
+                      </span>
+                    )}
                     {id === "contexto" && sinVer > 0 && (
                       <span className="absolute right-2 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                         {sinVer}
@@ -749,6 +839,61 @@ export function PanelTelefono({
               <div className={"overflow-y-auto p-3 " + (tab === "contexto"
         ? "max-h-[max(12rem,min(26rem,calc(100dvh-22rem)))]"
         : "max-h-[max(10rem,min(18rem,calc(100dvh-26rem)))]")}>
+                {tab === "cola" && (
+                  <div className="flex flex-col gap-2.5">
+                    {cola.map((l) => {
+                      const espera = Math.max(0, l.espera_segundos + Math.floor(((ahora || colaRecibidaEn) - colaRecibidaEn) / 1000));
+                      const nombreLlamada = l.contacto_nombre ?? nombreDeContacto(l.numero, contactos);
+                      return (
+                        <div key={l.id} className="rounded-2xl border border-edge p-3 text-left">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-ink">{nombreLlamada ?? l.numero}</p>
+                              {nombreLlamada && <p className="text-xs text-muted">{l.numero}</p>}
+                            </div>
+                            <span
+                              className={
+                                "flex-shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold " +
+                                (espera > 180
+                                  ? "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300"
+                                  : "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300")
+                              }
+                            >
+                              {formatCronometro(espera)}
+                            </span>
+                          </div>
+                          {(l.motivo || l.solicitud) && (
+                            <p className="mt-1.5 line-clamp-2 text-xs text-ink-2">{l.motivo ?? l.solicitud}</p>
+                          )}
+                          <div className="mt-2.5 flex items-center justify-between gap-2">
+                            {l.cola_nombre ? (
+                              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-muted">{l.cola_nombre}</span>
+                            ) : (
+                              <span />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => atenderDeCola(l)}
+                              disabled={atendiendo !== null || enLlamada}
+                              className="flex items-center gap-1.5 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow shadow-emerald-500/30 transition-transform hover:scale-[1.03] active:scale-95 disabled:opacity-50"
+                            >
+                              {atendiendo === l.id ? <Loader2 size={13} className="animate-spin" /> : <Phone size={13} />}
+                              Atender
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {errorCola && <p className="text-center text-xs text-red-600">{errorCola}</p>}
+                    {cola.length === 0 && (
+                      <p className="py-6 text-center text-xs text-muted">
+                        No hay clientes esperando. Cuando no haya asesores activos, las llamadas transferidas por la IA
+                        esperan aquí.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {tab === "contexto" && (
                   <div className="flex flex-col gap-3">
                     {contexto.map((c) => (
@@ -852,7 +997,7 @@ export function PanelTelefono({
                 )}
               </div>
 
-              {tab !== "contexto" && (
+              {tab !== "contexto" && tab !== "cola" && (
                 <div className="border-t border-edge p-3">
                   <button
                     type="button"
@@ -902,9 +1047,9 @@ export function PanelTelefono({
                 title={infoEstado.etiqueta}
               />
             )}
-            {sinVer > 0 && (
+            {totalAvisos > 0 && (
               <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white ring-2 ring-white dark:ring-slate-900">
-                {sinVer}
+                {totalAvisos}
               </span>
             )}
           </button>
