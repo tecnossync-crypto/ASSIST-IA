@@ -63,8 +63,12 @@ if [ "$SIN_BACKUP" -eq 0 ]; then
   DB_URL="$(valor_env DATABASE_URL)"
   mkdir -p "$HOME/backups"
   ARCHIVO="$HOME/backups/voz-ia-prod-$(date +%Y%m%d-%H%M).dump"
-  # postgres:17 sirve para cualquier servidor anterior; PGSSLMODE=require porque es RDS.
-  if docker run --rm -e PGSSLMODE=require -v "$HOME/backups:/respaldos" postgres:17-alpine \
+  # pg_dump debe ser de la MISMA versión (o más nueva) que el servidor: el RDS es
+  # PostgreSQL 18. Si algún día el RDS sube de versión, exporta PG_IMAGE
+  # (ej. PG_IMAGE=postgres:19-alpine) antes de correr el script.
+  # PGSSLMODE=require porque es RDS.
+  PG_IMAGE="${PG_IMAGE:-postgres:18-alpine}"
+  if docker run --rm -e PGSSLMODE=require -v "$HOME/backups:/respaldos" "$PG_IMAGE" \
       pg_dump "$DB_URL" -Fc -f "/respaldos/$(basename "$ARCHIVO")"; then
     echo "Respaldo guardado en $ARCHIVO"
     ls -1t "$HOME"/backups/voz-ia-prod-*.dump 2>/dev/null | tail -n +11 | xargs -r rm -f
