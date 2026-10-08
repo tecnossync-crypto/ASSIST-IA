@@ -37,7 +37,7 @@ export default async function AgentesPage() {
 
       <p className="rounded-lg border border-dashed border-edge p-3 text-xs text-muted">
         Las colas, su reparto y la central telefónica están ahora en{" "}
-        <Link href="/configuracion/enrutamiento" className="text-indigo-700 hover:underline">
+        <Link href="/configuracion/enrutamiento?seccion=departamentos" className="text-indigo-700 hover:underline">
           Configuración → Enrutamiento
         </Link>
         . Aquí asignas cada agente a su departamento al crearlo y puedes cambiarlo después.
