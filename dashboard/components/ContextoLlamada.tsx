@@ -50,11 +50,14 @@ export function ContextoLlamada({
   visto,
   onVisto,
   onLlamar,
+  compacto = false,
 }: {
   item: TransferenciaContexto;
   visto: boolean;
   onVisto: () => void;
   onLlamar: (numero: string) => void;
+  /** Sin botones ni conversación: para mostrarla dentro de la llamada entrante / en curso. */
+  compacto?: boolean;
 }) {
   const [verConversacion, setVerConversacion] = useState(false);
   const [copiado, setCopiado] = useState(false);
@@ -150,7 +153,7 @@ export function ContextoLlamada({
             </div>
           )}
 
-          {item.turnos.length > 0 && (
+          {!compacto && item.turnos.length > 0 && (
             <div>
               <button
                 type="button"
@@ -182,6 +185,7 @@ export function ContextoLlamada({
         </div>
       )}
 
+      {!compacto && (
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -206,6 +210,7 @@ export function ContextoLlamada({
           </button>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -61,6 +61,38 @@ export async function agentesRoutes(app: FastifyInstance) {
     reply.send({ agente: result.rows[0] });
   });
 
+  // Actividad de hoy de un asesor (panel de teléfono): cuántas llamadas
+  // atendió y cuánto tiempo estuvo hablando. "Hoy" = desde las 00:00 en la
+  // zona horaria que manda el navegador (tz); sin ella, la del servidor.
+  app.get<{ Params: { id: string }; Querystring: { empresaId?: string; tz?: string } }>(
+    "/api/agentes/:id/hoy",
+    async (req, reply) => {
+      const { id } = req.params;
+      const { empresaId } = req.query;
+      if (!empresaId) {
+        reply.code(400).send({ error: "empresaId es requerido" });
+        return;
+      }
+      let tz = "UTC";
+      if (req.query.tz) {
+        try {
+          new Intl.DateTimeFormat("es", { timeZone: req.query.tz });
+          tz = req.query.tz;
+        } catch {
+          // zona inválida: se queda en UTC
+        }
+      }
+      const r = await pool.query<{ llamadas: number; segundos: number }>(
+        `SELECT COUNT(*)::int AS llamadas, COALESCE(SUM(duracion_segundos), 0)::int AS segundos
+         FROM llamadas
+         WHERE empresa_id = $1 AND agente_usuario_id = $2
+           AND iniciada_en >= (date_trunc('day', now() AT TIME ZONE $3) AT TIME ZONE $3)`,
+        [empresaId, id, tz]
+      );
+      reply.send(r.rows[0]);
+    }
+  );
+
   app.post<{
     Body: {
       empresaId: string;

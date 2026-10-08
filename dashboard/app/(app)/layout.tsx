@@ -1,6 +1,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { PanelTelefono } from "@/components/PanelTelefono";
-import { Softphone } from "@/components/Softphone";
+import { SoftphoneProvider } from "@/components/SoftphoneContext";
 import { EstadoDashboardBoton } from "@/components/EstadoDashboardBoton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AgenteSoftphoneProvider } from "@/components/AgenteSoftphoneContext";
@@ -26,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <AgenteSoftphoneProvider>
+      <SoftphoneProvider>
       <MobileNavProvider>
         <div className="flex h-full">
           <Sidebar sesion={sesion} />
@@ -40,11 +41,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </div>
             <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-5 sm:px-6 sm:py-8">{children}</main>
           </div>
-          <PanelTelefono />
-          <Softphone />
+          <PanelTelefono usuarioId={sesion?.usuarioId} nombre={sesion?.nombre} />
           <LlamadasExternasWidget />
         </div>
       </MobileNavProvider>
+      </SoftphoneProvider>
     </AgenteSoftphoneProvider>
   );
 }
