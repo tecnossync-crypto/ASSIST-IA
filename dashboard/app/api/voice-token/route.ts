@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import { obtenerTokenVoz } from "@/lib/api";
+import { obtenerSesion } from "@/lib/session";
 
-// Proxy delgado: le da al navegador (identidad compartida, o la de un
-// agente si se pasa usuarioId) el token del softphone (Twilio Voice SDK)
-// para registrarse y poder recibir "llamadas normales".
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const usuarioId = searchParams.get("usuarioId");
+// Le da al navegador el token del softphone (Twilio Voice SDK) para registrarse
+// y recibir llamadas. La identidad es SIEMPRE la del usuario con sesión iniciada
+// (no se acepta un usuarioId de la URL: así nadie puede pedir el token de otro
+// asesor para contestar sus llamadas).
+export async function GET() {
+  const sesion = await obtenerSesion();
+  if (!sesion) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const resultado = await obtenerTokenVoz(usuarioId);
+    const resultado = await obtenerTokenVoz(sesion.usuarioId);
     return NextResponse.json(resultado);
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Error desconocido" }, { status: 502 });

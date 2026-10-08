@@ -27,6 +27,7 @@ import { catalogoContactosRoutes } from "./routes/catalogo-contactos.js";
 import { contextoTransferenciasRoutes } from "./routes/contexto-transferencias.js";
 import { colaEsperaRoutes } from "./routes/cola-espera.js";
 import { expirarColaVencida } from "./lib/cola-espera.js";
+import { expirarPresenciaInactiva } from "./lib/agentes.js";
 import { authRoutes } from "./routes/auth.js";
 import { auditoriaRoutes } from "./routes/auditoria.js";
 import { monitoreoRoutes } from "./routes/monitoreo.js";
@@ -146,6 +147,9 @@ if (publicBaseUrl) {
     });
     expirarColaVencida().catch((err) => {
       app.log.error(err, "Error en tick de la cola de espera");
+    });
+    expirarPresenciaInactiva().catch((err) => {
+      app.log.error(err, "Error expirando la presencia de asesores inactivos");
     });
   }, TICK_MS);
 } else {

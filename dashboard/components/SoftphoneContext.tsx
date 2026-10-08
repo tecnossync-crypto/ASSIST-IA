@@ -108,8 +108,8 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
         deviceRef.current?.destroy();
         deviceRef.current = null;
 
-        const url = sesion ? `/api/voice-token?usuarioId=${sesion.usuarioId}` : "/api/voice-token";
-        const res = await fetch(url, { cache: "no-store" });
+        // El token es siempre el del usuario con sesión iniciada (lo resuelve el servidor).
+        const res = await fetch("/api/voice-token", { cache: "no-store" });
         if (!res.ok) return; // empresa sin softphone configurado todavía, no es un error visible
         const { token } = await res.json();
         if (cancelado) return;
@@ -121,6 +121,19 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
         device.on("registered", () => setEstado((prev) => (prev === "desconectado" ? "listo" : prev)));
         device.on("unregistered", () => setEstado("desconectado"));
         device.on("error", (err) => console.error("Softphone: error de Twilio Device", err));
+
+        // El token dura 1 hora: sin renovarlo, el teléfono dejaba de recibir
+        // llamadas a la hora de estar abierto aunque el asesor siguiera Activo.
+        device.on("tokenWillExpire", async () => {
+          try {
+            const r = await fetch("/api/voice-token", { cache: "no-store" });
+            if (!r.ok) return;
+            const { token: nuevo } = await r.json();
+            device.updateToken(nuevo);
+          } catch (err) {
+            console.error("Softphone: no se pudo renovar el token", err);
+          }
+        });
 
         device.on("incoming", (call) => {
           callRef.current = call;
@@ -147,14 +160,9 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
           call.on("reject", () => reiniciarEstadoLlamada());
         });
 
+        // Registrar el teléfono NO cambia el estado del asesor: se pone Activo /
+        // En pausa / Inactivo a mano desde el panel.
         await device.register();
-        if (sesion) {
-          await fetch("/api/agentes/presencia", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ usuarioId: sesion.usuarioId, disponible: true }),
-          }).catch(() => {});
-        }
       } catch (err) {
         console.error("Softphone: no se pudo registrar", err);
       }

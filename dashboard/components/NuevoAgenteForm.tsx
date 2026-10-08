@@ -29,8 +29,6 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
   const [passwordManual, setPasswordManual] = useState("");
   const [copiado, setCopiado] = useState(false);
 
-  const requiereAcceso = rol !== "operador";
-
   async function copiarPassword() {
     if (!estado.passwordGenerada) return;
     try {
@@ -122,33 +120,13 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
             </select>
           </div>
           <p className="text-xs text-muted">
-            Agente: entra al softphone con PIN. Supervisor: ve todo excepto Configuración (incluye Supervisión en
-            vivo). Administrador: acceso total.
+            Todos entran con su email y contraseña y reciben llamadas desde el panel de teléfono. Agente: atiende
+            llamadas. Supervisor: ve todo excepto Configuración (incluye Supervisión en vivo). Administrador: acceso
+            total.
           </p>
         </Seccion>
 
         <Seccion titulo="Acceso" Icon={KeyRound}>
-          <input
-            name="pin"
-            inputMode="numeric"
-            pattern="\d{4,6}"
-            title="4 a 6 dígitos"
-            placeholder={rol === "operador" ? "PIN softphone (4-6 dígitos)" : "PIN softphone (opcional)"}
-            className={CAMPO}
-          />
-
-          {requiereAcceso ? (
-            <p className="flex items-center gap-1.5 text-xs text-muted">
-              <KeyRound size={12} />
-              Este rol siempre tiene acceso al dashboard completo.
-            </p>
-          ) : (
-            <label className="flex items-center gap-2 text-xs text-ink-2">
-              <input type="checkbox" name="conAcceso" className="rounded border-edge" />
-              También darle acceso al dashboard completo (además del PIN)
-            </label>
-          )}
-
           <div className="flex flex-col gap-2 rounded-lg border border-edge bg-surface-2/50 p-3">
             <p className="text-xs font-medium text-ink-2">Contraseña de acceso al dashboard</p>
             <div className="flex gap-2">

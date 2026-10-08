@@ -83,6 +83,17 @@ export function usePresencia(usuarioId: string | undefined) {
     };
   }, [usuarioId]);
 
+  // Latido: mientras estoy Activo o En pausa aviso cada 30 s que sigo con el
+  // panel abierto. Si dejan de llegar (cerré el navegador), el servidor me pasa
+  // solo a Inactivo y no me reparte llamadas que no iba a contestar.
+  useEffect(() => {
+    if (!usuarioId || !estado || estado === "desconectado") return;
+    const enviar = () => fetch("/api/agentes/latido", { method: "POST" }).catch(() => {});
+    enviar();
+    const intervalo = setInterval(enviar, 30_000);
+    return () => clearInterval(intervalo);
+  }, [usuarioId, estado]);
+
   const cambiar = useCallback(
     async (nuevo: EstadoPresencia) => {
       if (!usuarioId || nuevo === estado) return;

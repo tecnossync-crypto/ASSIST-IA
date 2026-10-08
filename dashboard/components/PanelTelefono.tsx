@@ -26,6 +26,17 @@ import { ContextoLlamada } from "@/components/ContextoLlamada";
 import { SelectorEstadoAsesor, opcionDeEstado, useActividadHoy, usePresencia } from "@/components/estado-asesor";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+const LETRAS: Record<string, string> = {
+  "2": "ABC",
+  "3": "DEF",
+  "4": "GHI",
+  "5": "JKL",
+  "6": "MNO",
+  "7": "PQRS",
+  "8": "TUV",
+  "9": "WXYZ",
+  "0": "+",
+};
 
 type Tab = "marcar" | "contactos" | "recientes" | "contexto" | "cola";
 type EstadoLlamada = "idle" | "marcando" | "en_curso" | "finalizada" | "error";
@@ -110,11 +121,20 @@ function nombreDeContacto(numero: string, contactos: ContactoResumen[]): string 
   return c ? [c.nombre, c.apellido].filter(Boolean).join(" ") || null : null;
 }
 
+/**
+ * Panel del asesor. Dos modos:
+ * - "flotante": tarjeta con botón circular abajo a la derecha en todo el dashboard.
+ * - "ventana": ocupa TODA la ventana (la de la extensión de Chrome, ~380×640):
+ *   encabezado fijo arriba, contenido que se desplaza y el botón de llamar fijo
+ *   abajo — antes la tarjeta flotante era más alta que la ventana y el
+ *   encabezado (con el selector de estado) quedaba cortado fuera de pantalla.
+ */
 export function PanelTelefono({
-  autoAbrir = false,
+  modo = "flotante",
   usuarioId,
   nombre,
-}: { autoAbrir?: boolean; usuarioId?: string; nombre?: string } = {}) {
+}: { modo?: "flotante" | "ventana"; usuarioId?: string; nombre?: string } = {}) {
+  const esVentana = modo === "ventana";
   const router = useRouter();
   // Si hay un agente identificado con PIN, la llamada debe timbrarle
   // SIEMPRE a él (ver backend: iniciarConferenciaConAgentes con
@@ -131,10 +151,10 @@ export function PanelTelefono({
   const [contactos, setContactos] = useState<ContactoResumen[]>([]);
   const [recientes, setRecientes] = useState<LlamadaResumen[]>([]);
   const [colas, setColas] = useState<Cola[]>([]);
-  // autoAbrir: la ventana compacta de la extensión de Chrome (ver
-  // app/extension-panel) no tiene otra cosa que mostrar, así que el panel
-  // arranca abierto en vez de mostrar primero el botón circular flotante.
-  const [abierto, setAbierto] = useState(autoAbrir);
+  // En modo ventana (extensión de Chrome) el panel siempre está abierto; en
+  // modo flotante se abre/cierra con el botón circular.
+  const [abiertoFlotante, setAbierto] = useState(false);
+  const abierto = esVentana || abiertoFlotante;
   const [tab, setTab] = useState<Tab>("marcar");
   const [numero, setNumero] = useState("");
   const [busqueda, setBusqueda] = useState("");
@@ -509,18 +529,59 @@ export function PanelTelefono({
   const anchoContexto = tab === "contexto" && !sonando && !enLlamada;
 
   return (
-    <div className="fixed inset-x-3 bottom-6 z-50 flex flex-col items-end gap-3 sm:inset-x-auto sm:bottom-8 sm:right-8">
+    <div
+      className={
+        esVentana
+          ? "h-full"
+          : "fixed inset-x-3 bottom-6 z-50 flex flex-col items-end gap-3 sm:inset-x-auto sm:bottom-8 sm:right-8"
+      }
+    >
       {abierto && (
         <div
           className={
-            "w-full overflow-hidden rounded-3xl border border-edge bg-surface shadow-2xl shadow-slate-900/25 ring-1 ring-black/5 transition-[width] " +
-            (anchoContexto ? "max-w-[24rem] sm:w-[24rem]" : "max-w-[20rem] sm:w-[20rem]")
+            esVentana
+              ? "flex h-full min-h-0 w-full flex-col bg-surface"
+              : "w-full overflow-hidden rounded-3xl border border-edge bg-surface shadow-2xl shadow-slate-900/25 ring-1 ring-black/5 transition-[width] " +
+                (anchoContexto ? "max-w-[24rem] sm:w-[24rem]" : "max-w-[20rem] sm:w-[20rem]")
           }
         >
           {/* Encabezado: quién soy, mi estado y mi actividad de hoy */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4 pb-3 pt-4">
+          <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4 pb-3 pt-3.5">
             <div className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-indigo-500/25 blur-2xl" />
             <div className="pointer-events-none absolute -bottom-12 -left-8 h-28 w-28 rounded-full bg-violet-500/20 blur-2xl" />
+
+            <div className="relative mb-3 flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                <Phone size={11} /> Teléfono
+              </span>
+              <div className="flex items-center gap-2.5">
+                <span
+                  title={
+                    sp.estado === "desconectado"
+                      ? "El teléfono del navegador no está conectado: no podrás recibir llamadas aquí."
+                      : "Teléfono del navegador conectado."
+                  }
+                  className={
+                    "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium " +
+                    (sp.estado === "desconectado" ? "bg-amber-400/15 text-amber-300" : "bg-emerald-400/15 text-emerald-300")
+                  }
+                >
+                  <span className={"h-1.5 w-1.5 rounded-full " + (sp.estado === "desconectado" ? "bg-amber-400" : "bg-emerald-400")} />
+                  {sp.estado === "desconectado" ? "Sin conexión" : "Conectado"}
+                </span>
+                {!esVentana && (
+                  <button
+                    type="button"
+                    onClick={cerrarTodo}
+                    disabled={sonando || enLlamada}
+                    className="text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                    aria-label="Cerrar"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+            </div>
 
             <div className="relative flex items-center gap-3">
               <div className="relative flex-shrink-0">
@@ -552,16 +613,6 @@ export function PanelTelefono({
                   {subtitulo}
                 </p>
               </div>
-
-              <button
-                type="button"
-                onClick={cerrarTodo}
-                disabled={sonando || enLlamada}
-                className="self-start text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                aria-label="Cerrar"
-              >
-                <X size={16} />
-              </button>
             </div>
 
             {actividadHoy && (
@@ -587,17 +638,11 @@ export function PanelTelefono({
                 />
               </div>
             )}
-
-            {sp.estado === "desconectado" && (
-              <p className="relative mt-2 text-center text-[11px] text-amber-300">
-                Teléfono del navegador sin conectar: no podrás recibir llamadas aquí.
-              </p>
-            )}
           </div>
 
           {/* LLAMADA ENTRANTE */}
           {sonando && (
-            <div className="px-4 py-5">
+            <div className={"px-4 py-5 " + (esVentana ? "min-h-0 flex-1 overflow-y-auto" : "")}>
               <div className="text-center">
                 <div className="relative mx-auto h-20 w-20">
                   <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/40" />
@@ -653,7 +698,7 @@ export function PanelTelefono({
 
           {/* EN LLAMADA */}
           {!sonando && enLlamada && (
-            <div className="px-4 py-5">
+            <div className={"px-4 py-5 " + (esVentana ? "min-h-0 flex-1 overflow-y-auto" : "")}>
               <div className="text-center">
                 <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-semibold text-white shadow-lg shadow-indigo-500/30">
                   {nombreLlamante ? iniciales(nombreLlamante) : <Phone size={24} />}
@@ -764,7 +809,7 @@ export function PanelTelefono({
           {!sonando && !enLlamada && (
             <>
               {colas.length > 0 && tab === "marcar" && (
-                <div className="px-4 pt-3">
+                <div className="shrink-0 px-4 pt-3">
                   <select
                     value={colaId}
                     onChange={(e) => setColaId(e.target.value)}
@@ -782,7 +827,7 @@ export function PanelTelefono({
 
               {/* Pantalla del "teléfono" (en la pestaña Contexto no hace falta) */}
               {tab !== "contexto" && tab !== "cola" && (
-                <div className="px-4 py-4 text-center">
+                <div className="shrink-0 px-4 py-4 text-center">
                   <input
                     value={numero}
                     onChange={(e) => setNumero(e.target.value.replace(/[^\d+*#]/g, ""))}
@@ -803,7 +848,7 @@ export function PanelTelefono({
               )}
 
               {/* Pestañas */}
-              <div className="flex border-b border-t border-edge">
+              <div className="flex shrink-0 border-b border-t border-edge">
                 {[
                   ...(cola.length > 0 || tab === "cola" ? [{ id: "cola" as Tab, label: "Cola", Icon: Hourglass }] : []),
                   ...(contextoActivo ? [{ id: "contexto" as Tab, label: "Contexto", Icon: ClipboardList }] : []),
@@ -836,9 +881,16 @@ export function PanelTelefono({
                 ))}
               </div>
 
-              <div className={"overflow-y-auto p-3 " + (tab === "contexto"
-        ? "max-h-[max(12rem,min(26rem,calc(100dvh-22rem)))]"
-        : "max-h-[max(10rem,min(18rem,calc(100dvh-26rem)))]")}>
+              <div
+                className={
+                  "overflow-y-auto p-3 " +
+                  (esVentana
+                    ? "min-h-0 flex-1"
+                    : tab === "contexto"
+                      ? "max-h-[max(12rem,min(26rem,calc(100dvh-22rem)))]"
+                      : "max-h-[max(10rem,min(18rem,calc(100dvh-26rem)))]")
+                }
+              >
                 {tab === "cola" && (
                   <div className="flex flex-col gap-2.5">
                     {cola.map((l) => {
@@ -924,9 +976,10 @@ export function PanelTelefono({
                         key={t}
                         type="button"
                         onClick={() => setNumero((n) => n + t)}
-                        className="rounded-xl border border-edge py-3 text-lg font-medium text-ink-2 transition-colors hover:bg-surface-2 active:bg-surface-2"
+                        className="flex flex-col items-center justify-center rounded-xl border border-edge py-2 text-ink-2 transition-colors hover:bg-surface-2 active:scale-95 active:bg-surface-2"
                       >
-                        {t}
+                        <span className="text-lg font-medium leading-tight">{t}</span>
+                        <span className="h-3 text-[9px] font-semibold leading-3 tracking-widest text-muted">{LETRAS[t] ?? ""}</span>
                       </button>
                     ))}
                   </div>
@@ -998,7 +1051,7 @@ export function PanelTelefono({
               </div>
 
               {tab !== "contexto" && tab !== "cola" && (
-                <div className="border-t border-edge p-3">
+                <div className="shrink-0 border-t border-edge bg-surface p-3">
                   <button
                     type="button"
                     onClick={() => llamar(numero)}
@@ -1018,7 +1071,7 @@ export function PanelTelefono({
       )}
 
       {/* Botón circular flotante */}
-      {!abierto && (
+      {!abierto && !esVentana && (
         <div className="relative flex flex-col items-end gap-2">
           {enLlamada && (
             <button

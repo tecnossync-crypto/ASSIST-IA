@@ -7,9 +7,17 @@ import { cambiarPasswordAgenteAction, type EstadoPassword } from "@/app/(app)/co
 const ESTADO_INICIAL: EstadoPassword = {};
 
 // Cambiar la contraseña de un usuario ya existente (ej. el admin) sin tener
-// que borrarlo y crearlo de nuevo. Solo aplica a usuarios con acceso al
-// dashboard (password_hash) — los agentes de solo PIN no la necesitan.
-export function CambiarPasswordAgente({ id, nombre }: { id: string; nombre: string }) {
+// que borrarlo y crearlo de nuevo. También sirve para darle acceso a un
+// usuario que todavía no tiene contraseña (ej. un agente de la época del PIN).
+export function CambiarPasswordAgente({
+  id,
+  nombre,
+  tieneAcceso = true,
+}: {
+  id: string;
+  nombre: string;
+  tieneAcceso?: boolean;
+}) {
   const [abierto, setAbierto] = useState(false);
   const accionConId = cambiarPasswordAgenteAction.bind(null, id);
   const [estado, formAction, cargando] = useActionState(accionConId, ESTADO_INICIAL);
@@ -22,7 +30,7 @@ export function CambiarPasswordAgente({ id, nombre }: { id: string; nombre: stri
         className="flex items-center gap-1 text-sm text-indigo-700 hover:underline"
       >
         <KeyRound size={13} />
-        Cambiar contraseña
+        {tieneAcceso ? "Cambiar contraseña" : "Darle acceso (crear contraseña)"}
       </button>
     );
   }

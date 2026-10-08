@@ -68,10 +68,38 @@ export async function marcarDisponibilidad(usuarioId: string, disponible: boolea
  */
 export async function marcarEstadoPresencia(usuarioId: string, estado: EstadoPresencia): Promise<void> {
   await pool.query(
-    "UPDATE usuarios SET disponible = $2, estado_presencia = $3, ultima_conexion = now() WHERE id = $1",
+    `UPDATE usuarios SET disponible = $2, estado_presencia = $3, ultima_conexion = now(), ultimo_latido = now()
+     WHERE id = $1`,
     [usuarioId, estado === "disponible", estado]
   );
   await sincronizarSesionConexion(usuarioId, estado);
+}
+
+/** El panel de teléfono avisa que sigue abierto (solo cuenta si el asesor no está Inactivo). */
+export async function registrarLatido(usuarioId: string): Promise<void> {
+  await pool.query(
+    "UPDATE usuarios SET ultimo_latido = now() WHERE id = $1 AND estado_presencia <> 'desconectado'",
+    [usuarioId]
+  );
+}
+
+/**
+ * Pasa a Inactivo a quien estaba Activo/En pausa pero dejó de mandar latidos
+ * (cerró el navegador o se quedó sin conexión), para no repartirle llamadas que
+ * no va a contestar. No toca a quien nunca mandó un latido (ejecutable de
+ * escritorio, que maneja su propia presencia).
+ */
+export async function expirarPresenciaInactiva(minutos = 2): Promise<number> {
+  const r = await pool.query<{ id: string }>(
+    `UPDATE usuarios SET disponible = false, estado_presencia = 'desconectado'
+     WHERE estado_presencia <> 'desconectado'
+       AND ultimo_latido IS NOT NULL
+       AND ultimo_latido < now() - ($1 || ' minutes')::interval
+     RETURNING id`,
+    [String(minutos)]
+  );
+  for (const u of r.rows) await sincronizarSesionConexion(u.id, "desconectado");
+  return r.rows.length;
 }
 
 export type ModoEnrutamiento = "todos" | "round_robin" | "disponibilidad" | "menos_llamadas" | "ultimo_operador";

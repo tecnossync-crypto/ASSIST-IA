@@ -4,7 +4,6 @@ import { SoftphoneProvider } from "@/components/SoftphoneContext";
 import { EstadoDashboardBoton } from "@/components/EstadoDashboardBoton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AgenteSoftphoneProvider } from "@/components/AgenteSoftphoneContext";
-import { ConexionAgenteHeader } from "@/components/ConexionAgenteHeader";
 import { LlamadasExternasWidget } from "@/components/LlamadasExternasWidget";
 import { MobileNavProvider } from "@/components/MobileNavContext";
 import { MobileMenuButton } from "@/components/MobileMenuButton";
@@ -25,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const sesion = await obtenerSesion();
 
   return (
-    <AgenteSoftphoneProvider>
+    <AgenteSoftphoneProvider usuario={sesion ? { usuarioId: sesion.usuarioId, nombre: sesion.nombre } : null}>
       <SoftphoneProvider>
       <MobileNavProvider>
         <div className="flex h-full">
@@ -35,7 +34,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <MobileMenuButton />
               <div className="flex items-center gap-3">
                 {sesion && <EstadoDashboardBoton usuarioId={sesion.usuarioId} />}
-                <ConexionAgenteHeader />
                 <ThemeToggle />
               </div>
             </div>

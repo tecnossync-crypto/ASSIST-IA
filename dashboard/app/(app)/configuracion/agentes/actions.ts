@@ -39,28 +39,18 @@ export async function crearAgenteAction(
   const email = String(formData.get("email") ?? "").trim();
   const telefono = String(formData.get("telefono") ?? "").trim();
   const idExterno = String(formData.get("idExterno") ?? "").trim();
-  const pin = String(formData.get("pin") ?? "").trim();
   const rol = String(formData.get("rol") ?? "operador").trim();
   const colaId = String(formData.get("colaId") ?? "").trim();
   const modoPassword = String(formData.get("modoPassword") ?? "auto");
   const passwordManual = String(formData.get("passwordManual") ?? "");
-  // Admin y supervisor siempre necesitan entrar al dashboard completo; para
-  // un agente (operador) es opcional que además tenga acceso al dashboard.
-  const conAcceso = rol !== "operador" || formData.get("conAcceso") === "on";
-
+  // Todos los usuarios (agentes incluidos) entran con su email y contraseña:
+  // el teléfono del panel se usa con esa misma cuenta, ya no hay un PIN aparte.
   if (!nombre || !email) return { error: "Nombre y email son requeridos." };
-  if (!conAcceso && !pin) {
-    return { error: "Un agente necesita un PIN (softphone) o acceso al dashboard." };
-  }
-  if (conAcceso && modoPassword === "manual" && passwordManual.length < 8) {
+  if (modoPassword === "manual" && passwordManual.length < 8) {
     return { error: "La contraseña debe tener al menos 8 caracteres." };
   }
 
-  const passwordGenerada = conAcceso
-    ? modoPassword === "manual"
-      ? passwordManual
-      : generarPasswordTemporal()
-    : undefined;
+  const passwordGenerada = modoPassword === "manual" ? passwordManual : generarPasswordTemporal();
 
   try {
     await crearAgente({
@@ -68,7 +58,6 @@ export async function crearAgenteAction(
       email,
       telefono: telefono || undefined,
       idExterno: idExterno || undefined,
-      pin: pin || undefined,
       password: passwordGenerada,
       rol,
       colaId: colaId || null,

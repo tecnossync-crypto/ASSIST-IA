@@ -1,7 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { pool } from "../db/pool.js";
-import { loginConPin, marcarDisponibilidad, marcarEstadoPresencia, type EstadoPresencia } from "../lib/agentes.js";
+import {
+  loginConPin,
+  marcarDisponibilidad,
+  marcarEstadoPresencia,
+  registrarLatido,
+  type EstadoPresencia,
+} from "../lib/agentes.js";
 import { RANGOS_FECHA, rangoFechaValido } from "../lib/rangos-fecha.js";
 import { subirArchivo, streamArchivo, eliminarArchivo } from "../lib/storage.js";
 import {
@@ -443,6 +449,17 @@ export async function agentesRoutes(app: FastifyInstance) {
       reply.send({ rango, agentes: result.rows });
     }
   );
+
+  // Latido del panel de teléfono: "sigo aquí". Ver expirarPresenciaInactiva().
+  app.post<{ Body: { usuarioId?: string } }>("/api/agentes/latido", async (req, reply) => {
+    const { usuarioId } = req.body ?? {};
+    if (!usuarioId) {
+      reply.code(400).send({ error: "usuarioId es requerido" });
+      return;
+    }
+    await registrarLatido(usuarioId);
+    reply.send({ ok: true });
+  });
 
   // El ejecutable/softphone llama esto al conectarse (disponible=true) o al
   // desconectarse (disponible=false). El botón de estado del dashboard llama
