@@ -51,7 +51,13 @@ export async function crearReglaAction(_prevState: EstadoRegla | null, formData:
   const cuando = String(formData.get("cuando") ?? "ahora");
   let retrasoMinutos: number | null = null;
   let fechaProgramada: string | null = null;
-  if (cuando === "espera") {
+  let horaDelDia: string | null = null;
+  let zonaHoraria: string | null = null;
+  if (cuando === "hora") {
+    horaDelDia = String(formData.get("hora_del_dia") ?? "").trim();
+    zonaHoraria = String(formData.get("zona_horaria") ?? "").trim() || null;
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(horaDelDia)) return { error: "Elige la hora del día en que debe llamar." };
+  } else if (cuando === "espera") {
     const cantidad = Math.floor(Number(formData.get("espera_cantidad") ?? 0));
     const unidad = String(formData.get("espera_unidad") ?? "minutos");
     const porUnidad = unidad === "dias" ? 1440 : unidad === "horas" ? 60 : 1;
@@ -63,7 +69,17 @@ export async function crearReglaAction(_prevState: EstadoRegla | null, formData:
   }
 
   try {
-    await crearReglaApiLlamadas({ nombre, campo, operador, valor, promptPersonalizado, retrasoMinutos, fechaProgramada });
+    await crearReglaApiLlamadas({
+      nombre,
+      campo,
+      operador,
+      valor,
+      promptPersonalizado,
+      retrasoMinutos,
+      fechaProgramada,
+      horaDelDia,
+      zonaHoraria,
+    });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Error creando la regla." };
   }

@@ -11,6 +11,25 @@ interface ReglaApiLlamadas {
   prompt_personalizado: string;
   retraso_minutos: number | null;
   fecha_programada: Date | null;
+  hora_del_dia: string | null;
+  zona_horaria: string | null;
+}
+
+/**
+ * Próxima vez que sea `hora` (HH:MM) en la zona `zona`: hoy si todavía no
+ * llega, mañana si ya pasó. Se calcula en Postgres para no depender de una
+ * librería de zonas horarias.
+ */
+export async function proximaOcurrencia(hora: string, zona: string): Promise<Date> {
+  const r = await pool.query<{ proxima: Date }>(
+    `SELECT CASE
+              WHEN ((now() AT TIME ZONE $2)::date + $1::time) AT TIME ZONE $2 > now()
+                THEN ((now() AT TIME ZONE $2)::date + $1::time) AT TIME ZONE $2
+              ELSE ((now() AT TIME ZONE $2)::date + 1 + $1::time) AT TIME ZONE $2
+            END AS proxima`,
+    [hora, zona]
+  );
+  return r.rows[0].proxima;
 }
 
 /**
@@ -72,9 +91,12 @@ export async function evaluarReglaApiLlamadas(
   promptPersonalizado: string;
   retrasoMinutos: number | null;
   fechaProgramada: Date | null;
+  horaDelDia: string | null;
+  zonaHoraria: string | null;
 } | null> {
   const result = await pool.query<ReglaApiLlamadas>(
-    `SELECT id, nombre, campo, operador, valor, prompt_personalizado, retraso_minutos, fecha_programada
+    `SELECT id, nombre, campo, operador, valor, prompt_personalizado, retraso_minutos, fecha_programada,
+            to_char(hora_del_dia, 'HH24:MI') AS hora_del_dia, zona_horaria
      FROM reglas_api_llamadas
      WHERE empresa_id = $1 AND activa = true
      ORDER BY orden, creado_en`,
@@ -89,6 +111,8 @@ export async function evaluarReglaApiLlamadas(
         promptPersonalizado: regla.prompt_personalizado,
         retrasoMinutos: regla.retraso_minutos,
         fechaProgramada: regla.fecha_programada,
+        horaDelDia: regla.hora_del_dia,
+        zonaHoraria: regla.zona_horaria,
       };
     }
   }

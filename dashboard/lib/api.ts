@@ -669,6 +669,9 @@ export interface ReglaApiLlamadas {
   // Horario opcional: espera en minutos y/o fecha fija (ISO) para la llamada.
   retraso_minutos: number | null;
   fecha_programada: string | null;
+  // "HH:MM": la llamada sale la próxima vez que sea esa hora (en zona_horaria).
+  hora_del_dia: string | null;
+  zona_horaria: string | null;
 }
 
 export async function listarReglasApiLlamadas(): Promise<ReglaApiLlamadas[]> {
@@ -688,6 +691,8 @@ export async function crearReglaApiLlamadas(data: {
   promptPersonalizado: string;
   retrasoMinutos?: number | null;
   fechaProgramada?: string | null;
+  horaDelDia?: string | null;
+  zonaHoraria?: string | null;
 }): Promise<void> {
   const res = await fetch(new URL("/api/reglas-api-llamadas", BACKEND_URL), {
     method: "POST",

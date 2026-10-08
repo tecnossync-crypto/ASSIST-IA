@@ -26,7 +26,12 @@ export function ReglasApiLlamadas({ reglas }: { reglas: ReglaApiLlamadas[] }) {
   const [estado, formAction, cargando] = useActionState(crearReglaAction, ESTADO_INICIAL);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [operador, setOperador] = useState("igual");
-  const [cuando, setCuando] = useState<"ahora" | "espera" | "fecha">("ahora");
+  const [cuando, setCuando] = useState<"ahora" | "espera" | "hora" | "fecha">("ahora");
+  // Zona horaria de quien configura la regla (la "hora del día" se entiende en ella).
+  const [zona, setZona] = useState("");
+  useEffect(() => {
+    setZona(Intl.DateTimeFormat().resolvedOptions().timeZone ?? "");
+  }, []);
   // El input datetime-local no trae zona horaria; se convierte aquí, en el
   // navegador de quien configura, a ISO con su zona — así la hora que elige
   // es la que se respeta, no la del servidor.
@@ -92,10 +97,28 @@ export function ReglasApiLlamadas({ reglas }: { reglas: ReglaApiLlamadas[] }) {
                 Esperar un tiempo
               </label>
               <label className="flex items-center gap-1.5">
+                <input type="radio" name="cuando" value="hora" checked={cuando === "hora"} onChange={() => setCuando("hora")} />
+                A una hora del día
+              </label>
+              <label className="flex items-center gap-1.5">
                 <input type="radio" name="cuando" value="fecha" checked={cuando === "fecha"} onChange={() => setCuando("fecha")} />
                 Fecha y hora fija
               </label>
             </div>
+            {cuando === "hora" && (
+              <>
+                <div className="flex items-center gap-2">
+                  <input name="hora_del_dia" type="time" required defaultValue="12:00" className={`${CAMPO} w-fit`} />
+                  <input type="hidden" name="zona_horaria" value={zona} />
+                  <span className="text-xs text-muted">{zona ? `(hora de ${zona})` : ""}</span>
+                </div>
+                <p className="text-xs text-muted">
+                  Las solicitudes que coincidan con esta regla se guardan y se llaman la próxima vez que sea esa
+                  hora: si llegan antes, salen hoy a esa hora; si llegan después, mañana. Así, a las 12:00 sale todo
+                  lo que se acumuló desde el día anterior. Crea otra regla para otra hora (ej. 15:40).
+                </p>
+              </>
+            )}
             {cuando === "espera" && (
               <div className="flex items-center gap-2">
                 <input
@@ -240,6 +263,7 @@ function ProbadorReglas() {
 }
 
 function describirHorario(r: ReglaApiLlamadas): string {
+  if (r.hora_del_dia) return `llama a las ${r.hora_del_dia}`;
   if (r.fecha_programada) {
     return `llama el ${new Date(r.fecha_programada).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}`;
   }

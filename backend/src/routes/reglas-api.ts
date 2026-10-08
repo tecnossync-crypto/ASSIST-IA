@@ -6,6 +6,21 @@ const OPERADORES_VALIDOS = ["igual", "contiene", "existe"];
 
 const MAX_RETRASO_MINUTOS = 90 * 24 * 60; // 90 días, igual que el POST del webhook
 
+/** "HH:MM" 24 h y zona IANA válida, o error. */
+function leerHoraDelDia(hora: unknown, zona: unknown): { hora: string | null; zona: string | null; error?: string } {
+  if (hora === undefined || hora === null || hora === "") return { hora: null, zona: null };
+  if (typeof hora !== "string" || !/^([01]d|2[0-3]):[0-5]d$/.test(hora)) {
+    return { hora: null, zona: null, error: "La hora debe tener formato HH:MM (24 horas)." };
+  }
+  const z = typeof zona === "string" && zona ? zona : "America/Santo_Domingo";
+  try {
+    new Intl.DateTimeFormat("es", { timeZone: z });
+  } catch {
+    return { hora: null, zona: null, error: "La zona horaria no es válida." };
+  }
+  return { hora, zona: z };
+}
+
 /** Valida el horario opcional de una regla: espera en minutos y/o fecha fija ISO con zona. */
 function leerHorario(
   retraso: unknown,
@@ -43,7 +58,8 @@ export async function reglasApiRoutes(app: FastifyInstance) {
       return;
     }
     const result = await pool.query(
-      `SELECT id, nombre, campo, operador, valor, prompt_personalizado, activa, orden, retraso_minutos, fecha_programada, creado_en
+      `SELECT id, nombre, campo, operador, valor, prompt_personalizado, activa, orden, retraso_minutos, fecha_programada,
+              to_char(hora_del_dia, 'HH24:MI') AS hora_del_dia, zona_horaria, creado_en
        FROM reglas_api_llamadas WHERE empresa_id = $1 ORDER BY orden, creado_en`,
       [empresaId]
     );
@@ -61,12 +77,19 @@ export async function reglasApiRoutes(app: FastifyInstance) {
       orden?: number;
       retrasoMinutos?: number | null;
       fechaProgramada?: string | null;
+      horaDelDia?: string | null;
+      zonaHoraria?: string | null;
     };
   }>("/api/reglas-api-llamadas", async (req, reply) => {
     const { empresaId, nombre, campo, operador, valor, promptPersonalizado, orden } = req.body;
     const horario = leerHorario(req.body.retrasoMinutos, req.body.fechaProgramada);
     if (horario.error) {
       reply.code(400).send({ error: horario.error });
+      return;
+    }
+    const diaria = leerHoraDelDia(req.body.horaDelDia, req.body.zonaHoraria);
+    if (diaria.error) {
+      reply.code(400).send({ error: diaria.error });
       return;
     }
     const operadorFinal = operador && OPERADORES_VALIDOS.includes(operador) ? operador : "igual";
@@ -83,10 +106,12 @@ export async function reglasApiRoutes(app: FastifyInstance) {
 
     const result = await pool.query(
       `INSERT INTO reglas_api_llamadas
-         (empresa_id, nombre, campo, operador, valor, prompt_personalizado, orden, retraso_minutos, fecha_programada)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, nombre, campo, operador, valor, prompt_personalizado, activa, orden, retraso_minutos, fecha_programada`,
-      [empresaId, nombre.trim(), campo.trim(), operadorFinal, (valor ?? "").trim(), promptPersonalizado.trim(), orden ?? 0, horario.retraso, horario.fecha]
+         (empresa_id, nombre, campo, operador, valor, prompt_personalizado, orden, retraso_minutos, fecha_programada,
+          hora_del_dia, zona_horaria)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, nombre, campo, operador, valor, prompt_personalizado, activa, orden, retraso_minutos, fecha_programada,
+                 to_char(hora_del_dia, 'HH24:MI') AS hora_del_dia, zona_horaria`,
+      [empresaId, nombre.trim(), campo.trim(), operadorFinal, (valor ?? "").trim(), promptPersonalizado.trim(), orden ?? 0, horario.retraso, horario.fecha, diaria.hora, diaria.zona]
     );
     reply.send({ ok: true, regla: result.rows[0] });
   });

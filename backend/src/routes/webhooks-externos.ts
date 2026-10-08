@@ -5,7 +5,7 @@ import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-emp
 import { registrarFallbackCentral } from "../lib/fallback-central.js";
 import { asegurarContacto, upsertContacto } from "../lib/contactos.js";
 import { registrarWebhookRecibido } from "../lib/webhooks-log.js";
-import { evaluarReglaApiLlamadas } from "../lib/reglas-api-llamadas.js";
+import { evaluarReglaApiLlamadas, proximaOcurrencia } from "../lib/reglas-api-llamadas.js";
 
 interface CampoPersonalizado {
   nombre: string;
@@ -157,7 +157,11 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       if (!programadaPara && reglaAplicada) {
         const fija = reglaAplicada.fechaProgramada;
         const espera = reglaAplicada.retrasoMinutos;
-        if (fija && fija.getTime() - Date.now() > 60_000) {
+        if (reglaAplicada.horaDelDia && reglaAplicada.zonaHoraria) {
+          // "A las 12:00": sale la próxima vez que sea esa hora (hoy si aún no
+          // llega, mañana si ya pasó) — lo del día anterior sale a esa hora.
+          programadaPara = await proximaOcurrencia(reglaAplicada.horaDelDia, reglaAplicada.zonaHoraria);
+        } else if (fija && fija.getTime() - Date.now() > 60_000) {
           programadaPara = fija;
         } else if (espera && espera > 0) {
           programadaPara = new Date(Date.now() + espera * 60_000);
