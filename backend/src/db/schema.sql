@@ -62,7 +62,6 @@ CREATE TABLE colas (
 CREATE INDEX idx_colas_empresa ON colas(empresa_id);
 
 ALTER TABLE usuarios ADD COLUMN cola_id UUID REFERENCES colas(id) ON DELETE SET NULL;
-ALTER TABLE llamadas ADD COLUMN cola_id UUID REFERENCES colas(id);
 
 -- Registro de auditoría: qué cambió en Configuración, cuándo, y quién lo hizo.
 CREATE TABLE auditoria (
@@ -115,6 +114,10 @@ CREATE TABLE llamadas (
 );
 
 CREATE INDEX idx_llamadas_empresa ON llamadas(empresa_id, iniciada_en DESC);
+
+-- (Esta columna se agrega aquí y no junto a `colas` porque `llamadas` todavía no existía allá arriba:
+-- en una base vacía el schema fallaba con "relation llamadas does not exist".)
+ALTER TABLE llamadas ADD COLUMN cola_id UUID REFERENCES colas(id);
 
 CREATE TABLE grabaciones (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
