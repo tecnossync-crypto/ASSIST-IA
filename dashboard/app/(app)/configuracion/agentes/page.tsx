@@ -9,6 +9,7 @@ import { Configurar2FA } from "@/components/Configurar2FA";
 import { AvatarUsuario } from "@/components/AvatarUsuario";
 import { DireccionExtension } from "@/components/DireccionExtension";
 import { EditorIdExternoAgente } from "@/components/EditorIdExternoAgente";
+import { ColaAgenteSelect } from "@/components/ColaAgenteSelect";
 import { eliminarAgenteAction } from "./actions";
 
 const ETIQUETAS_ROL: Record<string, string> = {
@@ -39,7 +40,7 @@ export default async function AgentesPage() {
         <Link href="/configuracion/enrutamiento" className="text-indigo-700 hover:underline">
           Configuración → Enrutamiento
         </Link>
-        . Aquí asignas cada agente a su cola al crearlo.
+        . Aquí asignas cada agente a su departamento al crearlo y puedes cambiarlo después.
       </p>
 
       <section className="rounded-lg border border-edge bg-surface p-5">
@@ -133,6 +134,7 @@ export default async function AgentesPage() {
             <div className="flex flex-wrap items-center gap-4 border-t border-edge pt-3">
               <CambiarPasswordAgente id={a.id} nombre={a.nombre} tieneAcceso={a.tiene_acceso_dashboard} />
               {a.tiene_acceso_dashboard && <Configurar2FA id={a.id} habilitado={a.totp_habilitado} />}
+              <ColaAgenteSelect agenteId={a.id} colaActual={a.cola_id} colas={colas.map((c) => ({ id: c.id, nombre: c.nombre }))} />
               <EditorIdExternoAgente id={a.id} valorInicial={a.id_externo} />
             </div>
           </div>

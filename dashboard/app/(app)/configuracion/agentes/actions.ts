@@ -7,6 +7,7 @@ import {
   eliminarAgente,
   actualizarPasswordAgente,
   actualizarIdExternoAgente,
+  actualizarColaAgente,
   actualizarEnrutamiento,
   crearCola,
   actualizarEnrutamientoCola,
@@ -167,6 +168,25 @@ export async function actualizarEnrutamientoColaAction(
     // La auditoría no debe impedir que el cambio se vea como guardado.
   }
   return { ok: true, modo: guardado };
+}
+
+export async function cambiarColaAgenteAction(
+  agenteId: string,
+  colaId: string
+): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    await actualizarColaAgente(agenteId, colaId || null);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo cambiar el departamento" };
+  }
+  revalidatePath("/configuracion/agentes");
+  revalidatePath("/configuracion/enrutamiento");
+  try {
+    await auditar("actualizar", "agente_cola", { agenteId, colaId: colaId || null });
+  } catch {
+    // La auditoría no debe impedir que el cambio se vea como guardado.
+  }
+  return { ok: true };
 }
 
 export async function eliminarColaAction(id: string) {

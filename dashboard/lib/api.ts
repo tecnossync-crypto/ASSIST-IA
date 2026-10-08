@@ -940,6 +940,19 @@ export async function actualizarIdExternoAgente(id: string, idExterno: string): 
   }
 }
 
+export async function actualizarColaAgente(id: string, colaId: string | null): Promise<void> {
+  const res = await fetch(new URL(`/api/agentes/${id}`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ colaId }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `No se pudo cambiar el departamento (HTTP ${res.status})`);
+  }
+}
+
 export async function actualizarPasswordAgente(id: string, password: string): Promise<void> {
   const res = await fetch(new URL(`/api/agentes/${id}`, BACKEND_URL), {
     method: "PUT",
