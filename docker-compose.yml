@@ -45,10 +45,6 @@ services:
     environment:
       - PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
       - DASHBOARD_DOMAIN=${DASHBOARD_DOMAIN}
-      # Dominios del ambiente de QA (ver docker-compose.qa.yml y docs/entornos-qa-produccion.md).
-      # Sin QA configurado, los valores por defecto (.localhost) no reciben tráfico real.
-      - QA_PUBLIC_DOMAIN=${QA_PUBLIC_DOMAIN:-qa-api.localhost}
-      - QA_DASHBOARD_DOMAIN=${QA_DASHBOARD_DOMAIN:-qa-dashboard.localhost}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data

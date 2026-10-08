@@ -35,35 +35,3 @@
 {$DASHBOARD_DOMAIN} {
 	reverse_proxy dashboard:3000
 }
-
-# ---------------------------------------------------------------------------
-# Ambiente de QA (mismo servidor): sus contenedores están en otra "compose"
-# (docker-compose.qa.yml) pero comparten la red de este Caddy, así que se les
-# llega por nombre. Si QA no está levantado, estos dominios solo darán 502 y
-# producción no se entera. Ver docs/entornos-qa-produccion.md.
-# ---------------------------------------------------------------------------
-{$QA_PUBLIC_DOMAIN} {
-	handle /voice-stream* {
-		reverse_proxy qa-voice-server:3002
-	}
-
-	handle /supervision-stream* {
-		reverse_proxy qa-voice-server:3002
-	}
-
-	handle /tts-audio* {
-		reverse_proxy qa-voice-server:3002
-	}
-
-	handle /extension-panel* {
-		redir https://{$QA_DASHBOARD_DOMAIN}{uri} 302
-	}
-
-	handle {
-		reverse_proxy qa-backend:3001
-	}
-}
-
-{$QA_DASHBOARD_DOMAIN} {
-	reverse_proxy qa-dashboard:3000
-}

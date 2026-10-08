@@ -10,6 +10,3 @@ deploy/.env.compose
 *.log
 .DS_Store
 
-# Ambiente de QA
-.env.qa
-deploy/.env.qa
