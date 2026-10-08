@@ -165,6 +165,7 @@ function enviar(ws: WebSocket, mensaje: ConversationRelayOutgoing) {
  * sigue.
  */
 async function hablar(ws: WebSocket, session: ConversationSession, texto: string) {
+  session.ultimoTextoAgente = texto;
   if (session.usaVozClonada()) {
     try {
       const audio = await sintetizarVozElevenLabs(session.empresaId, texto);
@@ -175,6 +176,31 @@ async function hablar(ws: WebSocket, session: ConversationSession, texto: string
     }
   }
   enviar(ws, { type: "text", token: texto, last: true });
+}
+
+// Transcripciones que no dicen nada ("mm", "eh", "ajá", un carraspeo que el
+// STT convirtió en "ah"): no son un turno del cliente. Si se mandaran al
+// modelo, cancelaban la respuesta en curso (esTurnoVigente) y el modelo
+// contestaba a la nada o devolvía vacío — el bot "se callaba de repente".
+const RELLENO = /^(?:\s*(?:m+h?m*|hm+|e+h+|a+h+|aj[aá]|u+h+|u+m+|o+h+|ey)\s*[.,¿?¡!…]*\s*)+$/i;
+
+function esRuidoSinContenido(texto: string | undefined): boolean {
+  const t = (texto ?? "").trim();
+  return t.length < 2 || RELLENO.test(t);
+}
+
+// Si el cliente corta al bot con un ruido y luego no dice nada útil, el bot
+// retoma solo pasado este tiempo (no antes: el STT tarda un poco en entregar
+// lo que de verdad dijo).
+const ESPERA_REANUDAR_MS = Number(process.env.ESPERA_REANUDAR_MS ?? 4000);
+const MAX_REANUDACIONES_SEGUIDAS = 2;
+
+/** Lo último que dijo el bot, recortado a sus 2 últimas frases si fue largo. */
+function textoParaReanudar(texto: string): string {
+  const t = texto.trim();
+  if (t.length <= 220) return t;
+  const frases = t.match(/[^.!?¿]+[.!?]+/g);
+  return frases && frases.length > 2 ? frases.slice(-2).join(" ").trim() : t;
 }
 
 wss.on("connection", (ws) => {
@@ -198,6 +224,32 @@ wss.on("connection", (ws) => {
   // una vez "¿aló?, ¿me escucha?".
   let clienteHablo = false;
   let temporizadorSilencio: NodeJS.Timeout | null = null;
+  let temporizadorReanudar: NodeJS.Timeout | null = null;
+  let reanudacionesSeguidas = 0;
+
+  function cancelarReanudacion() {
+    if (temporizadorReanudar) {
+      clearTimeout(temporizadorReanudar);
+      temporizadorReanudar = null;
+    }
+  }
+
+  function programarReanudacion(s: ConversationSession) {
+    cancelarReanudacion();
+    if (reanudacionesSeguidas >= MAX_REANUDACIONES_SEGUIDAS || !s.ultimoTextoAgente) return;
+    temporizadorReanudar = setTimeout(async () => {
+      temporizadorReanudar = null;
+      try {
+        if (ws.readyState !== WebSocket.OPEN || finalizadaManualmente) return;
+        reanudacionesSeguidas++;
+        const texto = textoParaReanudar(s.ultimoTextoAgente);
+        console.log(`[${s.callSid}] interrupción sin respuesta del cliente, el bot retoma: "${texto}"`);
+        await hablar(ws, s, texto);
+      } catch (err) {
+        console.error("Error retomando tras una interrupción:", err);
+      }
+    }, ESPERA_REANUDAR_MS);
+  }
 
   function programarSilencioInicial(s: ConversationSession) {
     temporizadorSilencio = setTimeout(async () => {
@@ -320,11 +372,20 @@ wss.on("connection", (ws) => {
             console.error("prompt recibido sin sesión inicializada (falta setup)");
             return;
           }
+          const sinContenido = esRuidoSinContenido(msg.voicePrompt);
+          // Que el cliente esté hablando de verdad (aunque sea parcial)
+          // cancela el "retomar lo que decía": se espera a oír su frase.
+          if (!sinContenido) cancelarReanudacion();
           if (!msg.last) {
             // ConversationRelay puede mandar prompts parciales; solo actuamos
             // sobre el fragmento final del turno del usuario.
             return;
           }
+          if (sinContenido && !esperandoPrimeraVoz) {
+            console.log(`[${session.callSid}] ruido sin contenido ignorado: "${msg.voicePrompt}"`);
+            return;
+          }
+          reanudacionesSeguidas = 0;
 
           // ConversationRelay corta la transcripción del cliente en cuanto
           // detecta una pausa, aunque en realidad siga hablando — eso manda
@@ -380,10 +441,14 @@ wss.on("connection", (ws) => {
             return;
           }
 
+          cancelarReanudacion();
           if (resultado.textoRespuesta) {
             await hablar(ws, session, resultado.textoRespuesta);
-          } else {
-            console.error(`[${session.callSid}] correrTurno devolvió texto vacío — no se envió nada al cliente`);
+          } else if (!resultado.transferSolicitada) {
+            // Nunca dejar al cliente en silencio: si el modelo no devolvió
+            // texto, se le pide que repita en vez de callarse.
+            console.error(`[${session.callSid}] correrTurno devolvió texto vacío — se pide repetir al cliente`);
+            await hablar(ws, session, "Disculpe, no alcancé a escucharle bien. ¿Me puede repetir, por favor?");
           }
 
           if (resultado.transferSolicitada) {
@@ -400,8 +465,14 @@ wss.on("connection", (ws) => {
         }
 
         case "interrupt":
-          // El cliente interrumpió al agente mientras hablaba. Fase 0: no
-          // hacemos nada especial, Twilio ya cortó el audio de su lado.
+          // Twilio ya cortó el audio del bot. Si lo que sigue es una frase
+          // real del cliente, llegará un "prompt" y se responde normal. Pero
+          // si fue solo un ruido, no llegará nada y el bot quedaba mudo para
+          // siempre: por eso se programa retomar lo que decía.
+          console.log(
+            `[ws] interrupción tras ${msg.durationUntilInterruptMs ?? "?"}ms: "${msg.utteranceUntilInterrupt ?? ""}"`
+          );
+          if (session && !finalizadaManualmente) programarReanudacion(session);
           break;
 
         case "dtmf":
@@ -425,6 +496,7 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     if (temporizadorLimite) clearTimeout(temporizadorLimite);
     if (temporizadorSilencio) clearTimeout(temporizadorSilencio);
+    cancelarReanudacion();
     if (finalizadaManualmente) return;
     session?.finalizar().catch((err) => console.error("Error finalizando sesión:", err));
   });

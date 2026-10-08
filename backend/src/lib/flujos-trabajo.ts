@@ -4,16 +4,57 @@ import { normalizarNumero } from "./telefono.js";
 
 export type Disparador = "llamada_completada" | "llamada_no_contesta" | "llamada_transferida";
 
-interface FlujoTrabajo {
+export interface FlujoTrabajo {
   id: string;
   accion: "agregar_etiqueta" | "crear_solicitud";
-  accion_datos: { etiqueta?: string; tipo?: string; descripcion?: string };
+  accion_datos: { etiqueta?: string; tipo?: string; descripcion?: string; retraso_minutos?: number | string };
+}
+
+const MAX_RETRASO_MINUTOS = 60 * 24 * 30; // 30 días
+
+/** Minutos de espera configurados en la regla (0 = ejecutar al instante). */
+export function retrasoMinutos(accionDatos: { retraso_minutos?: number | string } | null | undefined): number {
+  const n = Number(accionDatos?.retraso_minutos ?? 0);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(Math.floor(n), MAX_RETRASO_MINUTOS);
+}
+
+/** Ejecuta la acción de un flujo de "al terminar una llamada…" (ahora, o desde la cola de pendientes). */
+export async function ejecutarAccionPostLlamada(
+  flujo: FlujoTrabajo,
+  ctx: { empresaId: string; numeroCliente: string; llamadaId: string | null; disparador: string }
+): Promise<void> {
+  const { empresaId, numeroCliente, llamadaId, disparador } = ctx;
+  if (flujo.accion === "agregar_etiqueta" && flujo.accion_datos.etiqueta) {
+    await pool.query(
+      `INSERT INTO contactos (empresa_id, numero, etiquetas)
+       VALUES ($1, $2, ARRAY[$3::text])
+       ON CONFLICT (empresa_id, numero)
+       DO UPDATE SET
+         etiquetas = ARRAY(SELECT DISTINCT unnest(contactos.etiquetas || ARRAY[$3::text])),
+         actualizado_en = now()`,
+      [empresaId, normalizarNumero(numeroCliente), flujo.accion_datos.etiqueta]
+    );
+  } else if (flujo.accion === "crear_solicitud") {
+    await pool.query(
+      `INSERT INTO solicitudes (empresa_id, llamada_id, tipo, descripcion)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        empresaId,
+        llamadaId,
+        flujo.accion_datos.tipo ?? "seguimiento",
+        flujo.accion_datos.descripcion ?? `Generado automáticamente por flujo de trabajo (${disparador}).`,
+      ]
+    );
+  }
 }
 
 /**
  * Evalúa los flujos de trabajo activos de una empresa para el disparador
  * dado y ejecuta sus acciones. Se llama desde el webhook de call-status,
- * una vez que se conoce el resultado final de la llamada.
+ * una vez que se conoce el resultado final de la llamada. Si la regla tiene
+ * un tiempo de espera (retraso_minutos), la acción queda en flujos_pendientes
+ * y la ejecuta el despachador cuando llegue la hora.
  */
 export async function ejecutarFlujosTrabajo(opts: {
   empresaId: string;
@@ -31,27 +72,15 @@ export async function ejecutarFlujosTrabajo(opts: {
 
   for (const flujo of flujos.rows) {
     try {
-      if (flujo.accion === "agregar_etiqueta" && flujo.accion_datos.etiqueta) {
+      const espera = retrasoMinutos(flujo.accion_datos);
+      if (espera > 0) {
         await pool.query(
-          `INSERT INTO contactos (empresa_id, numero, etiquetas)
-           VALUES ($1, $2, ARRAY[$3::text])
-           ON CONFLICT (empresa_id, numero)
-           DO UPDATE SET
-             etiquetas = ARRAY(SELECT DISTINCT unnest(contactos.etiquetas || ARRAY[$3::text])),
-             actualizado_en = now()`,
-          [empresaId, normalizarNumero(numeroCliente), flujo.accion_datos.etiqueta]
+          `INSERT INTO flujos_pendientes (empresa_id, flujo_id, llamada_id, numero, disparador, ejecutar_en)
+           VALUES ($1, $2, $3, $4, $5, now() + ($6 || ' minutes')::interval)`,
+          [empresaId, flujo.id, llamadaId, numeroCliente, disparador, String(espera)]
         );
-      } else if (flujo.accion === "crear_solicitud") {
-        await pool.query(
-          `INSERT INTO solicitudes (empresa_id, llamada_id, tipo, descripcion)
-           VALUES ($1, $2, $3, $4)`,
-          [
-            empresaId,
-            llamadaId,
-            flujo.accion_datos.tipo ?? "seguimiento",
-            flujo.accion_datos.descripcion ?? `Generado automáticamente por flujo de trabajo (${disparador}).`,
-          ]
-        );
+      } else {
+        await ejecutarAccionPostLlamada(flujo, { empresaId, numeroCliente, llamadaId, disparador });
       }
     } catch (err) {
       console.error(`[flujo ${flujo.id}] error ejecutando acción:`, err);
@@ -63,7 +92,7 @@ interface FlujoEtiqueta {
   id: string;
   disparador_datos: { etiqueta?: string };
   accion: string;
-  accion_datos: { modo?: "inmediato" | "programada"; fecha?: string };
+  accion_datos: { modo?: "inmediato" | "programada"; fecha?: string; retraso_minutos?: number | string };
 }
 
 /**
@@ -93,11 +122,18 @@ export async function ejecutarFlujosPorEtiquetasNuevas(opts: {
     if (flujo.accion !== "llamar_contacto") continue;
 
     try {
+      const espera = retrasoMinutos(flujo.accion_datos);
       if (flujo.accion_datos.modo === "programada" && flujo.accion_datos.fecha) {
         await pool.query(
           `INSERT INTO llamadas_programadas (empresa_id, flujo_id, contacto_id, numero, fecha_programada)
            VALUES ($1, $2, $3, $4, $5)`,
           [empresaId, flujo.id, contactoId, numero, flujo.accion_datos.fecha]
+        );
+      } else if (espera > 0) {
+        await pool.query(
+          `INSERT INTO llamadas_programadas (empresa_id, flujo_id, contacto_id, numero, fecha_programada)
+           VALUES ($1, $2, $3, $4, now() + ($5 || ' minutes')::interval)`,
+          [empresaId, flujo.id, contactoId, numero, String(espera)]
         );
       } else {
         await iniciarLlamadaIA({ empresaId, numero, origen: `flujo:${flujo.id}` });

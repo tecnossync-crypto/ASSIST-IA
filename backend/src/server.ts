@@ -34,7 +34,7 @@ import { reglasApiRoutes } from "./routes/reglas-api.js";
 import { almacenamientoRoutes } from "./routes/almacenamiento.js";
 import { integracionesNubeRoutes } from "./routes/integraciones-nube.js";
 import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
-import { procesarTickLlamadasProgramadas } from "./jobs/dispatcher-flujos.js";
+import { procesarTickLlamadasProgramadas, procesarTickFlujosPendientes } from "./jobs/dispatcher-flujos.js";
 import { limpiarGrabacionesVencidas } from "./jobs/limpiar-grabaciones.js";
 
 // Red de seguridad a nivel de proceso: sin esto, CUALQUIER excepción no
@@ -135,6 +135,9 @@ if (publicBaseUrl) {
   setInterval(() => {
     procesarTickLlamadasProgramadas().catch((err) => {
       app.log.error(err, "Error en tick del despachador de llamadas programadas");
+    });
+    procesarTickFlujosPendientes().catch((err) => {
+      app.log.error(err, "Error en tick de flujos con tiempo de espera");
     });
   }, TICK_MS);
 } else {

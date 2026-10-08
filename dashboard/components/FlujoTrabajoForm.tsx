@@ -168,7 +168,7 @@ export function FlujoTrabajoForm({ etiquetas }: { etiquetas: EtiquetaDisponible[
                 checked={modoLlamada === "inmediato"}
                 onChange={() => setModoLlamada("inmediato")}
               />
-              Inmediato
+              Sin fecha fija (inmediato o con espera)
             </label>
             <label className="flex items-center gap-1.5">
               <input
@@ -192,6 +192,38 @@ export function FlujoTrabajoForm({ etiquetas }: { etiquetas: EtiquetaDisponible[
           <p className="text-xs text-muted">
             La llamada la hace el agente de IA con el guion normal configurado en Configuración → Inteligencia
             Artificial.
+          </p>
+        </div>
+      )}
+
+      {!(accion === "llamar_contacto" && modoLlamada === "programada") && (
+        <div className="flex flex-col gap-2 rounded-md border border-dashed border-edge p-3">
+          <label htmlFor="retraso_cantidad" className="text-sm text-ink-2">
+            ¿Esperar un tiempo antes de ejecutarla?
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              id="retraso_cantidad"
+              name="retraso_cantidad"
+              type="number"
+              min={0}
+              max={43200}
+              defaultValue={0}
+              className="w-24 rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+            <select
+              name="retraso_unidad"
+              defaultValue="minutos"
+              className="rounded-md border border-edge px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="minutos">minutos</option>
+              <option value="horas">horas</option>
+              <option value="dias">días</option>
+            </select>
+          </div>
+          <p className="text-xs text-muted">
+            Con 0 se ejecuta al instante. Si pones un tiempo, la acción se hace esa cantidad de tiempo después de
+            que se cumpla la condición (máximo 30 días). Si la regla se apaga mientras espera, ya no se ejecuta.
           </p>
         </div>
       )}

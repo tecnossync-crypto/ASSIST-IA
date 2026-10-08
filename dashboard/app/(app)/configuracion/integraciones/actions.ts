@@ -8,6 +8,8 @@ import {
   crearReglaApiLlamadas,
   actualizarReglaApiLlamadas,
   eliminarReglaApiLlamadas,
+  probarReglasApiLlamadas,
+  type ResultadoPruebaRegla,
 } from "@/lib/api";
 import { auditar } from "@/lib/session";
 
@@ -29,6 +31,7 @@ export async function probarWebhookAction(
 
 export interface EstadoRegla {
   error?: string;
+  ok?: boolean;
 }
 
 export async function crearReglaAction(_prevState: EstadoRegla | null, formData: FormData): Promise<EstadoRegla> {
@@ -38,7 +41,7 @@ export async function crearReglaAction(_prevState: EstadoRegla | null, formData:
   const valor = String(formData.get("valor") ?? "").trim();
   const promptPersonalizado = String(formData.get("promptPersonalizado") ?? "").trim();
 
-  if (!nombre || !campo || !valor || !promptPersonalizado) {
+  if (!nombre || !campo || (operador !== "existe" && !valor) || !promptPersonalizado) {
     return { error: "Todos los campos son requeridos." };
   }
 
@@ -50,7 +53,23 @@ export async function crearReglaAction(_prevState: EstadoRegla | null, formData:
 
   revalidatePath("/configuracion/integraciones");
   await auditar("crear", "regla_api_llamadas", { nombre, campo, valor });
-  return {};
+  return { ok: true };
+}
+
+export async function probarReglasAction(
+  textoJson: string
+): Promise<{ resultado?: ResultadoPruebaRegla; error?: string }> {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(textoJson);
+  } catch {
+    return { error: "Eso no es un JSON válido. Revisa las comillas y las comas." };
+  }
+  try {
+    return { resultado: await probarReglasApiLlamadas(payload) };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo probar." };
+  }
 }
 
 export async function alternarReglaAction(id: string, activa: boolean) {

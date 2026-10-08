@@ -20,17 +20,25 @@ function describirDisparador(f: { disparador: string; disparador_datos: { etique
   return ETIQUETAS_DISPARADOR[f.disparador] ?? f.disparador;
 }
 
+function describirEspera(minutos: number): string {
+  if (minutos % 1440 === 0) return `${minutos / 1440} día(s)`;
+  if (minutos % 60 === 0) return `${minutos / 60} hora(s)`;
+  return `${minutos} minuto(s)`;
+}
+
 function describirAccion(f: {
   accion: string;
-  accion_datos: { etiqueta?: string; tipo?: string; modo?: string; fecha?: string };
+  accion_datos: { etiqueta?: string; tipo?: string; modo?: string; fecha?: string; retraso_minutos?: number | string };
 }): string {
-  if (f.accion === "agregar_etiqueta") return `agregar etiqueta "${f.accion_datos.etiqueta}"`;
+  const espera = Number(f.accion_datos.retraso_minutos ?? 0);
+  const cuando = espera > 0 ? `esperar ${describirEspera(espera)} y luego ` : "";
+  if (f.accion === "agregar_etiqueta") return `${cuando}agregar etiqueta "${f.accion_datos.etiqueta}"`;
   if (f.accion === "llamar_contacto") {
     return f.accion_datos.modo === "programada"
       ? `llamar con IA el ${formatFechaHora(f.accion_datos.fecha ?? "")}`
-      : "llamar con IA de inmediato";
+      : `${cuando}llamar con IA${espera > 0 ? "" : " de inmediato"}`;
   }
-  return `crear solicitud (${f.accion_datos.tipo ?? "seguimiento"})`;
+  return `${cuando}crear solicitud (${f.accion_datos.tipo ?? "seguimiento"})`;
 }
 
 export default async function FlujosTrabajoPage() {

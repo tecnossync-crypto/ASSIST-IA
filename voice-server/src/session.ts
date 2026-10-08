@@ -81,6 +81,9 @@ export class ConversationSession {
     return this.empresa?.tts_provider === "elevenlabs" && !!this.empresa?.voz_agente;
   }
 
+  /** Lo último que se le dijo al cliente — para retomarlo si lo interrumpió un ruido. */
+  ultimoTextoAgente = "";
+
   registrarTurnoAgente(texto: string) {
     this.turnos.push({ hablante: "agente", texto, timestamp: new Date().toISOString() });
   }

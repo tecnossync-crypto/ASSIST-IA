@@ -21,6 +21,13 @@ export async function crearFlujoAction(formData: FormData) {
   const descripcion = String(formData.get("descripcion") ?? "").trim();
   const modoLlamada = String(formData.get("modo_llamada") ?? "inmediato").trim();
   const fechaLlamada = String(formData.get("fecha_llamada") ?? "").trim();
+  const cantidadEspera = Math.floor(Number(formData.get("retraso_cantidad") ?? 0));
+  const unidadEspera = String(formData.get("retraso_unidad") ?? "minutos");
+  const minutosPorUnidad = unidadEspera === "dias" ? 1440 : unidadEspera === "horas" ? 60 : 1;
+  // Tope de 30 días (el backend aplica el mismo límite).
+  const retrasoMinutos = Number.isFinite(cantidadEspera) && cantidadEspera > 0
+    ? Math.min(cantidadEspera * minutosPorUnidad, 60 * 24 * 30)
+    : 0;
 
   if (!nombre || !disparador || !accion) return;
 
@@ -37,6 +44,11 @@ export async function crearFlujoAction(formData: FormData) {
     accionDatos = modoLlamada === "programada" ? { modo: "programada", fecha: fechaLlamada } : { modo: "inmediato" };
   } else {
     accionDatos = { tipo: tipo || "seguimiento", descripcion };
+  }
+
+  // Con fecha y hora específica no aplica una espera aparte.
+  if (retrasoMinutos > 0 && accionDatos.modo !== "programada") {
+    accionDatos.retraso_minutos = String(retrasoMinutos);
   }
 
   await crearFlujoTrabajo({ nombre, disparador, disparadorDatos, accion, accionDatos });

@@ -1,11 +1,50 @@
 import { pool } from "../db/pool.js";
 
+export type OperadorRegla = "igual" | "contiene" | "existe";
+
 interface ReglaApiLlamadas {
   id: string;
+  nombre: string;
   campo: string;
-  operador: "igual" | "contiene";
+  operador: OperadorRegla;
   valor: string;
   prompt_personalizado: string;
+}
+
+/**
+ * Valores de texto que trae el body en el campo de una regla. Acepta:
+ * - ruta con puntos para campos anidados: "contacto.etiqueta";
+ * - texto, números y booleanos (se comparan como texto);
+ * - listas (ej. "etiquetas": ["vip","moroso"]): la regla aplica si CUALQUIER
+ *   elemento coincide.
+ */
+function valoresDelCampo(body: Record<string, unknown>, campo: string): string[] {
+  let actual: unknown = body;
+  for (const parte of campo.split(".")) {
+    if (actual === null || typeof actual !== "object" || Array.isArray(actual)) return [];
+    actual = (actual as Record<string, unknown>)[parte];
+  }
+
+  const aplanar = (v: unknown): string[] => {
+    if (typeof v === "string") return [v];
+    if (typeof v === "number" || typeof v === "boolean") return [String(v)];
+    if (Array.isArray(v)) return v.flatMap(aplanar);
+    return [];
+  };
+  return aplanar(actual);
+}
+
+export function coincideRegla(
+  regla: { campo: string; operador: string; valor: string },
+  body: Record<string, unknown>
+): boolean {
+  const recibidos = valoresDelCampo(body, regla.campo.trim()).map((v) => v.trim().toLowerCase());
+  if (regla.operador === "existe") return recibidos.some((v) => v !== "");
+
+  const esperado = regla.valor.trim().toLowerCase();
+  return regla.operador === "contiene"
+    ? recibidos.some((v) => v.includes(esperado))
+    : recibidos.some((v) => v === esperado);
 }
 
 /**
@@ -25,9 +64,9 @@ interface ReglaApiLlamadas {
 export async function evaluarReglaApiLlamadas(
   empresaId: string,
   body: Record<string, unknown>
-): Promise<{ reglaId: string; promptPersonalizado: string } | null> {
+): Promise<{ reglaId: string; nombre: string; promptPersonalizado: string } | null> {
   const result = await pool.query<ReglaApiLlamadas>(
-    `SELECT id, campo, operador, valor, prompt_personalizado
+    `SELECT id, nombre, campo, operador, valor, prompt_personalizado
      FROM reglas_api_llamadas
      WHERE empresa_id = $1 AND activa = true
      ORDER BY orden, creado_en`,
@@ -35,16 +74,8 @@ export async function evaluarReglaApiLlamadas(
   );
 
   for (const regla of result.rows) {
-    const valorRecibido = body[regla.campo];
-    if (typeof valorRecibido !== "string") continue;
-
-    const coincide =
-      regla.operador === "contiene"
-        ? valorRecibido.toLowerCase().includes(regla.valor.toLowerCase())
-        : valorRecibido.trim().toLowerCase() === regla.valor.trim().toLowerCase();
-
-    if (coincide) {
-      return { reglaId: regla.id, promptPersonalizado: regla.prompt_personalizado };
+    if (coincideRegla(regla, body)) {
+      return { reglaId: regla.id, nombre: regla.nombre, promptPersonalizado: regla.prompt_personalizado };
     }
   }
 

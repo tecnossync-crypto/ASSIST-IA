@@ -661,7 +661,7 @@ export interface ReglaApiLlamadas {
   id: string;
   nombre: string;
   campo: string;
-  operador: "igual" | "contiene";
+  operador: "igual" | "contiene" | "existe";
   valor: string;
   prompt_personalizado: string;
   activa: boolean;
@@ -696,7 +696,9 @@ export async function crearReglaApiLlamadas(data: {
 }
 
 export async function actualizarReglaApiLlamadas(id: string, data: { activa?: boolean }): Promise<void> {
-  const res = await fetch(new URL(`/api/reglas-api-llamadas/${id}`, BACKEND_URL), {
+  const url = new URL(`/api/reglas-api-llamadas/${id}`, BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(data),
@@ -705,8 +707,29 @@ export async function actualizarReglaApiLlamadas(id: string, data: { activa?: bo
 }
 
 export async function eliminarReglaApiLlamadas(id: string): Promise<void> {
-  const res = await fetch(new URL(`/api/reglas-api-llamadas/${id}`, BACKEND_URL), { method: "DELETE" });
+  const url = new URL(`/api/reglas-api-llamadas/${id}`, BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { method: "DELETE" });
   if (!res.ok) throw new Error(`Error eliminando la regla: HTTP ${res.status}`);
+}
+
+export interface ResultadoPruebaRegla {
+  aplicada: { id: string; nombre: string } | null;
+  evaluadas: { id: string; nombre: string; activa: boolean; coincide: boolean }[];
+}
+
+// Simula qué regla aplicaría para un body de ejemplo, sin llamar a nadie.
+export async function probarReglasApiLlamadas(payload: unknown): Promise<ResultadoPruebaRegla> {
+  const res = await fetch(new URL("/api/reglas-api-llamadas/probar", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, payload }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error probando las reglas: HTTP ${res.status}`);
+  }
+  return res.json();
 }
 
 export async function obtenerWebhookRecibido(id: string): Promise<WebhookRecibido> {
@@ -766,7 +789,14 @@ export interface FlujoTrabajo {
   disparador: DisparadorFlujo;
   disparador_datos: { etiqueta?: string };
   accion: AccionFlujo;
-  accion_datos: { etiqueta?: string; tipo?: string; descripcion?: string; modo?: "inmediato" | "programada"; fecha?: string };
+  accion_datos: {
+    etiqueta?: string;
+    tipo?: string;
+    descripcion?: string;
+    modo?: "inmediato" | "programada";
+    fecha?: string;
+    retraso_minutos?: number | string;
+  };
   activo: boolean;
   creado_en: string;
 }

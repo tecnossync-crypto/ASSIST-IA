@@ -92,6 +92,18 @@ export function twimlConnectVoiceAgent(opts: {
   // fallando con los fixes anteriores (esos solo cubrían ttsProvider/voice).
   const idiomaAttr = ` language="es-MX" transcriptionProvider="Google" speechModel="telephony"`;
 
+  // Por defecto ConversationRelay corta el audio del bot con cualquier ruido
+  // (interruptSensitivity="high", y también con teclas): el bot se callaba a
+  // media frase por una tos, el eco de la línea o un "mjm". Ahora solo una
+  // frase del cliente lo interrumpe (interruptible="speech"), con
+  // sensibilidad baja (exige voz más clara y más larga) y sin cortarse por
+  // simples asentimientos tipo "ajá"/"ok" (ignoreBackchannel). Se puede
+  // ajustar sin tocar código con INTERRUPT_SENSITIVITY=low|medium|high.
+  const sensibilidad = ["low", "medium", "high"].includes(process.env.INTERRUPT_SENSITIVITY ?? "")
+    ? process.env.INTERRUPT_SENSITIVITY
+    : "low";
+  const interrupcionAttr = ` interruptible="speech" interruptSensitivity="${sensibilidad}" ignoreBackchannel="true"`;
+
   // Si la llamada viene de una campaña, el voice-server la usa para pedir
   // el guion combinado (empresa + guion_override de la campaña). Si viene
   // de un webhook externo (Configuración → Integraciones → API), pide el
@@ -148,7 +160,7 @@ export function twimlConnectVoiceAgent(opts: {
     <Stream url="${streamSupervisionUrl}" track="both_tracks" />
   </Start>
   <Connect>
-    <ConversationRelay url="${voiceWsUrl}"${idiomaAttr}${vozAttr}>
+    <ConversationRelay url="${voiceWsUrl}"${idiomaAttr}${vozAttr}${interrupcionAttr}>
       <Parameter name="empresaId" value="${empresaId}" />
       <Parameter name="callSid" value="${callSid}" />${parametroCampana}${parametroWebhook}${parametroNumeroCliente}${parametroEsperarVoz}
     </ConversationRelay>
