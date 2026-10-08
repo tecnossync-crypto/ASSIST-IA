@@ -1,0 +1,56 @@
+# Ambiente de QA: los mismos servicios que producción, pero con su propia base
+# de datos, claves y número de Twilio (ver .env.qa) y con el candado que impide
+# llamar a clientes reales. Corre en el MISMO servidor que producción, desde
+# otra carpeta (~/app-qa) y otra rama (qa):
+#
+#   cd ~/app-qa && bash deploy/deploy.sh qa
+#
+# No tiene su propio Caddy: el de producción les da HTTPS y los dominios
+# QA_PUBLIC_DOMAIN / QA_DASHBOARD_DOMAIN (ver deploy/Caddyfile). Para que ese
+# Caddy los alcance, los contenedores se unen a su red (RED_PROD). Por eso los
+# servicios se llaman distinto que los de producción (qa-backend, ...): en una
+# red compartida, dos servicios con el mismo nombre se pisarían.
+name: qa
+
+services:
+  qa-backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env.qa
+    environment:
+      - APP_VERSION=${APP_VERSION:-}
+    expose:
+      - "3001"
+    networks: [interna, proxy]
+
+  qa-voice-server:
+    build: ./voice-server
+    restart: unless-stopped
+    env_file: .env.qa
+    expose:
+      - "3002"
+    networks: [interna, proxy]
+
+  qa-dashboard:
+    build:
+      context: ./dashboard
+      args:
+        NEXT_PUBLIC_EMPRESA_ID: ${NEXT_PUBLIC_EMPRESA_ID}
+        BACKEND_URL: http://qa-backend:3001
+        NEXT_PUBLIC_BACKEND_PUBLIC_URL: https://${PUBLIC_DOMAIN}
+        NEXT_PUBLIC_VOICE_WS_URL: wss://${PUBLIC_DOMAIN}/voice-stream
+        NEXT_PUBLIC_ENTORNO: qa
+        NEXT_PUBLIC_APP_VERSION: ${APP_VERSION:-}
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=http://qa-backend:3001
+      - SESSION_SECRET=${SESSION_SECRET}
+    expose:
+      - "3000"
+    networks: [interna, proxy]
+
+networks:
+  interna: {}
+  proxy:
+    external: true
+    name: ${RED_PROD:-app_default}

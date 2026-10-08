@@ -7,6 +7,7 @@ import { AgenteSoftphoneProvider } from "@/components/AgenteSoftphoneContext";
 import { LlamadasExternasWidget } from "@/components/LlamadasExternasWidget";
 import { MobileNavProvider } from "@/components/MobileNavContext";
 import { MobileMenuButton } from "@/components/MobileMenuButton";
+import { BannerEntorno } from "@/components/BannerEntorno";
 import { obtenerSesion } from "@/lib/session";
 
 // Shell de la plataforma ya autenticada: Sidebar (con quién entró), panel de
@@ -30,6 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="flex h-full">
           <Sidebar sesion={sesion} />
           <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+            <BannerEntorno />
             <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-edge bg-surface/80 px-3 py-2.5 backdrop-blur sm:px-4 md:justify-end md:px-6">
               <MobileMenuButton />
               <div className="flex items-center gap-3">

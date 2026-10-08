@@ -1,0 +1,31 @@
+# Revisión automática en cada cambio: antes de pasar nada a QA o producción, que
+# al menos compile. Corre en GitHub (gratis para el repo), no en el servidor.
+name: Revisión (compila)
+
+on:
+  push:
+    branches: [qa, main]
+  pull_request:
+    branches: [qa, main]
+
+jobs:
+  compilar:
+    name: ${{ matrix.servicio }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        servicio: [backend, voice-server, dashboard]
+    defaults:
+      run:
+        working-directory: ${{ matrix.servicio }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.servicio }}/package-lock.json
+      - run: npm ci
+      - name: Tipos (tsc)
+        run: npx tsc --noEmit

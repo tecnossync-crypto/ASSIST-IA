@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { config } from "dotenv";
 import pg from "pg";
+import bcrypt from "bcryptjs";
 import { encriptar } from "../lib/crypto.js";
 import { buildConnectionConfig } from "./connection-config.js";
 
@@ -57,10 +58,33 @@ async function main() {
       [nombre, accountSid, authTokenEnc, phoneNumber, JSON.stringify(guionAgente)]
     );
 
+    let empresaId: string | null = null;
     if (result.rows.length > 0) {
-      console.log(`Empresa creada: ${nombre} (id=${result.rows[0].id})`);
+      empresaId = result.rows[0].id;
+      console.log(`Empresa creada: ${nombre} (id=${empresaId})`);
     } else {
       console.log(`Ya existía una empresa con ese número/nombre, no se insertó nada nuevo.`);
+      const existente = await client.query<{ id: string }>(
+        "SELECT id FROM empresas WHERE twilio_phone_number = $1 LIMIT 1",
+        [phoneNumber]
+      );
+      empresaId = existente.rows[0]?.id ?? null;
+      if (empresaId) console.log(`Empresa existente (id=${empresaId})`);
+    }
+
+    // Administrador inicial: sin esto un entorno nuevo no tiene con quién entrar al dashboard.
+    const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+    if (empresaId && adminEmail && adminPassword) {
+      const hash = await bcrypt.hash(adminPassword, 10);
+      const creado = await client.query(
+        `INSERT INTO usuarios (empresa_id, nombre, email, password_hash, rol)
+         VALUES ($1, $2, $3, $4, 'admin')
+         ON CONFLICT (empresa_id, email) DO NOTHING
+         RETURNING id`,
+        [empresaId, process.env.SEED_ADMIN_NOMBRE?.trim() || "Administrador", adminEmail, hash]
+      );
+      console.log(creado.rows.length > 0 ? `Administrador creado: ${adminEmail}` : `El administrador ${adminEmail} ya existía.`);
     }
   } finally {
     await client.end();

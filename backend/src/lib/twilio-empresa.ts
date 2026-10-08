@@ -1,6 +1,7 @@
 import twilio from "twilio";
 import { pool } from "../db/pool.js";
 import { desencriptar } from "./crypto.js";
+import { esQA, verificarDestinoPermitido } from "./entorno.js";
 
 export interface CentralPropiaConfig {
   dominio: string;
@@ -61,8 +62,21 @@ export async function clienteTwilioEmpresa(empresaId: string) {
         }
       : null;
 
+  const client = twilio(row.twilio_account_sid, authToken);
+
+  // Candado de QA: toda llamada saliente pasa por aquí, así que ninguna parte del
+  // código (campañas, webhook, panel, flujos, respaldo) puede marcar a un cliente
+  // real desde QA. En producción este bloque no se ejecuta.
+  if (esQA()) {
+    const crearOriginal = client.calls.create.bind(client.calls);
+    client.calls.create = (async (params: { to?: unknown }, callback?: unknown) => {
+      verificarDestinoPermitido(params?.to);
+      return (crearOriginal as (p: unknown, c?: unknown) => Promise<unknown>)(params, callback);
+    }) as typeof client.calls.create;
+  }
+
   return {
-    client: twilio(row.twilio_account_sid, authToken),
+    client,
     fromNumber: row.twilio_phone_number,
     timeoutTimbrado: row.timeout_timbrado_segundos,
     centralPropia,

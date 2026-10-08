@@ -12,8 +12,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// En QA la pestaña dice "[QA]": se distingue de producción de un vistazo.
+const PREFIJO_TITULO = process.env.NEXT_PUBLIC_ENTORNO === "qa" ? "[QA] " : "";
+
 export const metadata: Metadata = {
-  title: "Tecnossync — Voz IA",
+  title: `${PREFIJO_TITULO}Tecnossync — Voz IA`,
   description: "Historial de llamadas atendidas por el agente de voz IA de Tecnossync",
 };
 
