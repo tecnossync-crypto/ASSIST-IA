@@ -58,7 +58,7 @@ Crea la base de QA, clona `~/app-qa`, genera `~/app-qa/.env.qa` con claves nueva
    - `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD`: con qué entras al dashboard de QA.
 2. Que Caddy sirva los dominios de QA (corte de 1–2 segundos en producción; hazlo en un momento tranquilo):
    ```bash
-   cd ~/app && docker compose --env-file .env.production up -d caddy
+   cd ~/app && docker compose --env-file .env.production up -d --no-deps caddy
    ```
 3. Primer deploy de QA (compila, migra, crea la empresa de pruebas y tu administrador):
    ```bash

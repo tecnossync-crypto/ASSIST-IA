@@ -141,7 +141,7 @@ LISTO. Falta lo siguiente (en este orden):
  1. Edita $DESTINO/.env.qa y completa:
       QA_NUMEROS_PERMITIDOS, TWILIO_* (subcuenta de pruebas), SEED_ADMIN_EMAIL y SEED_ADMIN_PASSWORD.
  2. Que Caddy sirva los dominios de QA (corte de 1-2 segundos en producción, hazlo en un momento tranquilo):
-      cd ~/app && git pull origin main && docker compose --env-file .env.production up -d caddy
+      cd ~/app && git pull origin main && docker compose --env-file .env.production up -d --no-deps caddy
  3. Primer deploy de QA (compila, migra, crea la empresa de pruebas y su administrador):
       cd $DESTINO && bash deploy/deploy.sh qa
  4. Entra a https://$QA_DASH con el email y la contraseña de SEED_ADMIN_*.
