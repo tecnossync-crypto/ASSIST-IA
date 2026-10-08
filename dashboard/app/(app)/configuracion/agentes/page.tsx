@@ -7,6 +7,7 @@ import { NuevoAgenteForm } from "@/components/NuevoAgenteForm";
 import { CambiarPasswordAgente } from "@/components/CambiarPasswordAgente";
 import { Configurar2FA } from "@/components/Configurar2FA";
 import { AvatarUsuario } from "@/components/AvatarUsuario";
+import { DireccionExtension } from "@/components/DireccionExtension";
 import { EditorIdExternoAgente } from "@/components/EditorIdExternoAgente";
 import { eliminarAgenteAction } from "./actions";
 
@@ -59,6 +60,7 @@ export default async function AgentesPage() {
           <Download size={14} />
           Descargar extensión (.zip)
         </a>
+        <DireccionExtension />
       </section>
 
       <section className="rounded-lg border border-edge bg-surface p-5">

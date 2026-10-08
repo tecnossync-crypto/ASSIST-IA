@@ -18,6 +18,14 @@
 		reverse_proxy voice-server:3002
 	}
 
+	# La extensión de Chrome abre /extension-panel, que es del DASHBOARD. Si se
+	# configuró con este dominio (el de la API/webhooks) en vez del del
+	# dashboard, el backend respondía "Route GET:/extension-panel not found":
+	# se manda al dominio correcto para que funcione sin reinstalar nada.
+	handle /extension-panel* {
+		redir https://{$DASHBOARD_DOMAIN}{uri} 302
+	}
+
 	# Todo lo demás (webhooks de Twilio, /internal, /api, /health) va al backend.
 	handle {
 		reverse_proxy backend:3001

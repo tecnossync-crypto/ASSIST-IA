@@ -11,7 +11,7 @@ No está publicada en la Chrome Web Store (eso requiere cuenta de desarrollador 
 3. Activa **"Modo de desarrollador"** (interruptor arriba a la derecha).
 4. Click en **"Cargar extensión sin empaquetar"** (o "Load unpacked").
 5. Selecciona la carpeta que descomprimiste (`extension/`).
-5. Al instalarse, se abre sola la página de configuración — pon la dirección de tu dashboard (ej. `https://3-147-190-197.sslip.io`, la misma que usas para entrar desde el navegador) y guarda.
+5. Al instalarse, se abre sola la página de configuración — pon la dirección de tu dashboard (ej. `https://dashboard.3-147-190-197.sslip.io`: la misma que ves en la barra del navegador al entrar a la plataforma; **no** la de la API/webhooks, que no tiene el panel) y guarda.
 
 Repite estos pasos en la computadora de cada agente que quiera usarla (una extensión sin empaquetar no se sincroniza sola entre computadoras).
 
