@@ -8,21 +8,21 @@ import type { DestinoLlamadas } from "@/lib/api";
 const OPCIONES: { valor: DestinoLlamadas; titulo: string; descripcion: string }[] = [
   {
     valor: "plataforma",
-    titulo: "En la plataforma",
+    titulo: "Digital: en la web de la plataforma",
     descripcion:
-      "La llamada la contesta un agente conectado al softphone del dashboard, con el contacto y la conversación de la IA a la vista.",
+      "Suena en el panel de teléfono de los asesores que estén Activos. Les aparece la ventana de llamada entrante con el resumen de lo que habló el cliente con la IA. Si no hay asesores activos, el cliente espera en la cola.",
   },
   {
     valor: "central",
-    titulo: "En los teléfonos físicos",
+    titulo: "Teléfonos físicos (central)",
     descripcion:
-      "La llamada va directo a las extensiones de tu central y suena en los teléfonos de escritorio. No se usan los agentes de la plataforma.",
+      "La llamada pasa directo a las extensiones de tu central y suena en los teléfonos de escritorio. No se usa la web, así que no hay ventana de resumen. Si la central no está lista, pasa a los asesores digitales activos.",
   },
   {
     valor: "ambos",
-    titulo: "Plataforma primero, teléfonos de respaldo",
+    titulo: "Digital primero, teléfonos físicos de respaldo",
     descripcion:
-      "Se intenta con los agentes de la plataforma; si no hay ninguno disponible, suenan las extensiones de la central.",
+      "Suena en la web de los asesores activos; si nadie contesta a tiempo (o no hay ninguno activo), pasa sola a las extensiones de la central.",
   },
 ];
 

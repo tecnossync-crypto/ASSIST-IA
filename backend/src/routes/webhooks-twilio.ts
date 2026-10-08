@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { colaEsperaConfig, hayAsesoresDisponibles, marcarEnCola } from "../lib/cola-espera.js";
+import { programarRespaldoCentral, twimlParaCentral } from "../lib/respaldo-central.js";
 import { llamadaYaSeGraba } from "../lib/estado-grabacion.js";
 import {
   twimlConnectVoiceAgent,
@@ -267,7 +268,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     const agenteUsuarioId = identidad ? usuarioIdDesdeIdentidad(identidad) : null;
 
     await pool.query(
-      "UPDATE llamadas SET agente_call_sid = $2, agente_usuario_id = $3, estado = 'en_curso', en_cola_desde = NULL WHERE id = $1",
+      "UPDATE llamadas SET agente_call_sid = $2, agente_usuario_id = $3, estado = 'en_curso', en_cola_desde = NULL, respaldo_central_en = NULL WHERE id = $1",
       [llamadaId, callSid, agenteUsuarioId]
     );
 
@@ -302,13 +303,23 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       empresa_id: string;
       cola_id: string | null;
       transferida: boolean;
-    }>("SELECT id, empresa_id, cola_id, transferida FROM llamadas WHERE call_sid = $1", [callSid]);
+      direccion: "entrante" | "saliente";
+      numero_origen: string;
+      numero_destino: string;
+    }>(
+      `SELECT id, empresa_id, cola_id, transferida, direccion, numero_origen, numero_destino
+       FROM llamadas WHERE call_sid = $1`,
+      [callSid]
+    );
     const row = llamada.rows[0];
 
     if (!row?.transferida || !publicBaseUrl) {
       reply.type("text/xml").send(twimlColgar());
       return;
     }
+    // Teléfono del cliente: viaja al navegador del asesor para mostrar quién llama
+    // (si no, el panel mostraba el número de la empresa) y buscar su resumen exacto.
+    const numeroCliente = row.direccion === "entrante" ? row.numero_origen : row.numero_destino;
 
     // Dónde se atiende (plataforma / central / ambos) lo decide la cola o,
     // si no tiene, la empresa — ver Configuración → Enrutamiento.
@@ -317,7 +328,8 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     // La IA arranca una grabación al contestar y sigue activa tras transferir:
     // si ya hay una corriendo no se arranca otra (quedaría repetida); si por
     // algo no la hay, se arranca aquí para que ninguna llamada quede sin grabar.
-    const yaGrabando = await llamadaYaSeGraba(await clienteTwilioEmpresa(row.empresa_id), callSid);
+    const twilioPost = await clienteTwilioEmpresa(row.empresa_id);
+    const yaGrabando = await llamadaYaSeGraba(twilioPost, callSid);
 
     if (destino !== "central") {
       const conferenciaNombre = `llamada-${row.id}`;
@@ -346,6 +358,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           conferenciaNombre,
           colaId: row.cola_id,
           publicBaseUrl,
+          numeroCliente,
         });
 
         if (identidades.length > 0) {
@@ -353,59 +366,63 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           // Mientras nadie conteste, el cliente cuenta como "en cola" (la
           // conferencia-evento lo saca de ahí cuando un asesor entra).
           if (cola.activa) await marcarEnCola(row.id, conferenciaNombre);
+          // "Plataforma primero, teléfonos de respaldo": si nadie contesta en lo
+          // que dura el timbre, la llamada pasa sola a los teléfonos físicos.
+          if (destino === "ambos" && twilioPost?.centralPropia?.entrante) {
+            await programarRespaldoCentral(row.id, (twilioPost.timeoutTimbrado ?? 30) + 5);
+          }
           reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, grabar: !yaGrabando }));
           return;
         }
       }
     }
 
-    // A las extensiones de la central: directo si el destino es "central", o
-    // como respaldo si es "ambos" y no había agentes de la plataforma. Solo si
-    // la empresa tiene la central activa para entrantes. Ver
-    // twimlTransferirCentralPropia() para el aviso sobre pruebas en vivo.
+    // A los teléfonos físicos (extensiones de la central): directo si el destino
+    // es "central", o como respaldo si es "ambos" y no había asesores en la
+    // plataforma. Requiere la central activa para entrantes y extensiones activas.
+    let centralNoLista = false;
     if (destino !== "plataforma") {
-      const twilioEmpresa = await clienteTwilioEmpresa(row.empresa_id);
-      if (!twilioEmpresa?.centralPropia?.entrante) {
-        app.log.warn(
-          {
-            callSid,
-            destino,
-            twilioConfigurado: !!twilioEmpresa,
-            centralActivaConDominio: !!twilioEmpresa?.centralPropia,
-            entrante: twilioEmpresa?.centralPropia?.entrante ?? null,
-          },
-          "Destino con central, pero la central propia no está activa/con dominio o 'entrantes' está apagado"
+      const resultado = await twimlParaCentral({
+        empresaId: row.empresa_id,
+        colaId: row.cola_id,
+        callSid,
+        publicBaseUrl,
+        grabar: !yaGrabando,
+      });
+      if ("twiml" in resultado) {
+        app.log.info(
+          { callSid, colaId: row.cola_id, destino, extensiones: resultado.extensiones },
+          "Transfiriendo llamada de la IA a extensiones de la central propia"
         );
-      } else {
-        const extensiones = await extensionesDeTransferencia(row.empresa_id, row.cola_id);
-        if (extensiones.length === 0) {
-          app.log.warn(
-            { callSid, destino, colaId: row.cola_id },
-            "Destino con central, pero no hay extensiones activas (ni del departamento ni generales)"
-          );
-        }
-        if (extensiones.length > 0) {
-          const central = twilioEmpresa.centralPropia;
-          app.log.info(
-            { callSid, colaId: row.cola_id, destino, extensiones },
-            "Transfiriendo llamada de la IA a extensiones de la central propia"
-          );
-          // Con autenticación por IP, "usuario/password" no son credenciales
-          // SIP (la contraseña guardada ahí es el PIN del DISA) — no se mandan.
-          const conCredenciales = central.authTipo === "credenciales";
-          reply.type("text/xml").send(
-            twimlTransferirCentralPropia({
-              extensiones,
-              dominio: central.dominio,
-              usuario: conCredenciales ? central.usuario : null,
-              password: conCredenciales ? central.password : null,
-              publicBaseUrl,
-              callSid,
-              grabar: !yaGrabando,
-            })
-          );
-          return;
-        }
+        reply.type("text/xml").send(resultado.twiml);
+        return;
+      }
+      centralNoLista = true;
+      app.log.warn(
+        { callSid, destino, colaId: row.cola_id, motivo: resultado.motivo },
+        resultado.motivo === "central_apagada"
+          ? "Destino con teléfonos físicos, pero la central propia no está activa/con dominio o 'entrantes' está apagado"
+          : "Destino con teléfonos físicos, pero no hay extensiones activas (ni del departamento ni generales)"
+      );
+    }
+
+    // Destino "teléfonos físicos" pero la central no está lista: antes se le
+    // colgaba al cliente; ahora, si hay asesores activos en la plataforma, se
+    // le pasa a ellos para no perder la llamada.
+    if (centralNoLista && destino === "central" && (await hayAsesoresDisponibles(row.empresa_id, row.cola_id))) {
+      const conferenciaNombre = `llamada-${row.id}`;
+      const { identidades } = await iniciarConferenciaConAgentes({
+        empresaId: row.empresa_id,
+        llamadaId: row.id,
+        conferenciaNombre,
+        colaId: row.cola_id,
+        publicBaseUrl,
+        numeroCliente,
+      });
+      if (identidades.length > 0) {
+        app.log.warn({ callSid, identidades }, "La central no estaba lista: la llamada se pasó a asesores de la plataforma");
+        reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, grabar: !yaGrabando }));
+        return;
       }
     }
 
@@ -483,7 +500,10 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       // Una llamada que terminó ya no espera en la cola (el cliente colgó, etc.).
       if (["completed", "busy", "no-answer", "failed", "canceled"].includes(status)) {
         await pool
-          .query("UPDATE llamadas SET en_cola_desde = NULL WHERE call_sid = $1 AND en_cola_desde IS NOT NULL", [callSid])
+          .query(
+          "UPDATE llamadas SET en_cola_desde = NULL, respaldo_central_en = NULL WHERE call_sid = $1 AND (en_cola_desde IS NOT NULL OR respaldo_central_en IS NOT NULL)",
+          [callSid]
+        )
           .catch(() => {});
       }
 

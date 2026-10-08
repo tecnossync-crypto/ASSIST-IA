@@ -14,6 +14,8 @@ interface SoftphoneCtx {
   estado: EstadoSoftphone;
   /** Número (o "Llamada entrante") de quien llama. */
   numeroEntrante: string;
+  /** Id de la llamada en la plataforma (para mostrar su resumen de la IA); "" si no se conoce. */
+  llamadaIdEntrante: string;
   /** Segundos desde que se contestó. */
   segundos: number;
   silenciado: boolean;
@@ -81,6 +83,7 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
   const callRef = useRef<import("@twilio/voice-sdk").Call | null>(null);
   const [estado, setEstado] = useState<EstadoSoftphone>("desconectado");
   const [numeroEntrante, setNumeroEntrante] = useState("");
+  const [llamadaIdEntrante, setLlamadaIdEntrante] = useState("");
   const [segundos, setSegundos] = useState(0);
   const [silenciado, setSilenciado] = useState(false);
   const [enEspera, setEnEspera] = useState(false);
@@ -96,6 +99,7 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
     setEnEspera(false);
     setSegundos(0);
     setMensaje("");
+    setLlamadaIdEntrante("");
   }, []);
 
   // (Re)registra el Device cada vez que cambia la sesión (identidad
@@ -137,7 +141,10 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
 
         device.on("incoming", (call) => {
           callRef.current = call;
-          setNumeroEntrante(call.parameters.From ?? "Llamada entrante");
+          // El servidor manda el teléfono del cliente y el id de la llamada junto
+          // al timbre (si no, "From" es el número de la empresa, no el del cliente).
+          setNumeroEntrante(call.customParameters?.get("numero") || call.parameters.From || "Llamada entrante");
+          setLlamadaIdEntrante(call.customParameters?.get("llamadaId") ?? "");
           setSegundos(0);
 
           call.on("accept", () => setEstado("en_curso"));
@@ -289,6 +296,7 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
       value={{
         estado,
         numeroEntrante,
+        llamadaIdEntrante,
         segundos,
         silenciado,
         enEspera,

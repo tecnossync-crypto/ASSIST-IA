@@ -176,6 +176,8 @@ export function PanelTelefono({
   // abrir el panel por transferencias viejas al cargar la página.
   const conocidasRef = useRef<Set<string> | null>(null);
   const vistasRef = useRef<string[]>([]);
+  // Para consultar el resumen YA (sin esperar el sondeo de 4 s) cuando empieza a sonar una llamada.
+  const refrescarContextoRef = useRef<() => void>(() => {});
 
   // Cola de espera: clientes que esperan en línea porque no había asesores.
   const [cola, setCola] = useState<LlamadaEnCola[]>([]);
@@ -236,6 +238,7 @@ export function PanelTelefono({
     if (sonando) {
       setAbierto(true);
       setMostrarTransferir(false);
+      refrescarContextoRef.current();
     }
   }, [sonando]);
 
@@ -290,6 +293,7 @@ export function PanelTelefono({
       }
     }
 
+    refrescarContextoRef.current = revisar;
     revisar();
     const intervalo = setInterval(revisar, INTERVALO_CONTEXTO_MS);
     return () => {
@@ -514,7 +518,8 @@ export function PanelTelefono({
   // coincide, o la transferencia más reciente (que acaba de pasar).
   const contextoActual =
     (sonando || enLlamadaSoftphone
-      ? (contexto.find((c) => soloDigitos(c.numero).slice(-10) === soloDigitos(numeroActivo).slice(-10)) ??
+      ? (contexto.find((c) => sp.llamadaIdEntrante !== "" && c.id === sp.llamadaIdEntrante) ??
+        contexto.find((c) => soloDigitos(c.numero).slice(-10) === soloDigitos(numeroActivo).slice(-10)) ??
         contexto.find((c) => idsVigentes.includes(c.id)))
       : undefined) ?? null;
 

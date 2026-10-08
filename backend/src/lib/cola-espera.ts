@@ -141,8 +141,16 @@ export async function atenderDeCola(opts: {
   const identidad = usuarioId ? identidadAgente(usuarioId) : `operador-${empresaId}`;
   const agenteUrl = `${publicBaseUrl}/webhooks/twilio/conferencia-agente?conferencia=${encodeURIComponent(fila.conferencia_nombre)}`;
   try {
+    const datos = await pool.query<{ direccion: string; numero_origen: string; numero_destino: string }>(
+      "SELECT direccion, numero_origen, numero_destino FROM llamadas WHERE id = $1",
+      [llamadaId]
+    );
+    const d = datos.rows[0];
+    const params = new URLSearchParams({ llamadaId, autoContestar: "true" });
+    if (d) params.set("numero", d.direccion === "entrante" ? d.numero_origen : d.numero_destino);
+
     const call = await twilioEmpresa.client.calls.create({
-      to: `client:${identidad}?autoContestar=true`,
+      to: `client:${identidad}?${params.toString()}`,
       from: twilioEmpresa.fromNumber,
       url: agenteUrl,
       method: "POST",

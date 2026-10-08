@@ -28,6 +28,7 @@ import { contextoTransferenciasRoutes } from "./routes/contexto-transferencias.j
 import { colaEsperaRoutes } from "./routes/cola-espera.js";
 import { expirarColaVencida } from "./lib/cola-espera.js";
 import { expirarPresenciaInactiva } from "./lib/agentes.js";
+import { ejecutarRespaldosCentralVencidos } from "./lib/respaldo-central.js";
 import { authRoutes } from "./routes/auth.js";
 import { auditoriaRoutes } from "./routes/auditoria.js";
 import { monitoreoRoutes } from "./routes/monitoreo.js";
@@ -150,6 +151,9 @@ if (publicBaseUrl) {
     });
     expirarPresenciaInactiva().catch((err) => {
       app.log.error(err, "Error expirando la presencia de asesores inactivos");
+    });
+    ejecutarRespaldosCentralVencidos(publicBaseUrl).catch((err) => {
+      app.log.error(err, "Error pasando llamadas sin atender a la central");
     });
   }, TICK_MS);
 } else {

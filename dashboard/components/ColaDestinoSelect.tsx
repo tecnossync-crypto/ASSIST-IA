@@ -40,9 +40,9 @@ export function ColaDestinoSelect({ colaId, destinoActual }: { colaId: string; d
         className="rounded-md border border-edge px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
       >
         <option value="">Usar el de la empresa</option>
-        <option value="plataforma">Plataforma</option>
+        <option value="plataforma">Digital (web)</option>
         <option value="central">Teléfonos físicos</option>
-        <option value="ambos">Plataforma + respaldo</option>
+        <option value="ambos">Digital + respaldo físico</option>
       </select>
       {guardando && <Loader2 size={12} className="animate-spin text-muted" />}
       {resultado?.ok && <CheckCircle2 size={13} className="text-emerald-600" aria-label="Guardado" />}

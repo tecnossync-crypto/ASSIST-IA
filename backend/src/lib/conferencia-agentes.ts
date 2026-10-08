@@ -30,8 +30,11 @@ export async function iniciarConferenciaConAgentes(opts: {
   // nadie, si el que llamó no estaba marcado "disponible"), dejando al
   // cliente esperando indefinidamente.
   usuarioIdDirecto?: string | null;
+  // Teléfono del cliente: viaja al navegador del asesor junto con el id de la
+  // llamada, para mostrar quién llama y su resumen de la IA en la llamada entrante.
+  numeroCliente?: string | null;
 }): Promise<{ identidades: string[] }> {
-  const { empresaId, llamadaId, conferenciaNombre, colaId, publicBaseUrl, usuarioIdDirecto } = opts;
+  const { empresaId, llamadaId, conferenciaNombre, colaId, publicBaseUrl, usuarioIdDirecto, numeroCliente } = opts;
 
   const identidadesAgentes = usuarioIdDirecto
     ? [identidadAgente(usuarioIdDirecto)]
@@ -53,7 +56,12 @@ export async function iniciarConferenciaConAgentes(opts: {
   // propia llamada saliente — si la hizo, es porque ya sabe que quiere
   // hablar con esa persona. El reparto normal (inbound/transferencias) sigue
   // sonando y esperando a que el agente elija contestar, como siempre.
-  const destino = (identidad: string) => (usuarioIdDirecto ? `client:${identidad}?autoContestar=true` : `client:${identidad}`);
+  const destino = (identidad: string) => {
+    const params = new URLSearchParams({ llamadaId });
+    if (numeroCliente) params.set("numero", numeroCliente);
+    if (usuarioIdDirecto) params.set("autoContestar", "true");
+    return `client:${identidad}?${params.toString()}`;
+  };
   const intentos = await Promise.all(
     identidadesAgentes.map((identidad) =>
       twilioEmpresa.client.calls
