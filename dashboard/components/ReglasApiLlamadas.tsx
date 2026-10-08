@@ -98,11 +98,11 @@ export function ReglasApiLlamadas({ reglas }: { reglas: ReglaApiLlamadas[] }) {
               </label>
               <label className="flex items-center gap-1.5">
                 <input type="radio" name="cuando" value="hora" checked={cuando === "hora"} onChange={() => setCuando("hora")} />
-                A una hora del día
+                Todos los días a una hora (corte)
               </label>
               <label className="flex items-center gap-1.5">
                 <input type="radio" name="cuando" value="fecha" checked={cuando === "fecha"} onChange={() => setCuando("fecha")} />
-                Fecha y hora fija
+                Una sola vez, en una fecha concreta
               </label>
             </div>
             {cuando === "hora" && (
@@ -113,9 +113,10 @@ export function ReglasApiLlamadas({ reglas }: { reglas: ReglaApiLlamadas[] }) {
                   <span className="text-xs text-muted">{zona ? `(hora de ${zona})` : ""}</span>
                 </div>
                 <p className="text-xs text-muted">
-                  Las solicitudes que coincidan con esta regla se guardan y se llaman la próxima vez que sea esa
-                  hora: si llegan antes, salen hoy a esa hora; si llegan después, mañana. Así, a las 12:00 sale todo
-                  lo que se acumuló desde el día anterior. Crea otra regla para otra hora (ej. 15:40).
+                  Se repite todos los días, sin fecha fija. Las solicitudes que coincidan con esta regla se guardan
+                  y se llaman a la hora de corte: las que lleguen antes salen hoy a esa hora y las que lleguen después
+                  salen mañana. Así, a las 12:00 sale todo lo acumulado desde el corte anterior. Crea otra regla para
+                  otra hora de corte (ej. 15:40).
                 </p>
               </>
             )}
@@ -263,7 +264,7 @@ function ProbadorReglas() {
 }
 
 function describirHorario(r: ReglaApiLlamadas): string {
-  if (r.hora_del_dia) return `llama a las ${r.hora_del_dia}`;
+  if (r.hora_del_dia) return `llama todos los días a las ${r.hora_del_dia}`;
   if (r.fecha_programada) {
     return `llama el ${new Date(r.fecha_programada).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}`;
   }
