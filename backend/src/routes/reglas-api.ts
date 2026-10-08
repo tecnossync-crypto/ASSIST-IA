@@ -4,6 +4,30 @@ import { coincideRegla } from "../lib/reglas-api-llamadas.js";
 
 const OPERADORES_VALIDOS = ["igual", "contiene", "existe"];
 
+const MAX_RETRASO_MINUTOS = 90 * 24 * 60; // 90 días, igual que el POST del webhook
+
+/** Valida el horario opcional de una regla: espera en minutos y/o fecha fija ISO con zona. */
+function leerHorario(
+  retraso: unknown,
+  fecha: unknown
+): { retraso: number | null; fecha: Date | null; error?: string } {
+  let r: number | null = null;
+  if (retraso !== undefined && retraso !== null && retraso !== "") {
+    const n = Math.floor(Number(retraso));
+    if (!Number.isFinite(n) || n < 0 || n > MAX_RETRASO_MINUTOS) {
+      return { retraso: null, fecha: null, error: "La espera debe ser de 0 a 90 días." };
+    }
+    r = n > 0 ? n : null;
+  }
+  let f: Date | null = null;
+  if (fecha !== undefined && fecha !== null && fecha !== "") {
+    const d = new Date(String(fecha));
+    if (Number.isNaN(d.getTime())) return { retraso: null, fecha: null, error: "La fecha y hora no son válidas." };
+    f = d;
+  }
+  return { retraso: r, fecha: f };
+}
+
 /**
  * Reglas que deciden QUÉ GUION usar cuando llega una solicitud al webhook
  * público /api/webhooks/llamadas, según los campos que mande la plataforma
@@ -19,7 +43,7 @@ export async function reglasApiRoutes(app: FastifyInstance) {
       return;
     }
     const result = await pool.query(
-      `SELECT id, nombre, campo, operador, valor, prompt_personalizado, activa, orden, creado_en
+      `SELECT id, nombre, campo, operador, valor, prompt_personalizado, activa, orden, retraso_minutos, fecha_programada, creado_en
        FROM reglas_api_llamadas WHERE empresa_id = $1 ORDER BY orden, creado_en`,
       [empresaId]
     );
@@ -35,9 +59,16 @@ export async function reglasApiRoutes(app: FastifyInstance) {
       valor: string;
       promptPersonalizado: string;
       orden?: number;
+      retrasoMinutos?: number | null;
+      fechaProgramada?: string | null;
     };
   }>("/api/reglas-api-llamadas", async (req, reply) => {
     const { empresaId, nombre, campo, operador, valor, promptPersonalizado, orden } = req.body;
+    const horario = leerHorario(req.body.retrasoMinutos, req.body.fechaProgramada);
+    if (horario.error) {
+      reply.code(400).send({ error: horario.error });
+      return;
+    }
     const operadorFinal = operador && OPERADORES_VALIDOS.includes(operador) ? operador : "igual";
     if (
       !empresaId ||
@@ -51,10 +82,11 @@ export async function reglasApiRoutes(app: FastifyInstance) {
     }
 
     const result = await pool.query(
-      `INSERT INTO reglas_api_llamadas (empresa_id, nombre, campo, operador, valor, prompt_personalizado, orden)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, nombre, campo, operador, valor, prompt_personalizado, activa, orden`,
-      [empresaId, nombre.trim(), campo.trim(), operadorFinal, (valor ?? "").trim(), promptPersonalizado.trim(), orden ?? 0]
+      `INSERT INTO reglas_api_llamadas
+         (empresa_id, nombre, campo, operador, valor, prompt_personalizado, orden, retraso_minutos, fecha_programada)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, nombre, campo, operador, valor, prompt_personalizado, activa, orden, retraso_minutos, fecha_programada`,
+      [empresaId, nombre.trim(), campo.trim(), operadorFinal, (valor ?? "").trim(), promptPersonalizado.trim(), orden ?? 0, horario.retraso, horario.fecha]
     );
     reply.send({ ok: true, regla: result.rows[0] });
   });

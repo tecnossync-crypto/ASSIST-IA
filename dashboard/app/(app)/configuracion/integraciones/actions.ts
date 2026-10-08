@@ -45,8 +45,25 @@ export async function crearReglaAction(_prevState: EstadoRegla | null, formData:
     return { error: "Todos los campos son requeridos." };
   }
 
+  // Horario opcional de la llamada cuando la regla aplica: sin nada = al
+  // instante; "espera" = N minutos/horas/días; "fecha" = fecha y hora fija
+  // (el navegador la manda ya en ISO con su zona, ver ReglasApiLlamadas.tsx).
+  const cuando = String(formData.get("cuando") ?? "ahora");
+  let retrasoMinutos: number | null = null;
+  let fechaProgramada: string | null = null;
+  if (cuando === "espera") {
+    const cantidad = Math.floor(Number(formData.get("espera_cantidad") ?? 0));
+    const unidad = String(formData.get("espera_unidad") ?? "minutos");
+    const porUnidad = unidad === "dias" ? 1440 : unidad === "horas" ? 60 : 1;
+    if (!Number.isFinite(cantidad) || cantidad <= 0) return { error: "Indica cuánto tiempo esperar." };
+    retrasoMinutos = Math.min(cantidad * porUnidad, 90 * 24 * 60);
+  } else if (cuando === "fecha") {
+    fechaProgramada = String(formData.get("fecha_iso") ?? "").trim();
+    if (!fechaProgramada) return { error: "Elige la fecha y hora de la llamada." };
+  }
+
   try {
-    await crearReglaApiLlamadas({ nombre, campo, operador, valor, promptPersonalizado });
+    await crearReglaApiLlamadas({ nombre, campo, operador, valor, promptPersonalizado, retrasoMinutos, fechaProgramada });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Error creando la regla." };
   }

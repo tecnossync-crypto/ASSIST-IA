@@ -9,6 +9,8 @@ interface ReglaApiLlamadas {
   operador: OperadorRegla;
   valor: string;
   prompt_personalizado: string;
+  retraso_minutos: number | null;
+  fecha_programada: Date | null;
 }
 
 /**
@@ -64,9 +66,15 @@ export function coincideRegla(
 export async function evaluarReglaApiLlamadas(
   empresaId: string,
   body: Record<string, unknown>
-): Promise<{ reglaId: string; nombre: string; promptPersonalizado: string } | null> {
+): Promise<{
+  reglaId: string;
+  nombre: string;
+  promptPersonalizado: string;
+  retrasoMinutos: number | null;
+  fechaProgramada: Date | null;
+} | null> {
   const result = await pool.query<ReglaApiLlamadas>(
-    `SELECT id, nombre, campo, operador, valor, prompt_personalizado
+    `SELECT id, nombre, campo, operador, valor, prompt_personalizado, retraso_minutos, fecha_programada
      FROM reglas_api_llamadas
      WHERE empresa_id = $1 AND activa = true
      ORDER BY orden, creado_en`,
@@ -75,7 +83,13 @@ export async function evaluarReglaApiLlamadas(
 
   for (const regla of result.rows) {
     if (coincideRegla(regla, body)) {
-      return { reglaId: regla.id, nombre: regla.nombre, promptPersonalizado: regla.prompt_personalizado };
+      return {
+        reglaId: regla.id,
+        nombre: regla.nombre,
+        promptPersonalizado: regla.prompt_personalizado,
+        retrasoMinutos: regla.retraso_minutos,
+        fechaProgramada: regla.fecha_programada,
+      };
     }
   }
 

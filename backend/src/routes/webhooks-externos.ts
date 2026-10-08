@@ -130,7 +130,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         return;
       }
       // Si la hora ya pasó (o es dentro de menos de un minuto) se llama de una vez.
-      const llamarDespues = programadaPara !== null && programadaPara.getTime() - Date.now() > 60_000;
+      let llamarDespues = programadaPara !== null && programadaPara.getTime() - Date.now() > 60_000;
 
       const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
       if (!twilioEmpresa) {
@@ -150,6 +150,20 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       // mandó prompt": cae al prompt genérico de la empresa.
       const promptCliente = typeof prompt === "string" && prompt.trim() ? prompt.trim().slice(0, 8000) : undefined;
       const promptFinal = reglaAplicada?.promptPersonalizado ?? promptCliente;
+
+      // Si la plataforma no pidió una hora en el POST, la regla que aplicó
+      // puede traer la suya (Reglas del API → "Cuándo se hace la llamada"):
+      // una fecha fija todavía futura, o una espera en minutos.
+      if (!programadaPara && reglaAplicada) {
+        const fija = reglaAplicada.fechaProgramada;
+        const espera = reglaAplicada.retrasoMinutos;
+        if (fija && fija.getTime() - Date.now() > 60_000) {
+          programadaPara = fija;
+        } else if (espera && espera > 0) {
+          programadaPara = new Date(Date.now() + espera * 60_000);
+        }
+        llamarDespues = programadaPara !== null && programadaPara.getTime() - Date.now() > 60_000;
+      }
 
       const solicitud = await pool.query<{ id: string }>(
         `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para)

@@ -26,6 +26,12 @@ export function ReglasApiLlamadas({ reglas }: { reglas: ReglaApiLlamadas[] }) {
   const [estado, formAction, cargando] = useActionState(crearReglaAction, ESTADO_INICIAL);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [operador, setOperador] = useState("igual");
+  const [cuando, setCuando] = useState<"ahora" | "espera" | "fecha">("ahora");
+  // El input datetime-local no trae zona horaria; se convierte aquí, en el
+  // navegador de quien configura, a ISO con su zona — así la hora que elige
+  // es la que se respeta, no la del servidor.
+  const [fechaLocal, setFechaLocal] = useState("");
+  const fechaIso = fechaLocal && !Number.isNaN(new Date(fechaLocal).getTime()) ? new Date(fechaLocal).toISOString() : "";
 
   // Al crear la regla con éxito se cierra el formulario (antes se quedaba
   // abierto y vacío, sin ninguna señal de que se hubiera creado).
@@ -74,6 +80,58 @@ export function ReglasApiLlamadas({ reglas }: { reglas: ReglaApiLlamadas[] }) {
             placeholder="Guion completo a usar cuando esta regla aplique — reemplaza el prompt que mande la plataforma externa."
             className={`${CAMPO} font-mono`}
           />
+          <div className="flex flex-col gap-2 rounded-md border border-dashed border-edge p-3">
+            <p className="text-xs font-medium text-ink-2">¿Cuándo se hace la llamada cuando esta regla aplique?</p>
+            <div className="flex flex-wrap gap-4 text-xs text-ink-2">
+              <label className="flex items-center gap-1.5">
+                <input type="radio" name="cuando" value="ahora" checked={cuando === "ahora"} onChange={() => setCuando("ahora")} />
+                De inmediato
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input type="radio" name="cuando" value="espera" checked={cuando === "espera"} onChange={() => setCuando("espera")} />
+                Esperar un tiempo
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input type="radio" name="cuando" value="fecha" checked={cuando === "fecha"} onChange={() => setCuando("fecha")} />
+                Fecha y hora fija
+              </label>
+            </div>
+            {cuando === "espera" && (
+              <div className="flex items-center gap-2">
+                <input
+                  name="espera_cantidad"
+                  type="number"
+                  min={1}
+                  max={129600}
+                  defaultValue={30}
+                  required
+                  className={`${CAMPO} w-24`}
+                />
+                <select name="espera_unidad" defaultValue="minutos" className={CAMPO}>
+                  <option value="minutos">minutos</option>
+                  <option value="horas">horas</option>
+                  <option value="dias">días</option>
+                </select>
+                <span className="text-xs text-muted">después de recibir la solicitud</span>
+              </div>
+            )}
+            {cuando === "fecha" && (
+              <>
+                <input
+                  type="datetime-local"
+                  value={fechaLocal}
+                  onChange={(e) => setFechaLocal(e.target.value)}
+                  required
+                  className={`${CAMPO} w-fit`}
+                />
+                <input type="hidden" name="fecha_iso" value={fechaIso} />
+                <p className="text-xs text-muted">
+                  Si esa hora ya pasó cuando llegue una solicitud, se llama de inmediato. Si la plataforma manda su
+                  propia hora en el POST, esa manda sobre la de la regla.
+                </p>
+              </>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="submit"
@@ -181,6 +239,17 @@ function ProbadorReglas() {
   );
 }
 
+function describirHorario(r: ReglaApiLlamadas): string {
+  if (r.fecha_programada) {
+    return `llama el ${new Date(r.fecha_programada).toLocaleString("es", { dateStyle: "medium", timeStyle: "short" })}`;
+  }
+  const m = r.retraso_minutos ?? 0;
+  if (m <= 0) return "";
+  if (m % 1440 === 0) return `llama a los ${m / 1440} día(s)`;
+  if (m % 60 === 0) return `llama a las ${m / 60} hora(s)`;
+  return `llama a los ${m} min`;
+}
+
 function FilaRegla({ regla }: { regla: ReglaApiLlamadas }) {
   const [abierto, setAbierto] = useState(false);
 
@@ -197,6 +266,7 @@ function FilaRegla({ regla }: { regla: ReglaApiLlamadas }) {
           <span className="text-xs text-muted">
             {regla.campo} {ETIQUETAS_OPERADOR[regla.operador] ?? regla.operador}
             {regla.operador !== "existe" && <> &quot;{regla.valor}&quot;</>}
+            {describirHorario(regla) && <> · {describirHorario(regla)}</>}
           </span>
         </button>
         <div className="flex items-center gap-3">

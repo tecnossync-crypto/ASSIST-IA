@@ -666,6 +666,9 @@ export interface ReglaApiLlamadas {
   prompt_personalizado: string;
   activa: boolean;
   orden: number;
+  // Horario opcional: espera en minutos y/o fecha fija (ISO) para la llamada.
+  retraso_minutos: number | null;
+  fecha_programada: string | null;
 }
 
 export async function listarReglasApiLlamadas(): Promise<ReglaApiLlamadas[]> {
@@ -683,6 +686,8 @@ export async function crearReglaApiLlamadas(data: {
   operador: string;
   valor: string;
   promptPersonalizado: string;
+  retrasoMinutos?: number | null;
+  fechaProgramada?: string | null;
 }): Promise<void> {
   const res = await fetch(new URL("/api/reglas-api-llamadas", BACKEND_URL), {
     method: "POST",

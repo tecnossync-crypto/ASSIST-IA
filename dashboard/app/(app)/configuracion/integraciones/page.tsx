@@ -133,8 +133,9 @@ export default async function IntegracionesPage() {
           Algunas plataformas (ej. Zoho SalesIQ) mandan como &quot;prompt&quot; una nota corta de contexto, no un guion de
           verdad — y esa nota terminaba reemplazando TODO el prompt del bot. Con una regla, tú controlas el
           guion real que se usa; el campo que llegó en el POST (ej. <span className="font-mono">origen</span>)
-          solo decide CUÁL regla aplica. Se evalúan en orden, la primera que coincide gana; si ninguna coincide,
-          se usa el comportamiento normal de arriba.
+          solo decide CUÁL regla aplica. Cada regla también puede decidir <strong>cuándo</strong> se hace la
+          llamada: de inmediato, esperando un tiempo, o en una fecha y hora fija. Se evalúan en orden, la primera
+          que coincide gana; si ninguna coincide, se usa el comportamiento normal de arriba.
         </p>
         <ReglasApiLlamadas reglas={reglas} />
       </section>
