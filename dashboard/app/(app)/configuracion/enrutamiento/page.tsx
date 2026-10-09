@@ -12,10 +12,10 @@ import { DestinoEmpresaForm } from "@/components/DestinoEmpresaForm";
 import { ExtensionesCentral } from "@/components/ExtensionesCentral";
 import { BotonAccion } from "@/components/BotonAccion";
 import { SeccionConfig } from "@/components/SeccionConfig";
-import { EnrutamientoTabs, type PestanaEnrutamiento } from "@/components/EnrutamientoTabs";
+import { PestanasConfig, type PestanaConfig } from "@/components/PestanasConfig";
 import { crearColaAction, eliminarColaAction } from "../agentes/actions";
 
-const PESTANAS: PestanaEnrutamiento[] = [
+const PESTANAS: PestanaConfig[] = [
   { id: "general", etiqueta: "General", Icon: Settings2 },
   { id: "departamentos", etiqueta: "Departamentos", Icon: Building2 },
   { id: "central", etiqueta: "Central telefónica", Icon: Phone },
@@ -46,7 +46,7 @@ export default async function EnrutamientoPage({
         descripcion="Qué pasa cuando la IA transfiere una llamada a una persona: dónde se atiende, quién la recibe y cómo se reparte."
       />
 
-      <EnrutamientoTabs pestanas={PESTANAS} activa={activa} />
+      <PestanasConfig basePath="/configuracion/enrutamiento" pestanas={PESTANAS} activa={activa} />
 
       {activa === "general" && (
         <div className="flex flex-col gap-5">

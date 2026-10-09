@@ -705,15 +705,36 @@ export async function crearReglaApiLlamadas(data: {
   }
 }
 
-export async function actualizarReglaApiLlamadas(id: string, data: { activa?: boolean }): Promise<void> {
+export async function actualizarReglaApiLlamadas(
+  id: string,
+  data: {
+    nombre?: string;
+    campo?: string;
+    operador?: string;
+    valor?: string;
+    promptPersonalizado?: string;
+    activa?: boolean;
+    // Si viene, reemplaza todo el horario de la regla.
+    horario?: {
+      retrasoMinutos: number | null;
+      fechaProgramada: string | null;
+      horaDelDia: string | null;
+      zonaHoraria: string | null;
+    };
+  }
+): Promise<void> {
   const url = new URL(`/api/reglas-api-llamadas/${id}`, BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
   const res = await fetch(url, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(data),
+    signal: AbortSignal.timeout(10_000),
   });
-  if (!res.ok) throw new Error(`Error actualizando la regla: HTTP ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `No se pudo actualizar la regla (HTTP ${res.status})`);
+  }
 }
 
 export async function eliminarReglaApiLlamadas(id: string): Promise<void> {

@@ -1,22 +1,31 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
-export interface PestanaEnrutamiento {
+export interface PestanaConfig {
   id: string;
   etiqueta: string;
   Icon: LucideIcon;
 }
 
 // Pestañas por URL (?seccion=...): se pueden compartir y el botón "atrás" funciona.
-export function EnrutamientoTabs({ pestanas, activa }: { pestanas: PestanaEnrutamiento[]; activa: string }) {
+// Es un componente de servidor: no necesita estado en el navegador.
+export function PestanasConfig({
+  basePath,
+  pestanas,
+  activa,
+}: {
+  basePath: string;
+  pestanas: PestanaConfig[];
+  activa: string;
+}) {
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-edge" aria-label="Secciones de enrutamiento">
+    <nav className="flex gap-1 overflow-x-auto border-b border-edge" aria-label="Secciones">
       {pestanas.map(({ id, etiqueta, Icon }) => {
         const esActiva = id === activa;
         return (
           <Link
             key={id}
-            href={`/configuracion/enrutamiento?seccion=${id}`}
+            href={`${basePath}?seccion=${id}`}
             scroll={false}
             aria-current={esActiva ? "page" : undefined}
             className={

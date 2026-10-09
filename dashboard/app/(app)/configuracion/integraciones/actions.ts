@@ -34,7 +34,20 @@ export interface EstadoRegla {
   ok?: boolean;
 }
 
-export async function crearReglaAction(_prevState: EstadoRegla | null, formData: FormData): Promise<EstadoRegla> {
+interface DatosRegla {
+  nombre: string;
+  campo: string;
+  operador: string;
+  valor: string;
+  promptPersonalizado: string;
+  retrasoMinutos: number | null;
+  fechaProgramada: string | null;
+  horaDelDia: string | null;
+  zonaHoraria: string | null;
+}
+
+// Lee y valida el formulario de una regla (el mismo para crear y para editar).
+function leerFormularioRegla(formData: FormData): { error: string } | { datos: DatosRegla } {
   const nombre = String(formData.get("nombre") ?? "").trim();
   const campo = String(formData.get("campo") ?? "").trim();
   const operador = String(formData.get("operador") ?? "igual");
@@ -68,24 +81,62 @@ export async function crearReglaAction(_prevState: EstadoRegla | null, formData:
     if (!fechaProgramada) return { error: "Elige la fecha y hora de la llamada." };
   }
 
+  return {
+    datos: { nombre, campo, operador, valor, promptPersonalizado, retrasoMinutos, fechaProgramada, horaDelDia, zonaHoraria },
+  };
+}
+
+export async function crearReglaAction(_prevState: EstadoRegla | null, formData: FormData): Promise<EstadoRegla> {
+  const leido = leerFormularioRegla(formData);
+  if ("error" in leido) return { error: leido.error };
+
   try {
-    await crearReglaApiLlamadas({
-      nombre,
-      campo,
-      operador,
-      valor,
-      promptPersonalizado,
-      retrasoMinutos,
-      fechaProgramada,
-      horaDelDia,
-      zonaHoraria,
-    });
+    await crearReglaApiLlamadas(leido.datos);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Error creando la regla." };
   }
 
   revalidatePath("/configuracion/integraciones");
-  await auditar("crear", "regla_api_llamadas", { nombre, campo, valor });
+  await auditar("crear", "regla_api_llamadas", {
+    nombre: leido.datos.nombre,
+    campo: leido.datos.campo,
+    valor: leido.datos.valor,
+  });
+  return { ok: true };
+}
+
+// Edita una regla existente: condición, guion (prompt) y horario.
+export async function editarReglaAction(_prevState: EstadoRegla | null, formData: FormData): Promise<EstadoRegla> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Falta la regla a editar." };
+  const leido = leerFormularioRegla(formData);
+  if ("error" in leido) return { error: leido.error };
+  const d = leido.datos;
+
+  try {
+    await actualizarReglaApiLlamadas(id, {
+      nombre: d.nombre,
+      campo: d.campo,
+      operador: d.operador,
+      valor: d.valor,
+      promptPersonalizado: d.promptPersonalizado,
+      horario: {
+        retrasoMinutos: d.retrasoMinutos,
+        fechaProgramada: d.fechaProgramada,
+        horaDelDia: d.horaDelDia,
+        zonaHoraria: d.zonaHoraria,
+      },
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error guardando la regla." };
+  }
+
+  revalidatePath("/configuracion/integraciones");
+  try {
+    await auditar("actualizar", "regla_api_llamadas", { id, nombre: d.nombre });
+  } catch {
+    // La auditoría no debe impedir que el cambio se vea como guardado.
+  }
   return { ok: true };
 }
 
@@ -105,10 +156,21 @@ export async function probarReglasAction(
   }
 }
 
-export async function alternarReglaAction(id: string, activa: boolean) {
-  await actualizarReglaApiLlamadas(id, { activa });
+// Activa o desactiva una regla. Devuelve el error en vez de lanzarlo para que
+// el interruptor pueda volver a su posición y mostrar el motivo.
+export async function alternarReglaAction(id: string, activa: boolean): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    await actualizarReglaApiLlamadas(id, { activa });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo cambiar el estado." };
+  }
   revalidatePath("/configuracion/integraciones");
-  await auditar("actualizar", "regla_api_llamadas", { id, activa });
+  try {
+    await auditar("actualizar", "regla_api_llamadas", { id, activa });
+  } catch {
+    // Ver nota arriba.
+  }
+  return { ok: true };
 }
 
 export async function eliminarReglaAction(id: string) {

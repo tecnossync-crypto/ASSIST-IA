@@ -127,6 +127,13 @@ export async function reglasApiRoutes(app: FastifyInstance) {
       promptPersonalizado?: string;
       activa?: boolean;
       orden?: number;
+      // Si viene, reemplaza TODO el horario de la regla (los cuatro campos; null = sin eso).
+      horario?: {
+        retrasoMinutos?: number | null;
+        fechaProgramada?: string | null;
+        horaDelDia?: string | null;
+        zonaHoraria?: string | null;
+      };
     };
   }>("/api/reglas-api-llamadas/:id", async (req, reply) => {
     const { id } = req.params;
@@ -141,6 +148,34 @@ export async function reglasApiRoutes(app: FastifyInstance) {
       return;
     }
 
+    if (promptPersonalizado !== undefined && !promptPersonalizado.trim()) {
+      reply.code(400).send({ error: "El guion de la regla no puede quedar vacío" });
+      return;
+    }
+
+    // Horario: solo se toca si viene "horario"; entonces se reemplazan los cuatro campos.
+    const cambiaHorario = req.body.horario !== undefined;
+    let retraso: number | null = null;
+    let fecha: Date | null = null;
+    let horaDia: string | null = null;
+    let zona: string | null = null;
+    if (cambiaHorario) {
+      const h = leerHorario(req.body.horario?.retrasoMinutos, req.body.horario?.fechaProgramada);
+      if (h.error) {
+        reply.code(400).send({ error: h.error });
+        return;
+      }
+      const d = leerHoraDelDia(req.body.horario?.horaDelDia, req.body.horario?.zonaHoraria);
+      if (d.error) {
+        reply.code(400).send({ error: d.error });
+        return;
+      }
+      retraso = h.retraso;
+      fecha = h.fecha;
+      horaDia = d.hora;
+      zona = d.zona;
+    }
+
     const result = await pool.query(
       `UPDATE reglas_api_llamadas SET
          nombre = COALESCE($2, nombre),
@@ -149,10 +184,29 @@ export async function reglasApiRoutes(app: FastifyInstance) {
          valor = COALESCE($5, valor),
          prompt_personalizado = COALESCE($6, prompt_personalizado),
          activa = COALESCE($7, activa),
-         orden = COALESCE($8, orden)
+         orden = COALESCE($8, orden),
+         retraso_minutos = CASE WHEN $10::boolean THEN $11::int ELSE retraso_minutos END,
+         fecha_programada = CASE WHEN $10::boolean THEN $12::timestamptz ELSE fecha_programada END,
+         hora_del_dia = CASE WHEN $10::boolean THEN $13::time ELSE hora_del_dia END,
+         zona_horaria = CASE WHEN $10::boolean THEN $14::text ELSE zona_horaria END
        WHERE id = $1 AND empresa_id = $9
        RETURNING id, nombre, campo, operador, valor, prompt_personalizado, activa, orden`,
-      [id, nombre ?? null, campo ?? null, operador ?? null, valor ?? null, promptPersonalizado ?? null, activa ?? null, orden ?? null, empresaId]
+      [
+        id,
+        nombre ?? null,
+        campo ?? null,
+        operador ?? null,
+        valor ?? null,
+        promptPersonalizado?.trim() ?? null,
+        activa ?? null,
+        orden ?? null,
+        empresaId,
+        cambiaHorario,
+        retraso,
+        fecha,
+        horaDia,
+        zona,
+      ]
     );
     if (result.rows.length === 0) {
       reply.code(404).send({ error: "no encontrada" });
