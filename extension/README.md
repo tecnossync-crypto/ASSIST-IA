@@ -21,6 +21,16 @@ Click en el ícono de la extensión (barra de arriba del navegador) → se abre 
 
 Un segundo click en el ícono enfoca la misma ventana en vez de abrir otra — no se acumulan ventanas.
 
+## Recibir llamadas
+
+Las llamadas que la IA transfiere a un asesor digital suenan **en esta ventana**; no hace falta tener abierto el resto de la plataforma. Lo único que debe cumplirse:
+
+- La ventana de la extensión tiene que estar **abierta** (puede estar minimizada o detrás de otras). Si se cierra, ese asesor deja de recibir llamadas y a los pocos minutos pasa solo a Inactivo.
+- El asesor debe estar en **Activo** (selector del panel).
+- Al abrir el panel por primera vez, Chrome pide permiso para **notificaciones**: acéptalo. Así, si la ventana está minimizada, aparece un aviso del sistema y al hacer click se trae la ventana al frente.
+
+Durante una llamada, el recuadro de **contexto** (resumen de la IA) se puede **minimizar** con la flecha de su esquina para dejar a la vista los controles; el navegador recuerda esa preferencia. Si entra otra llamada mientras ya atiendes una, no interrumpe la actual: se ofrece a otro asesor.
+
 ## Actualizar la dirección del dashboard
 
 Click derecho en el ícono de la extensión → **"Opciones"**, o `chrome://extensions` → **Detalles** de la extensión → **"Opciones de la extensión"**.

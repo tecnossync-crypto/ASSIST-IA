@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Check, ChevronDown, ChevronRight, ClipboardCopy, Loader2, Phone, Tag } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, ChevronDown, ChevronRight, ChevronUp, ClipboardCopy, Loader2, Phone, Tag } from "lucide-react";
 import type { TransferenciaContexto } from "@/lib/api";
+
+// Si el asesor prefiere el contexto minimizado durante las llamadas, se recuerda en este navegador.
+const CLAVE_MINIMIZADO = "voz-ia:contexto-minimizado";
 
 const SATISFACCION: Record<string, { texto: string; clase: string }> = {
   positiva: { texto: "Cliente contento", clase: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300" },
@@ -61,6 +64,28 @@ export function ContextoLlamada({
 }) {
   const [verConversacion, setVerConversacion] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  // Solo aplica dentro de la llamada (compacto): deja ver los controles y atender a más de un cliente.
+  const [minimizado, setMinimizado] = useState(false);
+  useEffect(() => {
+    if (!compacto) return;
+    try {
+      setMinimizado(window.localStorage.getItem(CLAVE_MINIMIZADO) === "1");
+    } catch {
+      // sin acceso al almacenamiento: queda expandido
+    }
+  }, [compacto]);
+
+  function alternarMinimizado() {
+    setMinimizado((actual) => {
+      const nuevo = !actual;
+      try {
+        window.localStorage.setItem(CLAVE_MINIMIZADO, nuevo ? "1" : "0");
+      } catch {
+        // no pasa nada: solo no se recuerda
+      }
+      return nuevo;
+    });
+  }
 
   const nombre = [item.contacto?.nombre, item.contacto?.apellido].filter(Boolean).join(" ") || "Cliente sin nombre";
   const datos = datosDelCliente(item);
@@ -75,6 +100,26 @@ export function ContextoLlamada({
     } catch {
       // sin permiso de portapapeles: no pasa nada
     }
+  }
+
+  if (compacto && minimizado) {
+    return (
+      <button
+        type="button"
+        onClick={alternarMinimizado}
+        aria-label="Mostrar el contexto de la llamada"
+        className="flex w-full items-center gap-2 rounded-xl border border-edge bg-surface px-3 py-2 text-left hover:bg-surface-2"
+      >
+        <ChevronRight size={14} className="flex-shrink-0 text-muted" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium text-ink">{nombre}</span>
+          <span className="block truncate text-xs text-muted">
+            {item.resumen_listo ? (item.resumen.motivo ?? item.numero) : "Generando el resumen…"}
+          </span>
+        </span>
+        <span className="flex-shrink-0 text-xs font-medium text-indigo-700 dark:text-indigo-300">Ver</span>
+      </button>
+    );
   }
 
   return (
@@ -92,6 +137,17 @@ export function ContextoLlamada({
           </p>
         </div>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
+          {compacto && (
+            <button
+              type="button"
+              onClick={alternarMinimizado}
+              aria-label="Minimizar el contexto"
+              title="Minimizar"
+              className="rounded-full p-1 text-muted hover:bg-surface-2 hover:text-ink-2"
+            >
+              <ChevronUp size={14} />
+            </button>
+          )}
           {!visto && (
             <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
               Nueva

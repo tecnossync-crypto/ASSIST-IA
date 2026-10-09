@@ -83,6 +83,9 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
   const callRef = useRef<import("@twilio/voice-sdk").Call | null>(null);
   const [estado, setEstado] = useState<EstadoSoftphone>("desconectado");
   const [numeroEntrante, setNumeroEntrante] = useState("");
+  // Para leerlo dentro de efectos que no deben reiniciarse cuando cambia.
+  const numeroEntranteRef = useRef("");
+  numeroEntranteRef.current = numeroEntrante;
   const [llamadaIdEntrante, setLlamadaIdEntrante] = useState("");
   const [segundos, setSegundos] = useState(0);
   const [silenciado, setSilenciado] = useState(false);
@@ -140,6 +143,15 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
         });
 
         device.on("incoming", (call) => {
+          // Ya hay una llamada sonando o en curso: la nueva NO puede pisarla (antes
+          // el panel perdía el control de la que se estaba atendiendo). Se rechaza
+          // para que el sistema la ofrezca a otro asesor o la deje en cola.
+          if (callRef.current) {
+            const numero = call.customParameters?.get("numero") || call.parameters.From || "otro cliente";
+            call.reject();
+            setMensaje(`Entró otra llamada (${numero}) mientras atendías; se envió a otro asesor.`);
+            return;
+          }
           callRef.current = call;
           // El servidor manda el teléfono del cliente y el id de la llamada junto
           // al timbre (si no, "From" es el número de la empresa, no el del cliente).
@@ -170,6 +182,12 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
         // Registrar el teléfono NO cambia el estado del asesor: se pone Activo /
         // En pausa / Inactivo a mano desde el panel.
         await device.register();
+
+        // Permiso para avisar con una notificación del sistema cuando entre una
+        // llamada y la ventana esté minimizada o detrás de otras.
+        if (typeof Notification !== "undefined" && Notification.permission === "default") {
+          Notification.requestPermission().catch(() => {});
+        }
       } catch (err) {
         console.error("Softphone: no se pudo registrar", err);
       }
@@ -198,6 +216,26 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
     if (estado !== "sonando") return;
     const tituloOriginal = document.title;
     const detenerTono = tonoDeLlamada();
+
+    // Notificación del sistema: se ve aunque la ventana esté minimizada; al
+    // hacer click trae la ventana al frente.
+    let notificacion: Notification | null = null;
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        notificacion = new Notification("📞 Llamada entrante", {
+          body: numeroEntranteRef.current || "Alguien está llamando",
+          tag: "llamada-entrante",
+          requireInteraction: true,
+        });
+        notificacion.onclick = () => {
+          window.focus();
+          notificacion?.close();
+        };
+      }
+    } catch {
+      // algunos navegadores no permiten crearla: el tono y el título siguen avisando
+    }
+
     let alterna = false;
     const parpadeo = setInterval(() => {
       alterna = !alterna;
@@ -205,6 +243,7 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
     }, 900);
     return () => {
       detenerTono();
+      notificacion?.close();
       clearInterval(parpadeo);
       document.title = tituloOriginal;
     };
