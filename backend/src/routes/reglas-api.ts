@@ -9,7 +9,7 @@ const MAX_RETRASO_MINUTOS = 90 * 24 * 60; // 90 días, igual que el POST del web
 /** "HH:MM" 24 h y zona IANA válida, o error. */
 function leerHoraDelDia(hora: unknown, zona: unknown): { hora: string | null; zona: string | null; error?: string } {
   if (hora === undefined || hora === null || hora === "") return { hora: null, zona: null };
-  if (typeof hora !== "string" || !/^([01]d|2[0-3]):[0-5]d$/.test(hora)) {
+  if (typeof hora !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) {
     return { hora: null, zona: null, error: "La hora debe tener formato HH:MM (24 horas)." };
   }
   const z = typeof zona === "string" && zona ? zona : "America/Santo_Domingo";

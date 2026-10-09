@@ -109,7 +109,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       let programadaPara: Date | null = null;
       const errorHora = (() => {
         if (fechaProgramada !== undefined && fechaProgramada !== null && fechaProgramada !== "") {
-          if (typeof fechaProgramada !== "string" || !/(Z|[+-]d{2}:?d{2})$/i.test(fechaProgramada.trim())) {
+          if (typeof fechaProgramada !== "string" || !/(Z|[+-]\d{2}:?\d{2})$/i.test(fechaProgramada.trim())) {
             return "fecha_programada debe incluir la zona horaria (ej. 2026-10-10T15:00:00-04:00 o terminar en Z)";
           }
           const d = new Date(fechaProgramada.trim());
