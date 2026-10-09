@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
 import { identidadAgente } from "../lib/agentes.js";
+import { esperaConfig, twimlEspera } from "../lib/espera.js";
 
 /**
  * Controles del agente durante una "llamada normal" ya conectada (mute lo
@@ -76,7 +77,7 @@ export async function llamadasAgenteRoutes(app: FastifyInstance) {
           .participants(llamada.call_sid)
           .update(
             activar
-              ? { hold: true, holdUrl: `${publicBaseUrl}/webhooks/twilio/musica-espera`, holdMethod: "POST" }
+              ? { hold: true, holdUrl: `${publicBaseUrl}/webhooks/twilio/musica-espera?e=${llamada.empresa_id}`, holdMethod: "POST" }
               : { hold: false }
           );
         reply.send({ ok: true });
@@ -138,9 +139,20 @@ export async function llamadasAgenteRoutes(app: FastifyInstance) {
   // (ver /agente/hold arriba) — Twilio la pide cada vez que necesita volver
   // a reproducir el audio de espera (loop="0" = infinito hasta que se quite
   // el hold).
-  app.post("/webhooks/twilio/musica-espera", async (_req, reply) => {
-    reply.type("text/xml").send(
-      `<?xml version="1.0" encoding="UTF-8"?><Response><Play loop="0">https://demo.twilio.com/docs/classic.mp3</Play></Response>`
-    );
+  //
+  // Lo que se oye lo configura cada empresa (Configuración → Enrutamiento →
+  // Espera del cliente): canción estándar, un audio propio, un mensaje o
+  // silencio. La empresa viaja en ?e=; sin ella (llamadas que ya estaban en
+  // curso antes de este cambio) se usa la canción estándar de siempre.
+  app.post<{ Querystring: { e?: string } }>("/webhooks/twilio/musica-espera", async (req, reply) => {
+    const empresaId = req.query?.e;
+    const valida = typeof empresaId === "string" && /^[0-9a-f-]{36}$/i.test(empresaId);
+    const config = valida
+      ? await esperaConfig(empresaId).catch(() => null)
+      : null;
+    const urlPropia = `${process.env.PUBLIC_BASE_URL ?? ""}/webhooks/twilio/musica-espera${valida ? `?e=${empresaId}` : ""}`;
+    reply
+      .type("text/xml")
+      .send(twimlEspera(config ?? { tipo: "musica", audioUrl: null, mensaje: null, aviso: null }, urlPropia));
   });
 }

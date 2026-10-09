@@ -1306,6 +1306,20 @@ export async function atenderLlamadaCola(llamadaId: string, usuarioId?: string):
   );
 }
 
+export type TipoEspera = "musica" | "audio" | "mensaje" | "silencio";
+
+// Lo que oye el cliente mientras espera (en pausa o tras una transferencia).
+export interface EsperaCliente {
+  tipo: TipoEspera;
+  audioUrl: string | null;
+  mensaje: string | null;
+  aviso: string | null;
+}
+
+export async function actualizarEsperaCliente(data: EsperaCliente): Promise<void> {
+  await enviarJson("/api/enrutamiento/espera", "PUT", { empresaId: EMPRESA_ID, ...data }, "Error guardando la espera");
+}
+
 export async function actualizarColaEspera(activa: boolean, maxMinutos: number): Promise<void> {
   await enviarJson(
     "/api/enrutamiento/cola-espera",
@@ -1319,6 +1333,7 @@ export async function obtenerEnrutamiento(): Promise<{
   destino: DestinoLlamadas;
   mostrarResumen: boolean;
   colaEspera: { activa: boolean; maxMinutos: number };
+  espera: EsperaCliente;
   extensiones: ExtensionCentral[];
 }> {
   const url = new URL("/api/enrutamiento", BACKEND_URL);

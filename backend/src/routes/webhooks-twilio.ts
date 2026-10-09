@@ -19,6 +19,7 @@ import { usuarioIdDesdeIdentidad } from "../lib/agentes.js";
 import { iniciarConferenciaConAgentes } from "../lib/conferencia-agentes.js";
 import { descartarFallbackCentral, reintentarDirectoSiCorresponde } from "../lib/fallback-central.js";
 import { destinoDeTransferencia, extensionesDeTransferencia } from "../lib/enrutamiento.js";
+import { esperaConfig } from "../lib/espera.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -28,6 +29,16 @@ import { destinoDeTransferencia, extensionesDeTransferencia } from "../lib/enrut
  */
 const MENSAJE_COLA =
   "Todos nuestros asesores están atendiendo otras llamadas. Por favor permanezca en línea, en breve lo atenderemos.";
+
+/**
+ * Lo que la espera necesita de la configuración de la empresa: su id (para que
+ * el audio de espera sea el suyo) y, si la empresa definió un aviso, la frase
+ * que se dice antes de esperar. Si falla la lectura, se usa lo de siempre.
+ */
+async function opcionesEspera(empresaId: string, avisoPorDefecto?: string) {
+  const config = await esperaConfig(empresaId).catch(() => null);
+  return { empresaId, mensajeEspera: config?.aviso ?? avisoPorDefecto };
+}
 
 export async function webhooksTwilioRoutes(app: FastifyInstance) {
   app.post("/webhooks/twilio/voice-inbound", async (req, reply) => {
@@ -216,7 +227,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         return;
       }
 
-      reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl }));
+      reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, ...(await opcionesEspera(empresaId)) }));
     }
   );
 
@@ -343,7 +354,12 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         await marcarEnCola(row.id, conferenciaNombre);
         app.log.info({ callSid, colaId: row.cola_id }, "Sin asesores disponibles: el cliente espera en la cola");
         reply.type("text/xml").send(
-          twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, grabar: !yaGrabando, mensajeEspera: MENSAJE_COLA })
+          twimlEsperarConferencia({
+            conferenciaNombre,
+            publicBaseUrl,
+            grabar: !yaGrabando,
+            ...(await opcionesEspera(row.empresa_id, MENSAJE_COLA)),
+          })
         );
         return;
       }
@@ -371,7 +387,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           if (destino === "ambos" && twilioPost?.centralPropia?.entrante) {
             await programarRespaldoCentral(row.id, (twilioPost.timeoutTimbrado ?? 30) + 5);
           }
-          reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, grabar: !yaGrabando }));
+          reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, grabar: !yaGrabando, ...(await opcionesEspera(row.empresa_id)) }));
           return;
         }
       }
@@ -421,7 +437,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       });
       if (identidades.length > 0) {
         app.log.warn({ callSid, identidades }, "La central no estaba lista: la llamada se pasó a asesores de la plataforma");
-        reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, grabar: !yaGrabando }));
+        reply.type("text/xml").send(twimlEsperarConferencia({ conferenciaNombre, publicBaseUrl, grabar: !yaGrabando, ...(await opcionesEspera(row.empresa_id)) }));
         return;
       }
     }

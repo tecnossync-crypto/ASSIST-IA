@@ -197,8 +197,11 @@ export function twimlEsperarConferencia(opts: {
   grabar?: boolean;
   /** Aviso que oye el cliente antes de la música (ej. "todos nuestros asesores están ocupados"). */
   mensajeEspera?: string;
+  /** Para que la espera use el audio/mensaje que configuró esa empresa (ver lib/espera.ts). */
+  empresaId?: string;
 }): string {
-  const { conferenciaNombre, publicBaseUrl, grabar = true, mensajeEspera } = opts;
+  const { conferenciaNombre, publicBaseUrl, grabar = true, mensajeEspera, empresaId } = opts;
+  const urlEspera = `${publicBaseUrl}/webhooks/twilio/musica-espera${empresaId ? `?e=${encodeURIComponent(empresaId)}` : ""}`;
   const grabacion = grabar
     ? `
   <Start>
@@ -214,7 +217,7 @@ export function twimlEsperarConferencia(opts: {
       startConferenceOnEnter="false"
       endConferenceOnExit="true"
       beep="false"
-      waitUrl="${publicBaseUrl}/webhooks/twilio/musica-espera"
+      waitUrl="${urlEspera}"
       waitMethod="POST"
       statusCallbackEvent="start end join leave"
       statusCallback="${publicBaseUrl}/webhooks/twilio/conferencia-evento"
@@ -246,7 +249,7 @@ export function twimlUnirseConferenciaComoAgente(opts: { conferenciaNombre: stri
 </Response>`;
 }
 
-function escaparXml(valor: string): string {
+export function escaparXml(valor: string): string {
   return valor.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 

@@ -1,4 +1,4 @@
-import { Network, Layers, Headset, GitFork, PhoneForwarded, ClipboardList, Timer, Settings2, Building2, Phone } from "lucide-react";
+import { Network, Layers, Headset, GitFork, PhoneForwarded, ClipboardList, Timer, Settings2, Building2, Phone, Music } from "lucide-react";
 import { ResumenTransferenciaForm } from "@/components/ResumenTransferenciaForm";
 import { FormConFeedback } from "@/components/FormConFeedback";
 import { guardarColaEsperaAction } from "./actions";
@@ -12,6 +12,7 @@ import { DestinoEmpresaForm } from "@/components/DestinoEmpresaForm";
 import { ExtensionesCentral } from "@/components/ExtensionesCentral";
 import { BotonAccion } from "@/components/BotonAccion";
 import { SeccionConfig } from "@/components/SeccionConfig";
+import { EsperaClienteForm } from "@/components/EsperaClienteForm";
 import { PestanasConfig, type PestanaConfig } from "@/components/PestanasConfig";
 import { crearColaAction, eliminarColaAction } from "../agentes/actions";
 
@@ -88,6 +89,14 @@ export default async function EnrutamientoPage({
                 minutos
               </div>
             </FormConFeedback>
+          </SeccionConfig>
+
+          <SeccionConfig
+            Icon={Music}
+            titulo="Espera del cliente"
+            descripcion="Lo que oye el cliente cuando un asesor lo pone en pausa y mientras espera que lo atiendan tras una transferencia. Aplica a las llamadas que se atienden en la plataforma."
+          >
+            <EsperaClienteForm espera={enrutamiento.espera} />
           </SeccionConfig>
 
           <SeccionConfig

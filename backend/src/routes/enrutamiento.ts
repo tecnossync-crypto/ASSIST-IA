@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
+import { TIPOS_ESPERA, urlAudioValida, type TipoEspera } from "../lib/espera.js";
 
 /**
  * Enrutamiento de las llamadas que la IA transfiere: dónde se atienden
@@ -25,8 +26,13 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
       mostrar_resumen_transferencia: boolean;
       cola_espera_activa: boolean;
       cola_espera_max_minutos: number;
+      espera_tipo: string;
+      espera_audio_url: string | null;
+      espera_mensaje: string | null;
+      espera_aviso: string | null;
     }>(
-      `SELECT enrutamiento_destino, mostrar_resumen_transferencia, cola_espera_activa, cola_espera_max_minutos
+      `SELECT enrutamiento_destino, mostrar_resumen_transferencia, cola_espera_activa, cola_espera_max_minutos,
+              espera_tipo, espera_audio_url, espera_mensaje, espera_aviso
        FROM empresas WHERE id = $1`,
       [empresaId]
     );
@@ -51,8 +57,47 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
         activa: empresa.rows[0].cola_espera_activa,
         maxMinutos: empresa.rows[0].cola_espera_max_minutos,
       },
+      espera: {
+        tipo: empresa.rows[0].espera_tipo,
+        audioUrl: empresa.rows[0].espera_audio_url,
+        mensaje: empresa.rows[0].espera_mensaje,
+        aviso: empresa.rows[0].espera_aviso,
+      },
       extensiones: extensiones.rows,
     });
+  });
+
+  // Lo que oye el cliente mientras espera: en pausa o tras una transferencia.
+  app.put<{
+    Body: { empresaId: string; tipo: string; audioUrl?: string | null; mensaje?: string | null; aviso?: string | null };
+  }>("/api/enrutamiento/espera", async (req, reply) => {
+    const { empresaId, tipo } = req.body ?? {};
+    if (!empresaId || !TIPOS_ESPERA.includes(tipo as TipoEspera)) {
+      reply.code(400).send({ error: "empresaId y un tipo válido (musica, audio, mensaje o silencio) son requeridos" });
+      return;
+    }
+    const audioUrl = req.body.audioUrl?.trim() || null;
+    const mensaje = req.body.mensaje?.trim() || null;
+    const aviso = req.body.aviso?.trim() || null;
+
+    if (tipo === "audio" && !urlAudioValida(audioUrl)) {
+      reply.code(400).send({ error: "El audio debe ser un enlace https público (mp3 o wav)." });
+      return;
+    }
+    if (tipo === "mensaje" && !mensaje) {
+      reply.code(400).send({ error: "Escribe el mensaje que se leerá mientras el cliente espera." });
+      return;
+    }
+    if ((mensaje && mensaje.length > 500) || (aviso && aviso.length > 300)) {
+      reply.code(400).send({ error: "El mensaje admite hasta 500 caracteres y el aviso hasta 300." });
+      return;
+    }
+
+    await pool.query(
+      `UPDATE empresas SET espera_tipo = $2, espera_audio_url = $3, espera_mensaje = $4, espera_aviso = $5 WHERE id = $1`,
+      [empresaId, tipo, audioUrl, mensaje, aviso]
+    );
+    reply.send({ ok: true });
   });
 
   // Cola de espera: si no hay asesores disponibles, el cliente espera en línea
