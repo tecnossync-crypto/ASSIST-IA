@@ -73,12 +73,12 @@ export async function guardarColaEsperaAction(formData: FormData): Promise<{ err
 
 export async function guardarEsperaClienteAction(formData: FormData): Promise<{ error?: string }> {
   const tipo = String(formData.get("tipo") ?? "musica");
-  if (!["musica", "audio", "mensaje", "silencio"].includes(tipo)) return { error: "Elige un tipo de espera válido." };
+  if (!["musica", "audio", "mensaje", "mensaje_musica", "silencio"].includes(tipo)) return { error: "Elige un tipo de espera válido." };
   const audioUrl = String(formData.get("audioUrl") ?? "").trim() || null;
   const mensaje = String(formData.get("mensaje") ?? "").trim() || null;
   const aviso = String(formData.get("aviso") ?? "").trim() || null;
   if (tipo === "audio" && !audioUrl) return { error: "Pega el enlace del audio." };
-  if (tipo === "mensaje" && !mensaje) return { error: "Escribe el mensaje que se leerá mientras el cliente espera." };
+  if ((tipo === "mensaje" || tipo === "mensaje_musica") && !mensaje) return { error: "Escribe el mensaje que se leerá mientras el cliente espera." };
   try {
     await actualizarEsperaCliente({ tipo: tipo as TipoEspera, audioUrl, mensaje, aviso });
     revalidatePath("/configuracion/enrutamiento");

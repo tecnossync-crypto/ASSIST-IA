@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
-import { TIPOS_ESPERA, urlAudioValida, type TipoEspera } from "../lib/espera.js";
+import { MAX_MENSAJE_ESPERA, TIPOS_ESPERA, urlAudioValida, type TipoEspera } from "../lib/espera.js";
 
 /**
  * Enrutamiento de las llamadas que la IA transfiere: dónde se atienden
@@ -73,7 +73,7 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
   }>("/api/enrutamiento/espera", async (req, reply) => {
     const { empresaId, tipo } = req.body ?? {};
     if (!empresaId || !TIPOS_ESPERA.includes(tipo as TipoEspera)) {
-      reply.code(400).send({ error: "empresaId y un tipo válido (musica, audio, mensaje o silencio) son requeridos" });
+      reply.code(400).send({ error: "empresaId y un tipo válido (musica, audio, mensaje, mensaje_musica o silencio) son requeridos" });
       return;
     }
     const audioUrl = req.body.audioUrl?.trim() || null;
@@ -84,12 +84,16 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
       reply.code(400).send({ error: "El audio debe ser un enlace https público (mp3 o wav)." });
       return;
     }
-    if (tipo === "mensaje" && !mensaje) {
+    if (tipo === "mensaje_musica" && audioUrl && !urlAudioValida(audioUrl)) {
+      reply.code(400).send({ error: "La música debe ser un enlace https público (mp3 o wav), o déjala vacía." });
+      return;
+    }
+    if ((tipo === "mensaje" || tipo === "mensaje_musica") && !mensaje) {
       reply.code(400).send({ error: "Escribe el mensaje que se leerá mientras el cliente espera." });
       return;
     }
-    if ((mensaje && mensaje.length > 500) || (aviso && aviso.length > 300)) {
-      reply.code(400).send({ error: "El mensaje admite hasta 500 caracteres y el aviso hasta 300." });
+    if ((mensaje && mensaje.length > MAX_MENSAJE_ESPERA) || (aviso && aviso.length > 300)) {
+      reply.code(400).send({ error: `El mensaje admite hasta ${MAX_MENSAJE_ESPERA} caracteres y el aviso hasta 300.` });
       return;
     }
 

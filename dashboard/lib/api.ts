@@ -1306,7 +1306,7 @@ export async function atenderLlamadaCola(llamadaId: string, usuarioId?: string):
   );
 }
 
-export type TipoEspera = "musica" | "audio" | "mensaje" | "silencio";
+export type TipoEspera = "musica" | "audio" | "mensaje" | "mensaje_musica" | "silencio";
 
 // Lo que oye el cliente mientras espera (en pausa o tras una transferencia).
 export interface EsperaCliente {

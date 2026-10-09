@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Music, FileAudio, MessageSquareText, VolumeX } from "lucide-react";
+import { Music, FileAudio, MessageSquareText, MessagesSquare, VolumeX } from "lucide-react";
 import { FormConFeedback } from "@/components/FormConFeedback";
 import { guardarEsperaClienteAction } from "@/app/(app)/configuracion/enrutamiento/actions";
 import type { EsperaCliente, TipoEspera } from "@/lib/api";
@@ -10,6 +10,12 @@ const OPCIONES: { valor: TipoEspera; titulo: string; detalle: string; Icon: type
   { valor: "musica", titulo: "Música estándar", detalle: "La canción de siempre.", Icon: Music },
   { valor: "audio", titulo: "Audio propio", detalle: "Tu música o un anuncio grabado.", Icon: FileAudio },
   { valor: "mensaje", titulo: "Mensaje hablado", detalle: "Una voz lee tu texto en repetición.", Icon: MessageSquareText },
+  {
+    valor: "mensaje_musica",
+    titulo: "Mensaje y música",
+    detalle: "Lee tu texto (ej. tus productos) y luego suena la música; se repite.",
+    Icon: MessagesSquare,
+  },
   { valor: "silencio", titulo: "Silencio", detalle: "El cliente no oye nada.", Icon: VolumeX },
 ];
 
@@ -25,8 +31,8 @@ export function EsperaClienteForm({ espera }: { espera: EsperaCliente }) {
     <FormConFeedback action={guardarEsperaClienteAction} mensajeExito="Espera del cliente guardada.">
       <input type="hidden" name="tipo" value={tipo} />
       {/* Lo escrito en un tipo se conserva al cambiar a otro y volver. */}
-      {tipo !== "audio" && <input type="hidden" name="audioUrl" value={audioUrl} />}
-      {tipo !== "mensaje" && <input type="hidden" name="mensaje" value={mensaje} />}
+      {tipo !== "audio" && tipo !== "mensaje_musica" && <input type="hidden" name="audioUrl" value={audioUrl} />}
+      {tipo !== "mensaje" && tipo !== "mensaje_musica" && <input type="hidden" name="mensaje" value={mensaje} />}
 
       <div role="radiogroup" aria-label="Qué oye el cliente mientras espera" className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {OPCIONES.map(({ valor, titulo, detalle, Icon }) => {
@@ -62,9 +68,11 @@ export function EsperaClienteForm({ espera }: { espera: EsperaCliente }) {
         })}
       </div>
 
-      {tipo === "audio" && (
+      {(tipo === "audio" || tipo === "mensaje_musica") && (
         <div className="mt-4">
-          <label className="mb-1 block text-xs font-medium text-muted">Enlace del audio (mp3 o wav)</label>
+          <label className="mb-1 block text-xs font-medium text-muted">
+            {tipo === "audio" ? "Enlace del audio (mp3 o wav)" : "Música (opcional) — enlace mp3 o wav; vacío = la estándar"}
+          </label>
           <input
             name="audioUrl"
             type="url"
@@ -84,19 +92,24 @@ export function EsperaClienteForm({ espera }: { espera: EsperaCliente }) {
         </div>
       )}
 
-      {tipo === "mensaje" && (
+      {(tipo === "mensaje" || tipo === "mensaje_musica") && (
         <div className="mt-4">
           <label className="mb-1 block text-xs font-medium text-muted">Mensaje que se lee mientras espera</label>
           <textarea
             name="mensaje"
-            rows={3}
-            maxLength={500}
+            maxLength={1500}
+            rows={6}
             value={mensaje}
             onChange={(e) => setMensaje(e.target.value)}
-            placeholder="Gracias por esperar, en un momento un asesor lo atenderá."
+            placeholder="Gracias por esperar. Mientras tanto, le presentamos nuestros productos: Seguro de ley, Ley más extensión, Seguros de vida, salud y de viaje…"
             className={CAMPO}
           />
-          <p className="mt-1 text-xs text-muted">Se lee, hace una pausa corta y se repite hasta que lo atiendan.</p>
+          <p className="mt-1 text-xs text-muted">
+            {mensaje.length}/1500 caracteres.{" "}
+            {tipo === "mensaje_musica"
+              ? "Se lee el mensaje, suena la música una vez y se repite hasta que lo atiendan. La voz y la música no suenan a la vez."
+              : "Se lee, hace una pausa corta y se repite hasta que lo atiendan."}
+          </p>
         </div>
       )}
 
