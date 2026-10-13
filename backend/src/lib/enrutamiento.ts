@@ -52,19 +52,19 @@ export async function extensionDelOperador(
 export async function extensionesDeTransferencia(empresaId: string, colaId: string | null): Promise<string[]> {
   if (colaId) {
     const deCola = await pool.query<{ numero: string }>(
-      "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND cola_id = $2 AND activa = true ORDER BY numero",
+      "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND cola_id = $2 AND activa = true AND solo_directa = false ORDER BY numero",
       [empresaId, colaId]
     );
     if (deCola.rows.length > 0) return deCola.rows.map((r) => r.numero);
   }
   const generales = await pool.query<{ numero: string }>(
-    "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND cola_id IS NULL AND activa = true ORDER BY numero",
+    "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND cola_id IS NULL AND activa = true AND solo_directa = false ORDER BY numero",
     [empresaId]
   );
   if (generales.rows.length > 0 || colaId) return generales.rows.map((r) => r.numero);
 
   const todas = await pool.query<{ numero: string }>(
-    "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND activa = true ORDER BY numero",
+    "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND activa = true AND solo_directa = false ORDER BY numero",
     [empresaId]
   );
   return todas.rows.map((r) => r.numero);

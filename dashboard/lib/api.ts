@@ -1233,6 +1233,8 @@ export interface ExtensionCentral {
   // Vendedor dueño de este teléfono (para el reparto «Al operador que originó la llamada»).
   usuario_id: string | null;
   usuario_nombre: string | null;
+  // Teléfono propio del vendedor: no entra al timbre del grupo del departamento.
+  solo_directa: boolean;
 }
 
 // Contexto para quien atiende una llamada que la IA transfirió (panel de
@@ -1366,13 +1368,13 @@ export async function actualizarDestinoCola(colaId: string, destino: DestinoLlam
   await enviarJson(`/api/colas/${colaId}/destino`, "PUT", { empresaId: EMPRESA_ID, destino }, "Error guardando el destino de la cola");
 }
 
-export async function crearExtensionCentral(data: { numero: string; nombre?: string; colaId?: string | null; usuarioId?: string | null }): Promise<void> {
+export async function crearExtensionCentral(data: { numero: string; nombre?: string; colaId?: string | null; usuarioId?: string | null; soloDirecta?: boolean }): Promise<void> {
   await enviarJson("/api/extensiones", "POST", { empresaId: EMPRESA_ID, ...data }, "Error creando la extensión");
 }
 
 export async function actualizarExtensionCentral(
   id: string,
-  data: { nombre?: string | null; colaId?: string | null; activa?: boolean; usuarioId?: string | null }
+  data: { nombre?: string | null; colaId?: string | null; activa?: boolean; usuarioId?: string | null; soloDirecta?: boolean }
 ): Promise<void> {
   await enviarJson(`/api/extensiones/${id}`, "PUT", { empresaId: EMPRESA_ID, ...data }, "Error actualizando la extensión");
 }

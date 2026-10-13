@@ -116,10 +116,11 @@ export async function crearExtensionAction(
   const nombre = String(formData.get("nombre") ?? "").trim();
   const colaId = String(formData.get("colaId") ?? "").trim();
   const usuarioId = String(formData.get("usuarioId") ?? "").trim();
+  const soloDirecta = formData.get("soloDirecta") === "on";
   if (!numero) return { error: "Escribe el número de la extensión." };
 
   try {
-    await crearExtensionCentral({ numero, nombre: nombre || undefined, colaId: colaId || null, usuarioId: usuarioId || null });
+    await crearExtensionCentral({ numero, nombre: nombre || undefined, colaId: colaId || null, usuarioId: usuarioId || null, soloDirecta });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Error creando la extensión." };
   }
@@ -154,6 +155,14 @@ export async function cambiarVendedorExtensionAction(
     // La auditoría no debe impedir que el cambio se vea como guardado.
   }
   return { ok: true };
+}
+
+export async function cambiarSoloDirectaExtensionAction(formData: FormData) {
+  const id = String(formData.get("id"));
+  const soloDirecta = formData.get("soloDirecta") === "on";
+  await actualizarExtensionCentral(id, { soloDirecta });
+  revalidatePath("/configuracion/enrutamiento");
+  await auditar("actualizar", "extension_central_solo_directa", { id, soloDirecta });
 }
 
 export async function cambiarActivaExtensionAction(formData: FormData) {

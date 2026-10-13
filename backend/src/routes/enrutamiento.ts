@@ -43,7 +43,7 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
 
     const extensiones = await pool.query(
       `SELECT e.id, e.numero, e.nombre, e.cola_id, e.activa, c.nombre AS cola_nombre,
-              e.usuario_id, u.nombre AS usuario_nombre
+              e.usuario_id, u.nombre AS usuario_nombre, e.solo_directa
        FROM extensiones_central e
        LEFT JOIN colas c ON c.id = e.cola_id AND c.empresa_id = e.empresa_id
        LEFT JOIN usuarios u ON u.id = e.usuario_id AND u.empresa_id = e.empresa_id
@@ -170,10 +170,12 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
     }
   );
 
-  app.post<{ Body: { empresaId: string; numero: string; nombre?: string; colaId?: string | null; usuarioId?: string | null } }>(
+  app.post<{
+    Body: { empresaId: string; numero: string; nombre?: string; colaId?: string | null; usuarioId?: string | null; soloDirecta?: boolean };
+  }>(
     "/api/extensiones",
     async (req, reply) => {
-      const { empresaId, nombre, colaId, usuarioId } = req.body;
+      const { empresaId, nombre, colaId, usuarioId, soloDirecta } = req.body;
       const numero = req.body.numero?.trim();
       if (!empresaId || !numero) {
         reply.code(400).send({ error: "empresaId y numero son requeridos" });
@@ -201,9 +203,9 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
 
       try {
         const result = await pool.query(
-          `INSERT INTO extensiones_central (empresa_id, cola_id, numero, nombre, usuario_id)
-           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-          [empresaId, colaId || null, numero, nombre?.trim() || null, usuarioId || null]
+          `INSERT INTO extensiones_central (empresa_id, cola_id, numero, nombre, usuario_id, solo_directa)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          [empresaId, colaId || null, numero, nombre?.trim() || null, usuarioId || null, soloDirecta === true]
         );
         reply.send({ ok: true, id: result.rows[0].id });
       } catch (err) {
@@ -218,10 +220,17 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
 
   app.put<{
     Params: { id: string };
-    Body: { empresaId: string; nombre?: string | null; colaId?: string | null; activa?: boolean; usuarioId?: string | null };
+    Body: {
+      empresaId: string;
+      nombre?: string | null;
+      colaId?: string | null;
+      activa?: boolean;
+      usuarioId?: string | null;
+      soloDirecta?: boolean;
+    };
   }>("/api/extensiones/:id", async (req, reply) => {
     const { id } = req.params;
-    const { empresaId, nombre, colaId, activa, usuarioId } = req.body;
+    const { empresaId, nombre, colaId, activa, usuarioId, soloDirecta } = req.body;
     if (!empresaId) {
       reply.code(400).send({ error: "empresaId es requerido" });
       return;
@@ -249,7 +258,8 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
          nombre = CASE WHEN $3::boolean THEN $4 ELSE nombre END,
          cola_id = CASE WHEN $5::boolean THEN $6::uuid ELSE cola_id END,
          activa = COALESCE($7, activa),
-         usuario_id = CASE WHEN $8::boolean THEN $9::uuid ELSE usuario_id END
+         usuario_id = CASE WHEN $8::boolean THEN $9::uuid ELSE usuario_id END,
+         solo_directa = COALESCE($10, solo_directa)
        WHERE id = $1 AND empresa_id = $2
        RETURNING id`,
       [
@@ -262,6 +272,7 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
         activa ?? null,
         usuarioId !== undefined,
         usuarioId || null,
+        typeof soloDirecta === "boolean" ? soloDirecta : null,
       ]
     );
     if (result.rows.length === 0) {

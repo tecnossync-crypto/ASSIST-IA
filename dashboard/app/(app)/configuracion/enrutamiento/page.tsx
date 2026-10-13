@@ -202,10 +202,11 @@ export default async function EnrutamientoPage({
               <>
                 Carga las extensiones y asígnalas a un departamento. Al transferir a la central suenan a la vez todas
                 las extensiones activas (&quot;Suena&quot;) de ese departamento; si no tiene ninguna, las generales.
-                Apaga &quot;Suena&quot; para dejar una extensión fuera sin borrarla. Si asignas cada extensión a su
-                vendedor y el reparto del departamento es <em>&quot;Al operador que originó la llamada&quot;</em>, la
-                llamada suena en el teléfono de ese vendedor; si no contesta, pasa a las demás extensiones del
-                departamento.
+                Apaga &quot;Suena&quot; para dejar una extensión fuera sin borrarla. Si el departamento ya tiene una
+                extensión de grupo (ej. ventas) que suena en todos los teléfonos, déjala como está y agrega además la
+                extensión de cada vendedor marcando <strong>&quot;Solo para su vendedor&quot;</strong>: así no suena
+                doble con el grupo. Con el reparto <em>&quot;Al operador que originó la llamada&quot;</em>, la llamada
+                suena primero en el teléfono de ese vendedor; si no contesta, pasa al grupo.
               </>
             }
           >

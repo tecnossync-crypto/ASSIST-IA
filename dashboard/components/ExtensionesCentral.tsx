@@ -6,6 +6,7 @@ import {
   crearExtensionAction,
   cambiarColaExtensionAction,
   cambiarActivaExtensionAction,
+  cambiarSoloDirectaExtensionAction,
   eliminarExtensionAction,
   type EstadoExtension,
 } from "@/app/(app)/configuracion/enrutamiento/actions";
@@ -33,6 +34,7 @@ function FilaExtension({ ext, colas, agentes }: { ext: ExtensionCentral; colas: 
         <p className="text-xs text-muted">
           {ext.cola_nombre ?? "General (sin departamento)"}
           {ext.usuario_nombre && <> · teléfono de {ext.usuario_nombre}</>}
+          {ext.solo_directa && <> · no suena con el grupo</>}
         </p>
       </div>
 
@@ -54,6 +56,23 @@ function FilaExtension({ ext, colas, agentes }: { ext: ExtensionCentral; colas: 
               </option>
             ))}
           </select>
+        </form>
+
+        <form
+          action={cambiarSoloDirectaExtensionAction}
+          title="Teléfono propio del vendedor: no suena cuando suena el grupo del departamento (evita el doble timbre)"
+        >
+          <input type="hidden" name="id" value={ext.id} />
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-2">
+            <input
+              type="checkbox"
+              name="soloDirecta"
+              defaultChecked={ext.solo_directa}
+              onChange={(e) => e.currentTarget.form?.requestSubmit()}
+              className="rounded border-edge"
+            />
+            Solo para su vendedor
+          </label>
         </form>
 
         <form action={cambiarActivaExtensionAction} title="Si está apagada, no suena aunque pertenezca al departamento">
@@ -148,6 +167,13 @@ export function ExtensionesCentral({
             ))}
           </select>
         </div>
+        <label
+          className="flex cursor-pointer items-center gap-1.5 pb-2 text-xs text-ink-2"
+          title="Marca esto para el teléfono propio de un vendedor cuando el departamento ya tiene una extensión de grupo que suena en todos"
+        >
+          <input type="checkbox" name="soloDirecta" className="rounded border-edge" />
+          Solo para su vendedor
+        </label>
         <button
           type="submit"
           disabled={cargando}
