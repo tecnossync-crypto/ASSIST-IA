@@ -345,7 +345,8 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
 
     // Modo "Al operador que originó la llamada": si la plataforma externa dijo qué
     // operador disparó esta llamada de IA y está activo, la transferencia es para él.
-    const operadorElegido = await operadorOrigenDisponible(row.empresa_id, row.cola_id, await operadorDeLlamada(callSid));
+    const operadorOrigenId = await operadorDeLlamada(callSid);
+    const operadorElegido = await operadorOrigenDisponible(row.empresa_id, row.cola_id, operadorOrigenId);
     if (operadorElegido) app.log.info({ callSid, operadorElegido }, "Transferencia al operador que originó la llamada");
 
     if (destino !== "central") {
@@ -411,6 +412,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         callSid,
         publicBaseUrl,
         grabar: !yaGrabando,
+        operadorUsuarioId: operadorOrigenId,
       });
       if ("twiml" in resultado) {
         app.log.info(
@@ -460,7 +462,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   // esto si la llamada a la extensión de la central no se pudo completar
   // (ocupado, no contestó, error de la PBX). DialCallStatus distingue "el
   // otro lado sí contestó y ya colgaron" (completed) de "nunca contestó".
-  app.post<{ Querystring: { callSid?: string } }>(
+  app.post<{ Querystring: { callSid?: string; directa?: string } }>(
     "/webhooks/twilio/central-propia-fallback",
     async (req, reply) => {
       const body = req.body as Record<string, string>;
@@ -488,6 +490,36 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         { callSid: req.query.callSid, dialCallStatus },
         "Extensión de la central propia no contestó/falló"
       );
+
+      // Se marcó primero al teléfono del vendedor que originó la llamada y no contestó:
+      // se prueba con el resto de las extensiones del departamento (sin repetir la suya).
+      const directa = req.query.directa;
+      const publicBaseUrl = process.env.PUBLIC_BASE_URL;
+      if (directa && req.query.callSid && publicBaseUrl) {
+        const fila = await pool.query<{ empresa_id: string; cola_id: string | null }>(
+          "SELECT empresa_id, cola_id FROM llamadas WHERE call_sid = $1",
+          [req.query.callSid]
+        );
+        const llamada = fila.rows[0];
+        if (llamada) {
+          const segunda = await twimlParaCentral({
+            empresaId: llamada.empresa_id,
+            colaId: llamada.cola_id,
+            callSid: req.query.callSid,
+            publicBaseUrl,
+            grabar: false,
+            excluir: [directa],
+          });
+          if ("twiml" in segunda) {
+            app.log.info(
+              { callSid: req.query.callSid, extensiones: segunda.extensiones },
+              "El vendedor no contestó: se pasa a las demás extensiones del departamento"
+            );
+            reply.type("text/xml").send(segunda.twiml);
+            return;
+          }
+        }
+      }
       reply
         .type("text/xml")
         .send(twimlColgar("En este momento no hay agentes disponibles. Por favor intente más tarde."));

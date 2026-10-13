@@ -2,7 +2,7 @@ import { Network, Layers, Headset, GitFork, PhoneForwarded, ClipboardList, Timer
 import { ResumenTransferenciaForm } from "@/components/ResumenTransferenciaForm";
 import { FormConFeedback } from "@/components/FormConFeedback";
 import { guardarColaEsperaAction } from "./actions";
-import { listarColas, obtenerEmpresa, obtenerEnrutamiento } from "@/lib/api";
+import { listarAgentes, listarColas, obtenerEmpresa, obtenerEnrutamiento } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { CentralPropiaForm } from "@/components/CentralPropiaForm";
 import { EnrutamientoForm } from "@/components/EnrutamientoForm";
@@ -33,7 +33,12 @@ export default async function EnrutamientoPage({
   const { seccion } = await searchParams;
   const activa = PESTANAS.some((p) => p.id === seccion) ? (seccion as string) : "general";
 
-  const [colas, empresa, enrutamiento] = await Promise.all([listarColas(), obtenerEmpresa(), obtenerEnrutamiento()]);
+  const [colas, empresa, enrutamiento, agentes] = await Promise.all([
+    listarColas(),
+    obtenerEmpresa(),
+    obtenerEnrutamiento(),
+    listarAgentes().catch(() => []),
+  ]);
   const modoActual = empresa.enrutamiento_llamadas?.modo ?? "todos";
   const usaCentral =
     enrutamiento.destino !== "plataforma" || colas.some((c) => c.destino_llamadas && c.destino_llamadas !== "plataforma");
@@ -197,13 +202,17 @@ export default async function EnrutamientoPage({
               <>
                 Carga las extensiones y asígnalas a un departamento. Al transferir a la central suenan a la vez todas
                 las extensiones activas (&quot;Suena&quot;) de ese departamento; si no tiene ninguna, las generales.
-                Apaga &quot;Suena&quot; para dejar una extensión fuera sin borrarla.
+                Apaga &quot;Suena&quot; para dejar una extensión fuera sin borrarla. Si asignas cada extensión a su
+                vendedor y el reparto del departamento es <em>&quot;Al operador que originó la llamada&quot;</em>, la
+                llamada suena en el teléfono de ese vendedor; si no contesta, pasa a las demás extensiones del
+                departamento.
               </>
             }
           >
             <ExtensionesCentral
               extensiones={enrutamiento.extensiones}
               colas={colas.map((c) => ({ id: c.id, nombre: c.nombre }))}
+              agentes={agentes.map((a) => ({ id: a.id, nombre: a.nombre }))}
             />
           </SeccionConfig>
 

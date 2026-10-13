@@ -10,6 +10,7 @@ import {
   type EstadoExtension,
 } from "@/app/(app)/configuracion/enrutamiento/actions";
 import { BotonAccion } from "./BotonAccion";
+import { VendedorExtensionSelect } from "./VendedorExtensionSelect";
 import type { ExtensionCentral } from "@/lib/api";
 
 const CAMPO =
@@ -19,8 +20,9 @@ const SELECT_CHICO =
 const ESTADO_INICIAL: EstadoExtension = {};
 
 type ColaOpcion = { id: string; nombre: string };
+type AgenteOpcion = { id: string; nombre: string };
 
-function FilaExtension({ ext, colas }: { ext: ExtensionCentral; colas: ColaOpcion[] }) {
+function FilaExtension({ ext, colas, agentes }: { ext: ExtensionCentral; colas: ColaOpcion[]; agentes: AgenteOpcion[] }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 py-3">
       <div className="min-w-0">
@@ -28,10 +30,15 @@ function FilaExtension({ ext, colas }: { ext: ExtensionCentral; colas: ColaOpcio
           Ext. {ext.numero}
           {ext.nombre && <span className="ml-2 font-normal text-muted">{ext.nombre}</span>}
         </p>
-        <p className="text-xs text-muted">{ext.cola_nombre ?? "General (sin departamento)"}</p>
+        <p className="text-xs text-muted">
+          {ext.cola_nombre ?? "General (sin departamento)"}
+          {ext.usuario_nombre && <> · teléfono de {ext.usuario_nombre}</>}
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        <VendedorExtensionSelect extensionId={ext.id} usuarioActual={ext.usuario_id} agentes={agentes} />
+
         <form action={cambiarColaExtensionAction} title="Departamento al que pertenece esta extensión">
           <input type="hidden" name="id" value={ext.id} />
           <select
@@ -82,7 +89,15 @@ function FilaExtension({ ext, colas }: { ext: ExtensionCentral; colas: ColaOpcio
  * Desmarcar "Suena" deja una extensión fuera sin borrarla — así se elige
  * entre "todas las extensiones" o solo algunas específicas.
  */
-export function ExtensionesCentral({ extensiones, colas }: { extensiones: ExtensionCentral[]; colas: ColaOpcion[] }) {
+export function ExtensionesCentral({
+  extensiones,
+  colas,
+  agentes,
+}: {
+  extensiones: ExtensionCentral[];
+  colas: ColaOpcion[];
+  agentes: AgenteOpcion[];
+}) {
   const [estado, formAction, cargando] = useActionState(crearExtensionAction, ESTADO_INICIAL);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -120,6 +135,19 @@ export function ExtensionesCentral({ extensiones, colas }: { extensiones: Extens
             ))}
           </select>
         </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="ext-vendedor" className="text-xs font-medium text-ink-2">
+            Vendedor (opcional)
+          </label>
+          <select id="ext-vendedor" name="usuarioId" className={CAMPO} defaultValue="">
+            <option value="">Sin vendedor</option>
+            {agentes.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
         <button
           type="submit"
           disabled={cargando}
@@ -143,7 +171,7 @@ export function ExtensionesCentral({ extensiones, colas }: { extensiones: Extens
 
       <div className="flex flex-col divide-y divide-edge">
         {extensiones.map((e) => (
-          <FilaExtension key={e.id} ext={e} colas={colas} />
+          <FilaExtension key={e.id} ext={e} colas={colas} agentes={agentes} />
         ))}
         {extensiones.length === 0 && <p className="py-2 text-sm text-muted">No hay extensiones cargadas todavía.</p>}
       </div>

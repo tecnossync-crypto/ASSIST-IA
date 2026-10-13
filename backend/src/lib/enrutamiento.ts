@@ -1,4 +1,5 @@
 import { pool } from "../db/pool.js";
+import { modoOperadorOrigenActivo } from "./agentes.js";
 
 export type DestinoLlamadas = "plataforma" | "central" | "ambos";
 
@@ -16,6 +17,26 @@ export async function destinoDeTransferencia(empresaId: string, colaId: string |
     [empresaId, colaId]
   );
   return r.rows[0]?.destino ?? "plataforma";
+}
+
+/**
+ * Modo "Al operador que originó la llamada" hacia la central: la extensión activa
+ * (teléfono físico) de ESE vendedor, si el reparto de la cola/empresa es ese modo y
+ * el vendedor tiene una extensión asignada. Si no, null y suena el departamento.
+ * (Los teléfonos físicos no reportan presencia: se marca su extensión directamente.)
+ */
+export async function extensionDelOperador(
+  empresaId: string,
+  colaId: string | null,
+  operadorUsuarioId: string | null | undefined
+): Promise<string | null> {
+  if (!operadorUsuarioId) return null;
+  if (!(await modoOperadorOrigenActivo(empresaId, colaId))) return null;
+  const r = await pool.query<{ numero: string }>(
+    "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND usuario_id = $2 AND activa = true ORDER BY numero LIMIT 1",
+    [empresaId, operadorUsuarioId]
+  );
+  return r.rows[0]?.numero ?? null;
 }
 
 /**

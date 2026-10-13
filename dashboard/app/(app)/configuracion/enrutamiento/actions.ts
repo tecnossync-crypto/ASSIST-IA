@@ -115,10 +115,11 @@ export async function crearExtensionAction(
   const numero = String(formData.get("numero") ?? "").trim();
   const nombre = String(formData.get("nombre") ?? "").trim();
   const colaId = String(formData.get("colaId") ?? "").trim();
+  const usuarioId = String(formData.get("usuarioId") ?? "").trim();
   if (!numero) return { error: "Escribe el número de la extensión." };
 
   try {
-    await crearExtensionCentral({ numero, nombre: nombre || undefined, colaId: colaId || null });
+    await crearExtensionCentral({ numero, nombre: nombre || undefined, colaId: colaId || null, usuarioId: usuarioId || null });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Error creando la extensión." };
   }
@@ -134,6 +135,25 @@ export async function cambiarColaExtensionAction(formData: FormData) {
   await actualizarExtensionCentral(id, { colaId: colaId || null });
   revalidatePath("/configuracion/enrutamiento");
   await auditar("actualizar", "extension_central_cola", { id, colaId: colaId || null });
+}
+
+// Asigna (o quita, con "") el vendedor dueño de una extensión de la central.
+export async function cambiarVendedorExtensionAction(
+  id: string,
+  usuarioId: string
+): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    await actualizarExtensionCentral(id, { usuarioId: usuarioId || null });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo asignar el vendedor." };
+  }
+  revalidatePath("/configuracion/enrutamiento");
+  try {
+    await auditar("actualizar", "extension_central_vendedor", { id, usuarioId: usuarioId || null });
+  } catch {
+    // La auditoría no debe impedir que el cambio se vea como guardado.
+  }
+  return { ok: true };
 }
 
 export async function cambiarActivaExtensionAction(formData: FormData) {

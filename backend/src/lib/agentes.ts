@@ -191,6 +191,14 @@ export async function elegirAgentesParaLlamada(empresaId: string, colaId?: strin
   return disponibles.rows.map((r) => identidadAgente(r.id));
 }
 
+/** ¿El reparto de esta cola (o de la empresa, si no hay cola) es "Al operador que originó la llamada"? */
+export async function modoOperadorOrigenActivo(empresaId: string, colaId: string | null | undefined): Promise<boolean> {
+  const enrutamiento = colaId
+    ? await obtenerEnrutamientoCola(empresaId, colaId)
+    : await obtenerEnrutamientoEmpresa(empresaId);
+  return enrutamiento.modo === "operador_origen";
+}
+
 /**
  * Modo "Al operador que originó la llamada": devuelve el id de ese operador SOLO si
  * el modo de la cola (o de la empresa) es ese, el operador pertenece a la empresa y
@@ -205,10 +213,7 @@ export async function operadorOrigenDisponible(
   operadorUsuarioId: string | null | undefined
 ): Promise<string | null> {
   if (!operadorUsuarioId) return null;
-  const enrutamiento = colaId
-    ? await obtenerEnrutamientoCola(empresaId, colaId)
-    : await obtenerEnrutamientoEmpresa(empresaId);
-  if (enrutamiento.modo !== "operador_origen") return null;
+  if (!(await modoOperadorOrigenActivo(empresaId, colaId))) return null;
   const r = await pool.query<{ id: string }>(
     "SELECT id FROM usuarios WHERE id = $1 AND empresa_id = $2 AND disponible = true",
     [operadorUsuarioId, empresaId]

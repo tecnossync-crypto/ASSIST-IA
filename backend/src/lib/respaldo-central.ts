@@ -1,6 +1,7 @@
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa } from "./twilio-empresa.js";
-import { extensionesDeTransferencia } from "./enrutamiento.js";
+import { extensionDelOperador, extensionesDeTransferencia } from "./enrutamiento.js";
+import { operadorDeLlamada } from "./operador-origen.js";
 import { twimlTransferirCentralPropia } from "./twiml.js";
 
 /**
@@ -15,13 +16,22 @@ export async function twimlParaCentral(opts: {
   callSid: string;
   publicBaseUrl: string;
   grabar?: boolean;
+  /** Vendedor que originó la llamada (modo "Al operador que originó"): se marca primero SU extensión. */
+  operadorUsuarioId?: string | null;
+  /** Extensiones que no deben sonar (la del vendedor que ya no contestó). */
+  excluir?: string[];
 }): Promise<{ twiml: string; extensiones: string[] } | { motivo: "central_apagada" | "sin_extensiones" }> {
-  const { empresaId, colaId, callSid, publicBaseUrl, grabar = false } = opts;
+  const { empresaId, colaId, callSid, publicBaseUrl, grabar = false, operadorUsuarioId = null, excluir = [] } = opts;
   const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
   const central = twilioEmpresa?.centralPropia;
   if (!central?.entrante) return { motivo: "central_apagada" };
 
-  const extensiones = await extensionesDeTransferencia(empresaId, colaId);
+  // Primero el teléfono del vendedor que originó la llamada (si corresponde); si no, o en la
+  // segunda vuelta (excluir), las extensiones del departamento.
+  const propia = excluir.length === 0 ? await extensionDelOperador(empresaId, colaId, operadorUsuarioId) : null;
+  const extensiones = propia
+    ? [propia]
+    : (await extensionesDeTransferencia(empresaId, colaId)).filter((e) => !excluir.includes(e));
   if (extensiones.length === 0) return { motivo: "sin_extensiones" };
 
   // Con autenticación por IP, "usuario/password" no son credenciales SIP (la
@@ -37,6 +47,7 @@ export async function twimlParaCentral(opts: {
       publicBaseUrl,
       callSid,
       grabar,
+      extensionDirecta: propia,
     }),
   };
 }
@@ -78,6 +89,7 @@ export async function ejecutarRespaldosCentralVencidos(publicBaseUrl: string): P
         colaId: l.cola_id,
         callSid: l.call_sid,
         publicBaseUrl,
+        operadorUsuarioId: await operadorDeLlamada(l.call_sid),
         grabar: false, // ya viene grabándose desde la IA
       });
       if (!("twiml" in resultado)) {

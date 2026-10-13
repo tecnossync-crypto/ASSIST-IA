@@ -42,9 +42,11 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
     }
 
     const extensiones = await pool.query(
-      `SELECT e.id, e.numero, e.nombre, e.cola_id, e.activa, c.nombre AS cola_nombre
+      `SELECT e.id, e.numero, e.nombre, e.cola_id, e.activa, c.nombre AS cola_nombre,
+              e.usuario_id, u.nombre AS usuario_nombre
        FROM extensiones_central e
        LEFT JOIN colas c ON c.id = e.cola_id AND c.empresa_id = e.empresa_id
+       LEFT JOIN usuarios u ON u.id = e.usuario_id AND u.empresa_id = e.empresa_id
        WHERE e.empresa_id = $1
        ORDER BY c.nombre NULLS FIRST, e.numero`,
       [empresaId]
@@ -168,10 +170,10 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
     }
   );
 
-  app.post<{ Body: { empresaId: string; numero: string; nombre?: string; colaId?: string | null } }>(
+  app.post<{ Body: { empresaId: string; numero: string; nombre?: string; colaId?: string | null; usuarioId?: string | null } }>(
     "/api/extensiones",
     async (req, reply) => {
-      const { empresaId, nombre, colaId } = req.body;
+      const { empresaId, nombre, colaId, usuarioId } = req.body;
       const numero = req.body.numero?.trim();
       if (!empresaId || !numero) {
         reply.code(400).send({ error: "empresaId y numero son requeridos" });
@@ -189,11 +191,19 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
         }
       }
 
+      if (usuarioId) {
+        const u = await pool.query("SELECT 1 FROM usuarios WHERE id = $1 AND empresa_id = $2", [usuarioId, empresaId]);
+        if (u.rows.length === 0) {
+          reply.code(400).send({ error: "El vendedor no existe" });
+          return;
+        }
+      }
+
       try {
         const result = await pool.query(
-          `INSERT INTO extensiones_central (empresa_id, cola_id, numero, nombre)
-           VALUES ($1, $2, $3, $4) RETURNING id`,
-          [empresaId, colaId || null, numero, nombre?.trim() || null]
+          `INSERT INTO extensiones_central (empresa_id, cola_id, numero, nombre, usuario_id)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+          [empresaId, colaId || null, numero, nombre?.trim() || null, usuarioId || null]
         );
         reply.send({ ok: true, id: result.rows[0].id });
       } catch (err) {
@@ -208,10 +218,10 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
 
   app.put<{
     Params: { id: string };
-    Body: { empresaId: string; nombre?: string | null; colaId?: string | null; activa?: boolean };
+    Body: { empresaId: string; nombre?: string | null; colaId?: string | null; activa?: boolean; usuarioId?: string | null };
   }>("/api/extensiones/:id", async (req, reply) => {
     const { id } = req.params;
-    const { empresaId, nombre, colaId, activa } = req.body;
+    const { empresaId, nombre, colaId, activa, usuarioId } = req.body;
     if (!empresaId) {
       reply.code(400).send({ error: "empresaId es requerido" });
       return;
@@ -224,13 +234,22 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
       }
     }
 
+    if (usuarioId) {
+      const u = await pool.query("SELECT 1 FROM usuarios WHERE id = $1 AND empresa_id = $2", [usuarioId, empresaId]);
+      if (u.rows.length === 0) {
+        reply.code(400).send({ error: "El vendedor no existe" });
+        return;
+      }
+    }
+
     // colaId viene "" o null para "sin departamento"; undefined = no tocar.
     const cambiaCola = colaId !== undefined;
     const result = await pool.query(
       `UPDATE extensiones_central SET
          nombre = CASE WHEN $3::boolean THEN $4 ELSE nombre END,
          cola_id = CASE WHEN $5::boolean THEN $6::uuid ELSE cola_id END,
-         activa = COALESCE($7, activa)
+         activa = COALESCE($7, activa),
+         usuario_id = CASE WHEN $8::boolean THEN $9::uuid ELSE usuario_id END
        WHERE id = $1 AND empresa_id = $2
        RETURNING id`,
       [
@@ -241,6 +260,8 @@ export async function enrutamientoRoutes(app: FastifyInstance) {
         cambiaCola,
         colaId || null,
         activa ?? null,
+        usuarioId !== undefined,
+        usuarioId || null,
       ]
     );
     if (result.rows.length === 0) {
