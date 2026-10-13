@@ -102,20 +102,18 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
       ? `Campos que esta empresa necesita que recolectes del cliente, además de lo anterior: ${listaCampos}. ` +
         "Usa la herramienta registrar_dato una vez por cada uno en cuanto el cliente te lo dé."
       : "",
-    // Regla por defecto, no negociable: casi todo pedido se resuelve
-    // REGISTRANDO (registrar_solicitud) y avisándole al cliente que un
-    // gestor lo va a contactar — NO transfiriendo en vivo. Solo se
-    // transfiere en vivo si de verdad hace falta un humano ya mismo. Si el
-    // guion de la empresa (arriba, "Cuándo transferir a un humano") da
-    // reglas más específicas, esas mandan por encima de esto para su caso,
-    // pero la regla por defecto sigue aplicando para todo lo demás.
+    // Reglas POR DEFECTO: valen solo donde el guion de arriba no dice otra cosa. Antes iban al final sin
+    // aclararlo y pisaban lo que la empresa escribió sobre cuándo transferir (la IA dudaba o hacía preguntas).
+    "REGLAS POR DEFECTO (si tus instrucciones de arriba dicen otra cosa sobre cuándo transferir o registrar, " +
+      "SIGUE LAS DE ARRIBA; estas solo aplican donde no se dijo nada):",
     "Cuando el cliente pida algo (pagar, cotizar, información, un cambio en su cuenta/póliza, un reclamo no " +
       "urgente, etc.), tu opción por defecto es usar registrar_solicitud: guarda el pedido en cuanto lo tengas " +
       "claro (no esperes a que termine la llamada) y avísale en tu propia respuesta que un gestor se va a " +
       "comunicar con él/ella para continuar. NO transfieras la llamada para esto.",
-    "Usa transferir_a_humano SOLO cuando de verdad haga falta un humano ahora mismo: el cliente lo pide " +
-      "explícitamente e insiste, está molesto/insatisfecho, el caso es urgente, o está fuera de lo que puedes " +
-      "resolver o registrar bien.",
+    "Si el cliente pide hablar con una persona (un asesor, vendedor, agente o supervisor), usa transferir_a_humano " +
+      "DE INMEDIATO, sin pedirle datos ni verificaciones antes. También transfiere si está molesto/insatisfecho, el " +
+      "caso es urgente, o está fuera de lo que puedes resolver o registrar bien. Para lo demás, registra la solicitud.",
+    "NUNCA pidas contraseñas, claves, PIN ni códigos de verificación al cliente, ni siquiera para transferirlo.",
     listaColas,
     "Nunca inventes información que no tengas; si no sabes algo, dilo y ofrece transferir.",
   ]
@@ -129,24 +127,36 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
  * prompt personalizado o guiado que la empresa configuró, en vez de un
  * texto fijo aparte que se podía desincronizar del guion real.
  */
-export async function generarSaludoInicial(systemPrompt: string): Promise<string> {
+/**
+ * Qué se le pide al modelo para abrir la llamada. Depende de QUIÉN llamó: si el cliente llamó, "acabas de
+ * contestar"; si la llamamos nosotros (API, campañas, flujos), el cliente acaba de contestar NUESTRA llamada
+ * y no corresponde decir "gracias por llamar" (contradecía el guion: "te llamo para confirmar tu cita").
+ */
+export function instruccionDeSaludo(saliente: boolean): string {
+  return saliente
+    ? "\n\nTÚ estás llamando al cliente y acaba de contestar. Salúdalo, preséntate brevemente y dile el motivo de tu " +
+        "llamada según tus instrucciones. NO digas \"gracias por llamar\" ni \"¿en qué le puedo ayudar?\": la llamada la " +
+        "hiciste tú. Breve y natural, sin markdown."
+    : "\n\nAcabas de contestar el teléfono. Saluda al cliente ahora mismo, breve y natural, siguiendo tus instrucciones. No uses markdown.";
+}
+
+export function saludoDeRespaldo(saliente: boolean, empresa?: string): string {
+  return saliente
+    ? `Hola, le llamamos de ${empresa ?? "nuestra empresa"}. ¿Tiene un momento?`
+    : "Gracias por llamar, ¿en qué le puedo ayudar?";
+}
+
+export async function generarSaludoInicial(systemPrompt: string, saliente = false, empresa?: string): Promise<string> {
   try {
     const respuesta = await openai.chat.completions.create({
       model: MODEL,
       max_tokens: 150,
-      messages: [
-        {
-          role: "system",
-          content:
-            systemPrompt +
-            "\n\nAcabas de contestar el teléfono. Saluda al cliente ahora mismo, breve y natural, siguiendo tus instrucciones. No uses markdown.",
-        },
-      ],
+      messages: [{ role: "system", content: systemPrompt + instruccionDeSaludo(saliente) }],
     });
-    return respuesta.choices[0].message.content?.trim() || "Gracias por llamar, ¿en qué le puedo ayudar?";
+    return respuesta.choices[0].message.content?.trim() || saludoDeRespaldo(saliente, empresa);
   } catch (err) {
     console.error("Error generando saludo inicial:", err);
-    return "Gracias por llamar, ¿en qué le puedo ayudar?";
+    return saludoDeRespaldo(saliente, empresa);
   }
 }
 

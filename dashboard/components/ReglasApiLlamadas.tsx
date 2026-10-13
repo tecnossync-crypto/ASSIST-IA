@@ -209,6 +209,10 @@ function FormularioRegla({
         <label className="mb-1 block text-xs font-medium text-muted">
           Guion (prompt) que usará la IA — reemplaza el que mande la plataforma externa
         </label>
+        <p className="mb-1.5 rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+          Ojo: este guion reemplaza <strong>por completo</strong> el prompt de la empresa en estas llamadas. Incluye aquí
+          quién eres, el motivo de la llamada, qué datos pedir y cuándo transferir a una persona.
+        </p>
         <textarea
           name="promptPersonalizado"
           required

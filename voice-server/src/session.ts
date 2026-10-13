@@ -55,7 +55,7 @@ export class ConversationSession {
     // que nunca quede desincronizado del guion/prompt real de la empresa.
     // Se guarda también en el historial: si no, el modelo no "recuerda"
     // haberlo dicho y el siguiente turno pierde contexto.
-    this.saludo = await generarSaludoInicial(this.systemPrompt);
+    this.saludo = await generarSaludoInicial(this.systemPrompt, this.esSaliente(), this.empresa?.nombre);
     this.historial.push({ role: "assistant", content: this.saludo });
   }
 
@@ -69,8 +69,18 @@ export class ConversationSession {
     return this.empresa?.tiempo_respuesta_segundos ?? 0;
   }
 
+  /** Las llamadas de campaña y las pedidas por webhook/API las origina la plataforma: el cliente contesta NUESTRA llamada. */
+  esSaliente(): boolean {
+    return Boolean(this.campanaContactoId || this.webhookLlamadaId);
+  }
+
   saludoInicial(): string {
-    return this.saludo || `Gracias por llamar a ${this.empresa?.nombre ?? "nuestra empresa"}, ¿en qué le puedo ayudar?`;
+    return (
+      this.saludo ||
+      (this.esSaliente()
+        ? `Hola, le llamamos de ${this.empresa?.nombre ?? "nuestra empresa"}. ¿Tiene un momento?`
+        : `Gracias por llamar a ${this.empresa?.nombre ?? "nuestra empresa"}, ¿en qué le puedo ayudar?`)
+    );
   }
 
   /** Si true, hay que sintetizar el audio nosotros mismos (ver server.ts,

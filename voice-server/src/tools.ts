@@ -13,8 +13,9 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       name: "transferir_a_humano",
       description:
         "Transfiere la llamada EN VIVO, ahora mismo, a un agente humano disponible — el cliente se queda " +
-        "esperando en línea hasta que alguien conteste. Úsala SOLO cuando de verdad haga falta que un humano " +
-        "hable con el cliente en este momento: lo pide explícitamente, está molesto/insatisfecho, es urgente, o " +
+        "esperando en línea hasta que alguien conteste. Si el cliente pide hablar con una persona, úsala de " +
+        "inmediato, sin pedirle datos antes. Úsala cuando de verdad haga falta que un humano " +
+        "hable con el cliente en este momento: lo pide, está molesto/insatisfecho, es urgente, o " +
         "el caso está fuera de lo que el guion cubre y no lo puedes resolver ni registrar bien. " +
         "Para pedidos normales que se pueden gestionar después (pagos, cotizaciones, información, cambios, " +
         "reclamos no urgentes, etc.) usa registrar_solicitud en vez de esta — NO hace falta transferir en vivo " +

@@ -320,8 +320,16 @@ export async function internalRoutes(app: FastifyInstance) {
       }
 
       const empresaRow = empresa.rows[0];
-      const guionCombinado = prompt
-        ? { ...empresaRow.guion_agente, prompt_personalizado: prompt }
+      // El prompt de la llamada reemplaza el de la empresa; pero la regla de "cuándo transferir" del guion
+      // guiado de la empresa se conserva, para que no se pierda justo la parte más delicada.
+      const cuandoTransferir =
+        typeof empresaRow.guion_agente?.cuando_transferir === "string" ? empresaRow.guion_agente.cuando_transferir.trim() : "";
+      const promptConTransferencia =
+        prompt && cuandoTransferir && !/transfer/i.test(prompt)
+          ? `${prompt}\n\nCuándo transferir a un humano: ${cuandoTransferir}`
+          : prompt;
+      const guionCombinado = promptConTransferencia
+        ? { ...empresaRow.guion_agente, prompt_personalizado: promptConTransferencia }
         : empresaRow.guion_agente;
       const [{ guion: guionConVariables, contacto: contactoConocido }, colas] = await Promise.all([
         aplicarVariablesContacto(guionCombinado, empresaRow.campos_personalizados ?? [], empresaId, numero),
