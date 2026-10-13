@@ -33,12 +33,19 @@ export async function iniciarConferenciaConAgentes(opts: {
   // Teléfono del cliente: viaja al navegador del asesor junto con el id de la
   // llamada, para mostrar quién llama y su resumen de la IA en la llamada entrante.
   numeroCliente?: string | null;
+  // Modo "Al operador que originó la llamada": el operador que disparó la
+  // etiqueta (ya verificado como activo). A diferencia de usuarioIdDirecto, la
+  // llamada SÍ le suena y él decide contestar: es una llamada que le llega, no
+  // una que él mismo marcó.
+  operadorPreferidoId?: string | null;
 }): Promise<{ identidades: string[] }> {
-  const { empresaId, llamadaId, conferenciaNombre, colaId, publicBaseUrl, usuarioIdDirecto, numeroCliente } = opts;
+  const { empresaId, llamadaId, conferenciaNombre, colaId, publicBaseUrl, usuarioIdDirecto, numeroCliente, operadorPreferidoId } = opts;
 
   const identidadesAgentes = usuarioIdDirecto
     ? [identidadAgente(usuarioIdDirecto)]
-    : await elegirAgentesParaLlamada(empresaId, colaId);
+    : operadorPreferidoId
+      ? [identidadAgente(operadorPreferidoId)]
+      : await elegirAgentesParaLlamada(empresaId, colaId);
   if (identidadesAgentes.length === 0) return { identidades: [] };
 
   const twilioEmpresa = await clienteTwilioEmpresa(empresaId);

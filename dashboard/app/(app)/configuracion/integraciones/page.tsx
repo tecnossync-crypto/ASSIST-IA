@@ -106,6 +106,7 @@ export default async function IntegracionesPage({
     "numero": "+18095551234",
     "prompt": "Llama para confirmar la cita de mañana a las 3pm",
     "fecha_programada": "2026-10-10T15:00:00-04:00",
+    "operador": "maria@tuempresa.com",
     "origen": "mi-crm"
   }'`}</Codigo>
             <ul className="mt-3 space-y-1.5 text-xs text-muted">
@@ -129,6 +130,14 @@ export default async function IntegracionesPage({
                 llamar dentro de N minutos. Si mandas los dos, manda <span className="font-mono">fecha_programada</span>.
                 Con hora programada, la respuesta trae <span className="font-mono">&quot;programada&quot;: true</span> y
                 el prompt que mandaste se usa cuando llegue la hora.
+              </li>
+              <li>
+                <span className="font-mono text-ink-2">operador</span> — opcional. El operador que disparó la etiqueta
+                en tu plataforma: su <strong>id externo</strong> (se pone en Configuración → Agentes), su email o su
+                nombre exacto. Si el reparto del departamento es{" "}
+                <em>&quot;Al operador que originó la llamada&quot;</em> y ese asesor está activo, la llamada transferida
+                le suena a él. La respuesta trae <span className="font-mono">operador_identificado: true/false</span>{" "}
+                para que compruebes que lo reconoció.
               </li>
               <li>
                 <span className="font-mono text-ink-2">origen</span> — opcional, libre, solo para identificar de dónde

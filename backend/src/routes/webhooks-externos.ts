@@ -6,6 +6,7 @@ import { registrarFallbackCentral } from "../lib/fallback-central.js";
 import { asegurarContacto, upsertContacto } from "../lib/contactos.js";
 import { registrarWebhookRecibido } from "../lib/webhooks-log.js";
 import { evaluarReglaApiLlamadas, proximaOcurrencia } from "../lib/reglas-api-llamadas.js";
+import { resolverOperadorExterno } from "../lib/operador-origen.js";
 
 interface CampoPersonalizado {
   nombre: string;
@@ -87,6 +88,10 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       }
 
       const { numero, prompt, origen, fecha_programada: fechaProgramada, retraso_minutos: retrasoRaw } = req.body ?? {};
+      // Operador que disparó la etiqueta/solicitud en la plataforma externa: su id externo, email o
+      // nombre (se identifica en Configuración → Agentes). Se usa si el reparto es "Al operador que originó".
+      const cuerpo = (req.body ?? {}) as Record<string, unknown>;
+      const operadorRecibido = cuerpo.operador ?? cuerpo.operador_id ?? cuerpo.operador_email ?? cuerpo.agente;
       if (!numero || typeof numero !== "string" || !/^\+?[\d\s()-]{7,}$/.test(numero)) {
         const error = "numero es requerido y debe ser un teléfono válido (ej. +18095551234)";
         await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: false, error, esPrueba });
@@ -169,9 +174,14 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         llamarDespues = programadaPara !== null && programadaPara.getTime() - Date.now() > 60_000;
       }
 
+      const operadorUsuarioId = await resolverOperadorExterno(empresaId, operadorRecibido);
+      const operadorExterno =
+        typeof operadorRecibido === "string" && operadorRecibido.trim() ? operadorRecibido.trim().slice(0, 200) : null;
+
       const solicitud = await pool.query<{ id: string }>(
-        `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para,
+                                       operador_usuario_id, operador_externo)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
         [
           empresaId,
           numero,
@@ -179,6 +189,8 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           origen ?? null,
           reglaAplicada?.reglaId ?? null,
           llamarDespues ? programadaPara : null,
+          operadorUsuarioId,
+          operadorExterno,
         ]
       );
       const llamadaWebhookId = solicitud.rows[0].id;
@@ -195,7 +207,13 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
         );
         app.log.info({ numero, origen, programadaPara }, "Llamada vía webhook externo programada");
         await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: true, esPrueba });
-        reply.send({ ok: true, programada: true, fecha_programada: programadaPara.toISOString(), id: llamadaWebhookId });
+        reply.send({
+          ok: true,
+          programada: true,
+          fecha_programada: programadaPara.toISOString(),
+          id: llamadaWebhookId,
+          ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
+        });
         return;
       }
 
@@ -232,7 +250,12 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           esPrueba,
           callSid: call.sid,
         });
-        reply.send({ ok: true, callSid: call.sid, id: llamadaWebhookId });
+        reply.send({
+          ok: true,
+          callSid: call.sid,
+          id: llamadaWebhookId,
+          ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
+        });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada vía webhook externo");
         await registrarWebhookRecibido({

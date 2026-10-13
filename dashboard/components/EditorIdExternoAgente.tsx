@@ -6,9 +6,10 @@ import { cambiarIdExternoAgenteAction, type EstadoIdExterno } from "@/app/(app)/
 
 const ESTADO_INICIAL: EstadoIdExterno = {};
 
-/** Id/código en un sistema externo (CRM, planilla, etc.) — puramente
- *  informativo, para que una integración identifique a este usuario sin
- *  depender del email. */
+/** Id/código de este usuario en un sistema externo (CRM, SalesIQ, etc.). Si la
+ *  plataforma externa manda este valor en el campo `operador` al pedir una llamada
+ *  de IA, el reparto "Al operador que originó la llamada" se la pasa a este asesor
+ *  (también se reconoce por email o por nombre exacto). */
 export function EditorIdExternoAgente({ id, valorInicial }: { id: string; valorInicial: string | null }) {
   const [editando, setEditando] = useState(false);
   const accionConId = cambiarIdExternoAgenteAction.bind(null, id);
@@ -35,7 +36,7 @@ export function EditorIdExternoAgente({ id, valorInicial }: { id: string; valorI
         <input
           name="idExterno"
           defaultValue={valorInicial ?? ""}
-          placeholder="Id/código en otro sistema"
+          placeholder="Id del operador en tu plataforma (ej. SalesIQ)"
           className="w-56 rounded-md border border-edge px-2.5 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
         <button

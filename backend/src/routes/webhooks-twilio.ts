@@ -15,11 +15,12 @@ import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
 import { reprogramarOFallar } from "../jobs/dispatcher-campanas.js";
 import { asegurarContacto } from "../lib/contactos.js";
 import { ejecutarFlujosTrabajo } from "../lib/flujos-trabajo.js";
-import { usuarioIdDesdeIdentidad } from "../lib/agentes.js";
+import { operadorOrigenDisponible, usuarioIdDesdeIdentidad } from "../lib/agentes.js";
 import { iniciarConferenciaConAgentes } from "../lib/conferencia-agentes.js";
 import { descartarFallbackCentral, reintentarDirectoSiCorresponde } from "../lib/fallback-central.js";
 import { destinoDeTransferencia, extensionesDeTransferencia } from "../lib/enrutamiento.js";
 import { esperaConfig } from "../lib/espera.js";
+import { operadorDeLlamada } from "../lib/operador-origen.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -342,10 +343,15 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     const twilioPost = await clienteTwilioEmpresa(row.empresa_id);
     const yaGrabando = await llamadaYaSeGraba(twilioPost, callSid);
 
+    // Modo "Al operador que originó la llamada": si la plataforma externa dijo qué
+    // operador disparó esta llamada de IA y está activo, la transferencia es para él.
+    const operadorElegido = await operadorOrigenDisponible(row.empresa_id, row.cola_id, await operadorDeLlamada(callSid));
+    if (operadorElegido) app.log.info({ callSid, operadorElegido }, "Transferencia al operador que originó la llamada");
+
     if (destino !== "central") {
       const conferenciaNombre = `llamada-${row.id}`;
       const cola = await colaEsperaConfig(row.empresa_id);
-      const hayAsesores = await hayAsesoresDisponibles(row.empresa_id, row.cola_id);
+      const hayAsesores = Boolean(operadorElegido) || (await hayAsesoresDisponibles(row.empresa_id, row.cola_id));
 
       // Sin asesores activos y con la cola de espera encendida: el cliente
       // espera en línea (con música) en vez de que se le cuelgue, y los
@@ -375,6 +381,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           colaId: row.cola_id,
           publicBaseUrl,
           numeroCliente,
+          operadorPreferidoId: operadorElegido,
         });
 
         if (identidades.length > 0) {
@@ -425,7 +432,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     // Destino "teléfonos físicos" pero la central no está lista: antes se le
     // colgaba al cliente; ahora, si hay asesores activos en la plataforma, se
     // le pasa a ellos para no perder la llamada.
-    if (centralNoLista && destino === "central" && (await hayAsesoresDisponibles(row.empresa_id, row.cola_id))) {
+    if (centralNoLista && destino === "central" && (Boolean(operadorElegido) || (await hayAsesoresDisponibles(row.empresa_id, row.cola_id)))) {
       const conferenciaNombre = `llamada-${row.id}`;
       const { identidades } = await iniciarConferenciaConAgentes({
         empresaId: row.empresa_id,
@@ -434,6 +441,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         colaId: row.cola_id,
         publicBaseUrl,
         numeroCliente,
+        operadorPreferidoId: operadorElegido,
       });
       if (identidades.length > 0) {
         app.log.warn({ callSid, identidades }, "La central no estaba lista: la llamada se pasó a asesores de la plataforma");

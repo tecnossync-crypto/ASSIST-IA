@@ -10,6 +10,7 @@ const MODOS = [
   { valor: "disponibilidad", label: "Por disponibilidad" },
   { valor: "menos_llamadas", label: "Menos llamadas atendidas" },
   { valor: "ultimo_operador", label: "Al último operador" },
+  { valor: "operador_origen", label: "Al operador que originó la llamada" },
 ] as const;
 
 export function ColaEnrutamientoSelect({ colaId, modoActual }: { colaId: string; modoActual: string }) {

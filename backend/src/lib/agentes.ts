@@ -102,13 +102,14 @@ export async function expirarPresenciaInactiva(minutos = 2): Promise<number> {
   return r.rows.length;
 }
 
-export type ModoEnrutamiento = "todos" | "round_robin" | "disponibilidad" | "menos_llamadas" | "ultimo_operador";
+export type ModoEnrutamiento = "todos" | "round_robin" | "disponibilidad" | "menos_llamadas" | "ultimo_operador" | "operador_origen";
 export const MODOS_ENRUTAMIENTO: ModoEnrutamiento[] = [
   "todos",
   "round_robin",
   "disponibilidad",
   "menos_llamadas",
   "ultimo_operador",
+  "operador_origen",
 ];
 
 interface Enrutamiento {
@@ -188,6 +189,31 @@ export async function elegirAgentesParaLlamada(empresaId: string, colaId?: strin
 
   // "todos" (default)
   return disponibles.rows.map((r) => identidadAgente(r.id));
+}
+
+/**
+ * Modo "Al operador que originó la llamada": devuelve el id de ese operador SOLO si
+ * el modo de la cola (o de la empresa) es ese, el operador pertenece a la empresa y
+ * está activo ahora mismo. En cualquier otro caso devuelve null y la llamada se
+ * reparte como siempre (con este modo, "suena en todos" los activos).
+ * Va aparte de elegirAgentesParaLlamada porque el operador puede ser de otro
+ * departamento: quien disparó la etiqueta es quien debe recibir la llamada.
+ */
+export async function operadorOrigenDisponible(
+  empresaId: string,
+  colaId: string | null | undefined,
+  operadorUsuarioId: string | null | undefined
+): Promise<string | null> {
+  if (!operadorUsuarioId) return null;
+  const enrutamiento = colaId
+    ? await obtenerEnrutamientoCola(empresaId, colaId)
+    : await obtenerEnrutamientoEmpresa(empresaId);
+  if (enrutamiento.modo !== "operador_origen") return null;
+  const r = await pool.query<{ id: string }>(
+    "SELECT id FROM usuarios WHERE id = $1 AND empresa_id = $2 AND disponible = true",
+    [operadorUsuarioId, empresaId]
+  );
+  return r.rows[0]?.id ?? null;
 }
 
 async function obtenerEnrutamientoEmpresa(empresaId: string): Promise<Enrutamiento> {

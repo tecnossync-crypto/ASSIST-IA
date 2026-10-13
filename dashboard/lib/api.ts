@@ -873,7 +873,7 @@ export async function eliminarFlujoTrabajo(id: string): Promise<void> {
 
 // Agentes del softphone web (entran con PIN, no con contraseña todavía),
 // organizados en colas, cada una con su propio modo de reparto de llamadas.
-export type ModoEnrutamiento = "todos" | "round_robin" | "disponibilidad" | "menos_llamadas" | "ultimo_operador";
+export type ModoEnrutamiento = "todos" | "round_robin" | "disponibilidad" | "menos_llamadas" | "ultimo_operador" | "operador_origen";
 
 export interface Agente {
   id: string;

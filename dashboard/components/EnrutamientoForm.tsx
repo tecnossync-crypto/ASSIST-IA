@@ -28,6 +28,12 @@ const MODOS = [
     label: "Al último operador",
     descripcion: "Se asigna al mismo agente que atendió la última llamada, si sigue disponible.",
   },
+  {
+    valor: "operador_origen",
+    label: "Al operador que originó la llamada",
+    descripcion:
+      "Si la plataforma externa (ej. Zoho SalesIQ) manda qué operador disparó la llamada de IA (campo operador) y está activo, la transferencia le suena solo a él. Si no está activo o no se sabe quién fue, suena en todos.",
+  },
 ] as const;
 
 export function EnrutamientoForm({ modoActual }: { modoActual: string }) {
