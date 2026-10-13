@@ -187,6 +187,13 @@ export async function elegirAgentesParaLlamada(empresaId: string, colaId?: strin
     return [identidadAgente(elegido)];
   }
 
+  // "Al operador que originó la llamada": si llegamos aquí es porque ese operador no está activo (o no se
+  // sabe quién fue). En vez de sonarle a todos, se asigna a UN asesor activo al azar.
+  if (enrutamiento.modo === "operador_origen") {
+    const elegido = disponibles.rows[Math.floor(Math.random() * disponibles.rows.length)];
+    return [identidadAgente(elegido.id)];
+  }
+
   // "todos" (default)
   return disponibles.rows.map((r) => identidadAgente(r.id));
 }

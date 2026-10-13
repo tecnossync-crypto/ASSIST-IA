@@ -277,10 +277,10 @@ export function twimlTransferirCentralPropia(opts: {
   callSid: string;
   /** true si la llamada NO se estaba grabando: se arranca aquí para que ninguna llamada quede sin grabar. */
   grabar?: boolean;
-  /** Extensión del vendedor a la que se marca primero: si no contesta, el fallback pasa al resto del departamento. */
-  extensionDirecta?: string | null;
+  /** Extensiones de vendedor ya intentadas (incluida la que se marca ahora): si no contesta, el fallback prueba otra. */
+  intentadas?: string[];
 }): string {
-  const { extensiones, dominio, usuario, password, publicBaseUrl, callSid, grabar = false, extensionDirecta } = opts;
+  const { extensiones, dominio, usuario, password, publicBaseUrl, callSid, grabar = false, intentadas = [] } = opts;
   const grabacion = grabar
     ? `
   <Start>
@@ -296,7 +296,7 @@ export function twimlTransferirCentralPropia(opts: {
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>${grabacion}
-  <Dial timeout="30" action="${publicBaseUrl}/webhooks/twilio/central-propia-fallback?callSid=${encodeURIComponent(callSid)}${extensionDirecta ? `&amp;directa=${encodeURIComponent(extensionDirecta)}` : ""}" method="POST">
+  <Dial timeout="30" action="${publicBaseUrl}/webhooks/twilio/central-propia-fallback?callSid=${encodeURIComponent(callSid)}${intentadas.length > 0 ? `&amp;probadas=${encodeURIComponent(intentadas.join(","))}` : ""}" method="POST">
 ${destinos}
   </Dial>
 </Response>`;

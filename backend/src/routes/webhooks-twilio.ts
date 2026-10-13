@@ -462,7 +462,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
   // esto si la llamada a la extensión de la central no se pudo completar
   // (ocupado, no contestó, error de la PBX). DialCallStatus distingue "el
   // otro lado sí contestó y ya colgaron" (completed) de "nunca contestó".
-  app.post<{ Querystring: { callSid?: string; directa?: string } }>(
+  app.post<{ Querystring: { callSid?: string; probadas?: string } }>(
     "/webhooks/twilio/central-propia-fallback",
     async (req, reply) => {
       const body = req.body as Record<string, string>;
@@ -491,11 +491,11 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         "Extensión de la central propia no contestó/falló"
       );
 
-      // Se marcó primero al teléfono del vendedor que originó la llamada y no contestó:
-      // se prueba con el resto de las extensiones del departamento (sin repetir la suya).
-      const directa = req.query.directa;
+      // Se marcó a un vendedor (el que originó la llamada, o uno al azar) y no contestó: se prueba otro
+      // vendedor al azar (sin repetir) y, agotados los intentos, el grupo del departamento.
+      const probadas = (req.query.probadas ?? "").split(",").map((e) => e.trim()).filter(Boolean);
       const publicBaseUrl = process.env.PUBLIC_BASE_URL;
-      if (directa && req.query.callSid && publicBaseUrl) {
+      if (probadas.length > 0 && req.query.callSid && publicBaseUrl) {
         const fila = await pool.query<{ empresa_id: string; cola_id: string | null }>(
           "SELECT empresa_id, cola_id FROM llamadas WHERE call_sid = $1",
           [req.query.callSid]
@@ -508,12 +508,12 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
             callSid: req.query.callSid,
             publicBaseUrl,
             grabar: false,
-            excluir: [directa],
+            excluir: probadas,
           });
           if ("twiml" in segunda) {
             app.log.info(
               { callSid: req.query.callSid, extensiones: segunda.extensiones },
-              "El vendedor no contestó: se pasa a las demás extensiones del departamento"
+              "El vendedor no contestó: se prueba la siguiente extensión (otro vendedor al azar o, al final, el grupo)"
             );
             reply.type("text/xml").send(segunda.twiml);
             return;

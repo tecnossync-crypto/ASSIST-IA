@@ -40,6 +40,29 @@ export async function extensionDelOperador(
 }
 
 /**
+ * Modo "Al operador que originó la llamada" hacia la central: UNA extensión al azar entre las que
+ * pertenecen a un vendedor (activas), sin repetir las ya intentadas. Primero las del departamento de
+ * la llamada; si no tiene, las generales. null si no hay ninguna (se cae al grupo).
+ */
+export async function extensionAleatoriaDeVendedor(
+  empresaId: string,
+  colaId: string | null,
+  excluir: string[]
+): Promise<string | null> {
+  const consulta = (porCola: boolean) =>
+    pool.query<{ numero: string }>(
+      `SELECT numero FROM extensiones_central
+       WHERE empresa_id = $1 AND activa = true AND usuario_id IS NOT NULL
+         AND numero <> ALL($2::text[]) AND ${porCola ? "cola_id = $3" : "cola_id IS NULL"}`,
+      porCola ? [empresaId, excluir, colaId] : [empresaId, excluir]
+    );
+  let candidatas = colaId ? (await consulta(true)).rows : [];
+  if (candidatas.length === 0) candidatas = (await consulta(false)).rows;
+  if (candidatas.length === 0) return null;
+  return candidatas[Math.floor(Math.random() * candidatas.length)].numero;
+}
+
+/**
  * Extensiones de la central que deben sonar:
  * 1. Las activas de la cola de la llamada.
  * 2. Si la cola no tiene ninguna (o no hay cola): las activas "generales"

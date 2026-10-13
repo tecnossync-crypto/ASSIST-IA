@@ -206,7 +206,8 @@ export default async function EnrutamientoPage({
                 extensión de grupo (ej. ventas) que suena en todos los teléfonos, déjala como está y agrega además la
                 extensión de cada vendedor marcando <strong>&quot;Solo para su vendedor&quot;</strong>: así no suena
                 doble con el grupo. Con el reparto <em>&quot;Al operador que originó la llamada&quot;</em>, la llamada
-                suena primero en el teléfono de ese vendedor; si no contesta, pasa al grupo.
+                suena primero en el teléfono de ese vendedor; si no contesta (o no tiene extensión), se prueba con otro
+                vendedor al azar, de uno en uno, y solo al final con el grupo.
               </>
             }
           >

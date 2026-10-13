@@ -1,6 +1,7 @@
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa } from "./twilio-empresa.js";
-import { extensionDelOperador, extensionesDeTransferencia } from "./enrutamiento.js";
+import { extensionAleatoriaDeVendedor, extensionDelOperador, extensionesDeTransferencia } from "./enrutamiento.js";
+import { modoOperadorOrigenActivo } from "./agentes.js";
 import { operadorDeLlamada } from "./operador-origen.js";
 import { twimlTransferirCentralPropia } from "./twiml.js";
 
@@ -18,7 +19,7 @@ export async function twimlParaCentral(opts: {
   grabar?: boolean;
   /** Vendedor que originó la llamada (modo "Al operador que originó"): se marca primero SU extensión. */
   operadorUsuarioId?: string | null;
-  /** Extensiones que no deben sonar (la del vendedor que ya no contestó). */
+  /** Extensiones de vendedor que ya se intentaron y no contestaron (no se repiten). */
   excluir?: string[];
 }): Promise<{ twiml: string; extensiones: string[] } | { motivo: "central_apagada" | "sin_extensiones" }> {
   const { empresaId, colaId, callSid, publicBaseUrl, grabar = false, operadorUsuarioId = null, excluir = [] } = opts;
@@ -26,11 +27,20 @@ export async function twimlParaCentral(opts: {
   const central = twilioEmpresa?.centralPropia;
   if (!central?.entrante) return { motivo: "central_apagada" };
 
-  // Primero el teléfono del vendedor que originó la llamada (si corresponde); si no, o en la
-  // segunda vuelta (excluir), las extensiones del departamento.
-  const propia = excluir.length === 0 ? await extensionDelOperador(empresaId, colaId, operadorUsuarioId) : null;
-  const extensiones = propia
-    ? [propia]
+  // Modo "Al operador que originó la llamada": se marca a UNA persona a la vez, nunca a todos juntos.
+  //   1) el teléfono del vendedor que originó la llamada,
+  //   2) si no contesta o no tiene extensión: otro vendedor al azar (hasta MAX_INDIVIDUALES intentos),
+  //   3) como último recurso, el grupo del departamento.
+  const MAX_INDIVIDUALES = 3;
+  let individual: string | null = null;
+  if (await modoOperadorOrigenActivo(empresaId, colaId)) {
+    individual = excluir.length === 0 ? await extensionDelOperador(empresaId, colaId, operadorUsuarioId) : null;
+    if (!individual && excluir.length < MAX_INDIVIDUALES) {
+      individual = await extensionAleatoriaDeVendedor(empresaId, colaId, excluir);
+    }
+  }
+  const extensiones = individual
+    ? [individual]
     : (await extensionesDeTransferencia(empresaId, colaId)).filter((e) => !excluir.includes(e));
   if (extensiones.length === 0) return { motivo: "sin_extensiones" };
 
@@ -47,7 +57,7 @@ export async function twimlParaCentral(opts: {
       publicBaseUrl,
       callSid,
       grabar,
-      extensionDirecta: propia,
+      intentadas: individual ? [...excluir, individual] : [],
     }),
   };
 }

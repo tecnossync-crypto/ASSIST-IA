@@ -136,7 +136,7 @@ export default async function IntegracionesPage({
                 en tu plataforma: su <strong>id externo</strong> (se pone en Configuración → Agentes), su email o su
                 nombre exacto. Si el reparto del departamento es{" "}
                 <em>&quot;Al operador que originó la llamada&quot;</em> y ese asesor está activo, la llamada transferida
-                le suena a él. La respuesta trae <span className="font-mono">operador_identificado: true/false</span>{" "}
+                le suena a él; si no está activo, se asigna a un asesor activo al azar. La respuesta trae <span className="font-mono">operador_identificado: true/false</span>{" "}
                 para que compruebes que lo reconoció.
               </li>
               <li>
