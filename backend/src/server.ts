@@ -26,7 +26,7 @@ import { enrutamientoRoutes } from "./routes/enrutamiento.js";
 import { catalogoContactosRoutes } from "./routes/catalogo-contactos.js";
 import { contextoTransferenciasRoutes } from "./routes/contexto-transferencias.js";
 import { colaEsperaRoutes } from "./routes/cola-espera.js";
-import { expirarColaVencida } from "./lib/cola-espera.js";
+import { asignarColaAAsesoresLibres, expirarColaVencida } from "./lib/cola-espera.js";
 import { expirarPresenciaInactiva } from "./lib/agentes.js";
 import { ejecutarRespaldosCentralVencidos } from "./lib/respaldo-central.js";
 import { authRoutes } from "./routes/auth.js";
@@ -154,6 +154,9 @@ if (publicBaseUrl) {
     });
     ejecutarRespaldosCentralVencidos(publicBaseUrl).catch((err) => {
       app.log.error(err, "Error pasando llamadas sin atender a la central");
+    });
+    asignarColaAAsesoresLibres(publicBaseUrl).catch((err) => {
+      app.log.error(err, "Error asignando la cola de espera a asesores libres");
     });
   }, TICK_MS);
 } else {

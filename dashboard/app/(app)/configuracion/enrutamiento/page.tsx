@@ -74,7 +74,7 @@ export default async function EnrutamientoPage({
           <SeccionConfig
             Icon={Timer}
             titulo="Cola de espera"
-            descripcion="Si ningún asesor de la plataforma está activo, el cliente espera en línea con música en vez de que se le cuelgue. Los asesores ven la cola en la pestaña Cola del panel de teléfono y eligen Atender. Solo aplica a llamadas atendidas en la plataforma; los teléfonos de la central tienen su propia cola en la central."
+            descripcion="Si ningún asesor de la plataforma está activo, el cliente espera en línea con música en vez de que se le cuelgue. Un asesor que está en llamada cuenta como ocupado: cuando queda libre, el sistema le asigna solo al cliente que más lleva esperando (también pueden tomarlo desde la pestaña Cola del panel con Atender). Solo aplica a llamadas atendidas en la plataforma; los teléfonos de la central tienen su propia cola en la central."
           >
             <FormConFeedback action={guardarColaEsperaAction}>
               <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-2">

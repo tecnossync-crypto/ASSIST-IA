@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
-import { colaEsperaConfig, hayAsesoresDisponibles, marcarEnCola } from "../lib/cola-espera.js";
+import { asignarColaAAsesoresLibres, colaEsperaConfig, hayAsesoresDisponibles, marcarEnCola } from "../lib/cola-espera.js";
 import { programarRespaldoCentral, twimlParaCentral } from "../lib/respaldo-central.js";
 import { llamadaYaSeGraba } from "../lib/estado-grabacion.js";
 import {
@@ -570,6 +570,11 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
            WHERE call_sid = $1`,
           [callSid, duration ? parseInt(duration, 10) : null]
         );
+        // Un asesor pudo quedar libre: si hay clientes esperando, se le timbra el primero.
+        const base = process.env.PUBLIC_BASE_URL;
+        if (base) {
+          asignarColaAAsesoresLibres(base).catch((err) => app.log.error({ err }, "Error asignando la cola de espera"));
+        }
       }
 
       // Flujos de trabajo: reglas "cuando termina así, hacer esto" (etiquetar,

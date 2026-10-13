@@ -102,6 +102,23 @@ export async function expirarPresenciaInactiva(minutos = 2): Promise<number> {
   return r.rows.length;
 }
 
+/**
+ * Condición SQL (alias `u` = usuarios): el asesor está LIBRE, es decir, no está atendiendo una llamada ahora
+ * mismo ni tiene una llamada de la cola timbrándole. Un asesor "Activo" que está hablando NO se ofrece como
+ * disponible: la llamada nueva pasa a la cola o a otro asesor libre.
+ * (El tope de 2 horas evita que una llamada que nunca se marcó como terminada lo deje ocupado para siempre.)
+ */
+export const SQL_ASESOR_LIBRE = `
+  u.id NOT IN (
+    SELECT lo.agente_usuario_id FROM llamadas lo
+    WHERE lo.agente_usuario_id IS NOT NULL AND lo.estado = 'en_curso' AND lo.finalizada_en IS NULL
+      AND lo.iniciada_en > now() - interval '2 hours'
+  )
+  AND u.id NOT IN (
+    SELECT lt.asignada_a FROM llamadas lt
+    WHERE lt.asignada_a IS NOT NULL AND lt.agente_call_sid IS NULL AND lt.asignada_en > now() - interval '45 seconds'
+  )`;
+
 export type ModoEnrutamiento = "todos" | "round_robin" | "disponibilidad" | "menos_llamadas" | "ultimo_operador" | "operador_origen";
 export const MODOS_ENRUTAMIENTO: ModoEnrutamiento[] = [
   "todos",
@@ -132,10 +149,12 @@ export async function elegirAgentesParaLlamada(empresaId: string, colaId?: strin
     ? await obtenerEnrutamientoCola(empresaId, colaId)
     : await obtenerEnrutamientoEmpresa(empresaId);
 
-  const condicionCola = colaId ? "AND cola_id = $2" : "";
+  const condicionCola = colaId ? "AND u.cola_id = $2" : "";
   const params = colaId ? [empresaId, colaId] : [empresaId];
   const disponibles = await pool.query<{ id: string }>(
-    `SELECT id FROM usuarios WHERE empresa_id = $1 AND disponible = true ${condicionCola} ORDER BY ultima_conexion ASC`,
+    `SELECT u.id FROM usuarios u
+     WHERE u.empresa_id = $1 AND u.disponible = true ${condicionCola} AND ${SQL_ASESOR_LIBRE}
+     ORDER BY u.ultima_conexion ASC`,
     params
   );
 
@@ -222,7 +241,7 @@ export async function operadorOrigenDisponible(
   if (!operadorUsuarioId) return null;
   if (!(await modoOperadorOrigenActivo(empresaId, colaId))) return null;
   const r = await pool.query<{ id: string }>(
-    "SELECT id FROM usuarios WHERE id = $1 AND empresa_id = $2 AND disponible = true",
+    `SELECT u.id FROM usuarios u WHERE u.id = $1 AND u.empresa_id = $2 AND u.disponible = true AND ${SQL_ASESOR_LIBRE}`,
     [operadorUsuarioId, empresaId]
   );
   return r.rows[0]?.id ?? null;

@@ -1,6 +1,7 @@
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa } from "./twilio-empresa.js";
-import { identidadAgente } from "./agentes.js";
+import { identidadAgente, SQL_ASESOR_LIBRE } from "./agentes.js";
+import { destinoDeTransferencia } from "./enrutamiento.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -20,8 +21,8 @@ export async function colaEsperaConfig(empresaId: string): Promise<{ activa: boo
  */
 export async function hayAsesoresDisponibles(empresaId: string, colaId?: string | null): Promise<boolean> {
   const r = await pool.query<{ n: string }>(
-    `SELECT COUNT(*) AS n FROM usuarios
-     WHERE empresa_id = $1 AND disponible = true ${colaId ? "AND cola_id = $2" : ""}`,
+    `SELECT COUNT(*) AS n FROM usuarios u
+     WHERE u.empresa_id = $1 AND u.disponible = true ${colaId ? "AND u.cola_id = $2" : ""} AND ${SQL_ASESOR_LIBRE}`,
     colaId ? [empresaId, colaId] : [empresaId]
   );
   return Number(r.rows[0].n) > 0;
@@ -165,6 +166,127 @@ export async function atenderDeCola(opts: {
     console.error("[cola-espera] no se pudo timbrar al asesor:", err);
     await devolverACola();
     return { ok: false, codigo: 502, error: "No se pudo conectar con tu teléfono del navegador. ¿Está conectado?" };
+  }
+}
+
+/**
+ * Timbra a un asesor con una llamada de la cola (sin conectarlo a la fuerza: le suena y él contesta).
+ * El "claim" es atómico: la misma llamada no se timbra a dos asesores a la vez.
+ */
+async function timbrarAsesorParaCola(
+  llamadaId: string,
+  empresaId: string,
+  usuarioId: string,
+  publicBaseUrl: string
+): Promise<boolean> {
+  const liberar = () =>
+    pool.query("UPDATE llamadas SET asignada_a = NULL, asignada_en = NULL WHERE id = $1", [llamadaId]).catch(() => {});
+
+  const claim = await pool.query<{
+    conferencia_nombre: string | null;
+    agentes_call_sids: string[];
+    direccion: string;
+    numero_origen: string;
+    numero_destino: string;
+  }>(
+    `UPDATE llamadas SET asignada_a = $3, asignada_en = now()
+     WHERE id = $1 AND empresa_id = $2 AND en_cola_desde IS NOT NULL AND agente_call_sid IS NULL
+       AND (asignada_en IS NULL OR asignada_en < now() - interval '45 seconds')
+     RETURNING conferencia_nombre, agentes_call_sids, direccion, numero_origen, numero_destino`,
+    [llamadaId, empresaId, usuarioId]
+  );
+  const fila = claim.rows[0];
+  if (!fila) return false;
+
+  const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
+  if (!twilioEmpresa || !fila.conferencia_nombre) {
+    await liberar();
+    return false;
+  }
+
+  // Cancela los timbres anteriores de esta llamada (otro asesor al que ya no se le insiste).
+  await Promise.all(
+    (fila.agentes_call_sids ?? []).map((sid) =>
+      twilioEmpresa.client
+        .calls(sid)
+        .update({ status: "completed" })
+        .catch(() => {})
+    )
+  );
+
+  const identidad = identidadAgente(usuarioId);
+  const params = new URLSearchParams({
+    llamadaId,
+    numero: fila.direccion === "entrante" ? fila.numero_origen : fila.numero_destino,
+  });
+  try {
+    const call = await twilioEmpresa.client.calls.create({
+      to: `client:${identidad}?${params.toString()}`,
+      from: twilioEmpresa.fromNumber,
+      url: `${publicBaseUrl}/webhooks/twilio/conferencia-agente?conferencia=${encodeURIComponent(fila.conferencia_nombre)}`,
+      method: "POST",
+      timeout: twilioEmpresa.timeoutTimbrado,
+    });
+    await pool.query("UPDATE llamadas SET agentes_call_sids = $2, agentes_call_sids_identidad = $3 WHERE id = $1", [
+      llamadaId,
+      [call.sid],
+      JSON.stringify({ [call.sid]: identidad }),
+    ]);
+    return true;
+  } catch (err) {
+    console.error("[cola-espera] no se pudo timbrar al asesor libre:", err);
+    await liberar();
+    return false;
+  }
+}
+
+let asignandoCola = false;
+
+/**
+ * Cola automática: si hay clientes esperando y un asesor queda libre (terminó su llamada o se puso Activo),
+ * se le timbra el cliente que lleva más tiempo, sin que tenga que ir a la pestaña "Cola". Si no contesta,
+ * se prueba con otro asesor libre (el mismo no se repite durante 3 minutos).
+ * Solo aplica a las llamadas que se atienden en la plataforma; las de la central tienen su propia cola.
+ * Corre en el despachador (cada 20 s) y justo después de que termina una llamada.
+ */
+export async function asignarColaAAsesoresLibres(publicBaseUrl: string): Promise<number> {
+  if (asignandoCola) return 0;
+  asignandoCola = true;
+  try {
+    const esperando = await pool.query<{
+      id: string;
+      empresa_id: string;
+      cola_id: string | null;
+      asignada_a: string | null;
+      asignada_en: string | null;
+    }>(
+      `SELECT id, empresa_id, cola_id, asignada_a, asignada_en FROM llamadas
+       WHERE en_cola_desde IS NOT NULL AND agente_call_sid IS NULL AND estado IN ('en_curso', 'transferida')
+         AND (asignada_en IS NULL OR asignada_en < now() - interval '45 seconds')
+       ORDER BY en_cola_desde ASC
+       LIMIT 20`
+    );
+
+    let asignadas = 0;
+    for (const c of esperando.rows) {
+      if ((await destinoDeTransferencia(c.empresa_id, c.cola_id)) !== "plataforma") continue;
+      const libre = await pool.query<{ id: string }>(
+        `SELECT u.id FROM usuarios u
+         WHERE u.empresa_id = $1 AND u.disponible = true
+           AND ($2::uuid IS NULL OR u.cola_id = $2::uuid)
+           AND ($3::uuid IS NULL OR u.id <> $3::uuid OR $4::timestamptz < now() - interval '3 minutes')
+           AND ${SQL_ASESOR_LIBRE}
+         ORDER BY u.ultima_conexion ASC
+         LIMIT 1`,
+        [c.empresa_id, c.cola_id, c.asignada_a, c.asignada_en]
+      );
+      const asesor = libre.rows[0]?.id;
+      if (!asesor) continue;
+      if (await timbrarAsesorParaCola(c.id, c.empresa_id, asesor, publicBaseUrl)) asignadas++;
+    }
+    return asignadas;
+  } finally {
+    asignandoCola = false;
   }
 }
 
