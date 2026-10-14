@@ -9,6 +9,7 @@ config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), "../../.e
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { ConversationSession } from "./session.js";
+import { esMensajeDeNumeroInexistente } from "./numero-inexistente.js";
 import type { ConversationRelayIncoming, ConversationRelayOutgoing } from "./types.js";
 import { registrarSupervisionStream } from "./supervision-stream.js";
 import { sintetizarVozElevenLabs } from "./backend-client.js";
@@ -453,6 +454,24 @@ wss.on("connection", (ws) => {
             return;
           }
           reanudacionesSeguidas = 0;
+
+          // Llamada saliente cuyo "cliente" es la grabación del operador ("el número marcado no existe",
+          // "fuera de cobertura"...): no hay nadie con quien hablar, se cuelga ya, sin saludar ni responder.
+          if (session.esSaliente() && esMensajeDeNumeroInexistente(msg.voicePrompt)) {
+            console.log(`[${session.callSid}] número inexistente / fuera de servicio ("${msg.voicePrompt}") — se cuelga`);
+            session.nuevoTurno(); // invalida cualquier respuesta que estuviera generándose
+            session.registrarTurnoCliente(`[Grabación del operador] ${msg.voicePrompt}`);
+            if (temporizadorLimite) clearTimeout(temporizadorLimite);
+            if (temporizadorSilencio) clearTimeout(temporizadorSilencio);
+            cancelarReanudacion();
+            cancelarInactividad();
+            esperandoPrimeraVoz = false;
+            finalizadaManualmente = true;
+            await session.finalizar();
+            enviar(ws, { type: "end" });
+            ws.close();
+            return;
+          }
 
           // ConversationRelay corta la transcripción del cliente en cuanto
           // detecta una pausa, aunque en realidad siga hablando — eso manda
