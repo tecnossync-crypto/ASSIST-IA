@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { cerrarSesionAction } from "@/app/logout/actions";
 import { useMobileNav } from "./MobileNavContext";
+import { permisosDe, type Permisos } from "@/lib/permisos";
+import { ShieldCheck } from "lucide-react";
 
 const ITEMS = [
   { href: "/", label: "Resumen", Icon: LayoutDashboard },
@@ -49,6 +51,7 @@ const GRUPOS_CONFIGURACION = [
     titulo: "Equipo",
     items: [
       { href: "/configuracion/agentes", label: "Agentes", Icon: Headset },
+      { href: "/configuracion/roles", label: "Roles y permisos", Icon: ShieldCheck },
       { href: "/configuracion/enrutamiento", label: "Enrutamiento", Icon: Network },
     ],
   },
@@ -80,19 +83,26 @@ const CLASE_ITEM_BASE = "relative flex items-center rounded-md transition-colors
 const CLASE_ACTIVO = "bg-white/10 text-white";
 const CLASE_INACTIVO = "text-slate-400 hover:bg-white/5 hover:text-white";
 
-export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | null }) {
+export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string; permisos?: Permisos } | null }) {
   const pathname = usePathname();
   const { abierto, setAbierto } = useMobileNav();
-  const esAdmin = sesion?.rol === "admin";
-  const esOperador = sesion?.rol === "operador";
-  const veSupervision = sesion?.rol === "admin" || sesion?.rol === "supervisor";
+  const permisos = permisosDe(sesion);
+  const esAdmin = permisos.configuracion;
+  const veSupervision = permisos.supervision;
   // Un operador solo ve su propia cola de llamadas (Resumen, Campañas y
   // Contactos son vista/gestión de cartera, no operación diaria de un
   // agente individual — el middleware ya bloquea estas rutas por URL
   // directa, esto es solo para no mostrarle un link a algo que no puede
   // abrir).
+  const visible: Record<string, boolean> = {
+    "/": permisos.resumen,
+    "/llamadas": true,
+    "/campanas": permisos.campanas,
+    "/contactos": permisos.contactos !== "ninguno",
+    "/supervision": permisos.supervision,
+  };
   const items = (veSupervision ? [...ITEMS.slice(0, 2), ...ITEMS_SUPERVISION, ...ITEMS.slice(2)] : ITEMS).filter(
-    (i) => !esOperador || !["/", "/campanas", "/contactos"].includes(i.href)
+    (i) => visible[i.href] !== false
   );
 
   // El submenú de Configuración se abre solo cuando se está dentro de
@@ -247,7 +257,13 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string } | 
                             <p className="px-3 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                               {grupo.titulo}
                             </p>
-                            {grupo.items.map(({ href, label, Icon }) => {
+                            {grupo.items
+                              .filter(
+                                ({ href }) =>
+                                  (href !== "/configuracion/roles" || permisos.roles) &&
+                                  (href !== "/api-logs" || permisos.registros_api)
+                              )
+                              .map(({ href, label, Icon }) => {
                               const activo = pathname.startsWith(href);
                               return (
                                 <Link

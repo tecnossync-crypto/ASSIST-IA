@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listarContactos, listarLlamadas, listarColas, listarAgentes } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
+import { filtroLlamadas, permisosDe } from "@/lib/permisos";
 
 // Datos del panel de teléfono flotante (contactos, recientes, colas,
 // agentes) — se piden desde el cliente en vez de bloquear el layout entero
@@ -9,11 +10,17 @@ import { obtenerSesion } from "@/lib/session";
 // caché, cada vez).
 export async function GET() {
   const sesion = await obtenerSesion();
-  const colaId = sesion?.rol === "operador" ? sesion?.colaId : undefined;
+  // Cada quien ve en el panel solo lo que su rol le permite: sus contactos y sus llamadas.
+  const permisos = permisosDe(sesion);
+  const filtro = filtroLlamadas(sesion);
 
   const [contactos, recientes, colas, agentes] = await Promise.all([
-    listarContactos().catch(() => []),
-    listarLlamadas({ limite: 15, colaId }).catch(() => []),
+    permisos.contactos === "ninguno"
+      ? Promise.resolve([])
+      : listarContactos(undefined, undefined, permisos.contactos === "propios" ? sesion?.usuarioId : undefined).catch(() => []),
+    filtro.sinAcceso
+      ? Promise.resolve([])
+      : listarLlamadas({ limite: 15, colaId: filtro.colaId, agenteId: filtro.agenteId }).catch(() => []),
     listarColas().catch(() => []),
     listarAgentes().catch(() => []),
   ]);

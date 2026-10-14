@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { escucharLlamada } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
+import { permisosDe } from "@/lib/permisos";
 
 // Proxy delgado: solo admin/supervisor puede escuchar una llamada en vivo.
 // El usuarioId sale de la sesión del servidor, nunca del cliente — así no
 // se puede falsificar desde el navegador pasando cualquier usuarioId.
 export async function POST(req: Request) {
   const sesion = await obtenerSesion();
-  if (!sesion || (sesion.rol !== "admin" && sesion.rol !== "supervisor")) {
+  if (!sesion || !permisosDe(sesion).supervision) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 

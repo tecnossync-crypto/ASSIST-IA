@@ -7,6 +7,8 @@ import { AgregarContactoModal } from "@/components/AgregarContactoModal";
 import { EtiquetaChip } from "@/components/EtiquetaChip";
 import { BotonAccion } from "@/components/BotonAccion";
 import { eliminarContactoAction } from "./[id]/actions";
+import { obtenerSesion } from "@/lib/session";
+import { permisosDe } from "@/lib/permisos";
 
 function iniciales(nombre: string): string {
   const partes = nombre.trim().split(/\s+/).filter(Boolean);
@@ -34,7 +36,13 @@ export default async function ContactosPage({
   searchParams: Promise<{ q?: string; etiqueta?: string }>;
 }) {
   const { q, etiqueta } = await searchParams;
-  const [todos, empresa] = await Promise.all([listarContactos(q), obtenerEmpresa()]);
+  const sesion = await obtenerSesion();
+  const permisos = permisosDe(sesion);
+  const soloPropios = permisos.contactos === "propios";
+  const [todos, empresa] = await Promise.all([
+    listarContactos(q, undefined, soloPropios ? sesion?.usuarioId : undefined),
+    obtenerEmpresa(),
+  ]);
   const catalogo = empresa.etiquetas_disponibles ?? [];
   const colorPorEtiqueta = new Map(catalogo.map((e) => [e.nombre, e.color]));
   // Solo se muestran los datos de campos que siguen configurados: un dato de
@@ -62,11 +70,17 @@ export default async function ContactosPage({
               {contactos.length} {contactos.length === 1 ? "contacto" : "contactos"}
             </span>
           </div>
-          <p className="mt-0.5 text-sm text-muted">Perfil acumulado de cada cliente, a partir de lo que dice en sus llamadas.</p>
+          <p className="mt-0.5 text-sm text-muted">
+            {soloPropios
+              ? "Tus clientes: los que tienes asignados y los que has atendido."
+              : "Perfil acumulado de cada cliente, a partir de lo que dice en sus llamadas."}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <AgregarContactoModal campos={empresa.campos_personalizados ?? []} />
-          <ImportarContactos campos={empresa.campos_personalizados ?? []} />
+          {permisos.contactos_editar && <AgregarContactoModal campos={empresa.campos_personalizados ?? []} />}
+          {permisos.contactos_editar && permisos.contactos === "todos" && (
+            <ImportarContactos campos={empresa.campos_personalizados ?? []} />
+          )}
         </div>
       </div>
 
@@ -200,13 +214,15 @@ export default async function ContactosPage({
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">{formatFechaHora(c.actualizado_en)}</td>
                     <td className="px-4 py-3 text-right">
-                      <BotonAccion
-                        accion={eliminarContactoAction.bind(null, c.id)}
-                        mensajeExito="Eliminado."
-                        mensajeConfirmar={`¿Eliminar el contacto "${nombreCompleto || c.numero}"? Esto no se puede deshacer.`}
-                      >
-                        Eliminar
-                      </BotonAccion>
+                      {permisos.contactos_eliminar && (
+                        <BotonAccion
+                          accion={eliminarContactoAction.bind(null, c.id)}
+                          mensajeExito="Eliminado."
+                          mensajeConfirmar={`¿Eliminar el contacto "${nombreCompleto || c.numero}"? Esto no se puede deshacer.`}
+                        >
+                          Eliminar
+                        </BotonAccion>
+                      )}
                     </td>
                   </tr>
                 );

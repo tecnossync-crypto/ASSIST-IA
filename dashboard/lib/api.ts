@@ -4,6 +4,8 @@
  * en cuanto exista login (tabla `usuarios`).
  */
 
+import type { Permisos } from "./permisos";
+
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:3001";
 export const EMPRESA_ID = process.env.NEXT_PUBLIC_EMPRESA_ID ?? "";
 
@@ -88,6 +90,7 @@ export interface LlamadaDetalle {
     cola_id: string | null;
     conferencia_nombre: string | null;
     agente_call_sid: string | null;
+    agente_usuario_id?: string | null;
   };
   transcripcion: {
     texto_completo: { hablante: string; texto: string; timestamp: string }[];
@@ -109,6 +112,7 @@ export async function listarLlamadas(params: {
   q?: string;
   estado?: string;
   colaId?: string | null;
+  agenteId?: string | null;
   limite?: number;
   offset?: number;
 }): Promise<LlamadaResumen[]> {
@@ -117,6 +121,7 @@ export async function listarLlamadas(params: {
   if (params.q) url.searchParams.set("q", params.q);
   if (params.estado) url.searchParams.set("estado", params.estado);
   if (params.colaId) url.searchParams.set("colaId", params.colaId);
+  if (params.agenteId) url.searchParams.set("agenteId", params.agenteId);
   if (params.limite) url.searchParams.set("limite", String(params.limite));
   if (params.offset) url.searchParams.set("offset", String(params.offset));
 
@@ -546,11 +551,12 @@ export interface ContactoDetalle {
   }[];
 }
 
-export async function listarContactos(q?: string, propietarioId?: string): Promise<ContactoResumen[]> {
+export async function listarContactos(q?: string, propietarioId?: string, visiblePara?: string): Promise<ContactoResumen[]> {
   const url = new URL("/api/contactos", BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
   if (q) url.searchParams.set("q", q);
   if (propietarioId) url.searchParams.set("propietarioId", propietarioId);
+  if (visiblePara) url.searchParams.set("visiblePara", visiblePara);
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Error listando contactos: HTTP ${res.status}`);
   const data = await res.json();
@@ -567,8 +573,10 @@ export async function listarContactosPorEtiqueta(etiqueta: string): Promise<Cont
   return data.contactos;
 }
 
-export async function obtenerContacto(id: string): Promise<ContactoDetalle> {
-  const res = await fetch(new URL(`/api/contactos/${id}`, BACKEND_URL), { cache: "no-store" });
+export async function obtenerContacto(id: string, visiblePara?: string): Promise<ContactoDetalle> {
+  const url = new URL(`/api/contactos/${id}`, BACKEND_URL);
+  if (visiblePara) url.searchParams.set("visiblePara", visiblePara);
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Error obteniendo contacto: HTTP ${res.status}`);
   return res.json();
 }
@@ -991,6 +999,7 @@ export interface SesionUsuario {
   nombre: string;
   rol: string;
   colaId: string | null;
+  permisos?: Permisos;
 }
 
 export type ResultadoLogin = SesionUsuario | { requiere2fa: true; desafioToken: string };
@@ -1449,4 +1458,45 @@ export async function listarCamposHuerfanos(): Promise<ElementoHuerfano[]> {
   const res = await fetch(url, { cache: "no-store" });
   const data = await leerJson<{ campos: ElementoHuerfano[] }>(res, "Error listando campos sin configurar");
   return data.campos;
+}
+
+// ───────────── Roles y permisos ─────────────
+export interface Rol {
+  id: string;
+  clave: string;
+  nombre: string;
+  descripcion: string | null;
+  permisos: Permisos;
+  sistema: boolean;
+  usuarios: number;
+}
+
+export async function listarRoles(): Promise<Rol[]> {
+  const url = new URL("/api/roles", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  const data = await leerJson<{ roles: Rol[] }>(res, "Error listando roles");
+  return data.roles;
+}
+
+export async function crearRol(data: { nombre: string; descripcion?: string; permisos: Permisos }): Promise<void> {
+  await enviarJson("/api/roles", "POST", { empresaId: EMPRESA_ID, ...data }, "Error creando el rol");
+}
+
+export async function actualizarRol(
+  id: string,
+  data: { nombre?: string; descripcion?: string; permisos?: Permisos }
+): Promise<void> {
+  await enviarJson(`/api/roles/${id}`, "PUT", { empresaId: EMPRESA_ID, ...data }, "Error guardando el rol");
+}
+
+export async function eliminarRol(id: string): Promise<void> {
+  const url = new URL(`/api/roles/${id}`, BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { method: "DELETE" });
+  await leerJson<{ ok: boolean }>(res, "Error eliminando el rol");
+}
+
+export async function actualizarRolAgente(id: string, rol: string): Promise<void> {
+  await enviarJson(`/api/agentes/${id}`, "PUT", { rol }, "No se pudo cambiar el rol");
 }

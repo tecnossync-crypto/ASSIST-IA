@@ -22,7 +22,7 @@ function Seccion({ titulo, Icon, children }: { titulo: string; Icon: typeof User
   );
 }
 
-export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
+export function NuevoAgenteForm({ colas, roles }: { colas: Cola[]; roles: { clave: string; nombre: string }[] }) {
   const [estado, formAction, cargando] = useActionState(crearAgenteAction, ESTADO_INICIAL);
   const [rol, setRol] = useState("operador");
   const [modoPassword, setModoPassword] = useState<"auto" | "manual">("auto");
@@ -106,9 +106,11 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
         <Seccion titulo="Rol y cola" Icon={KeyRound}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <select name="rol" value={rol} onChange={(e) => setRol(e.target.value)} className={CAMPO}>
-              <option value="operador">Agente</option>
-              <option value="supervisor">Supervisor</option>
-              <option value="admin">Administrador</option>
+              {roles.map((r) => (
+                <option key={r.clave} value={r.clave}>
+                  {r.nombre}
+                </option>
+              ))}
             </select>
             <select name="colaId" defaultValue="" className={CAMPO}>
               <option value="">Sin cola</option>
@@ -120,9 +122,8 @@ export function NuevoAgenteForm({ colas }: { colas: Cola[] }) {
             </select>
           </div>
           <p className="text-xs text-muted">
-            Todos entran con su email y contraseña y reciben llamadas desde el panel de teléfono. Agente: atiende
-            llamadas. Supervisor: ve todo excepto Configuración (incluye Supervisión en vivo). Administrador: acceso
-            total.
+            Todos entran con su email y contraseña y reciben llamadas desde el panel de teléfono. Lo que cada rol puede
+            ver y hacer se define en Configuración → Roles y permisos.
           </p>
         </Seccion>
 

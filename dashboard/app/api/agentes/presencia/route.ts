@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { marcarPresenciaAgente, type EstadoPresencia } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
+import { permisosDe } from "@/lib/permisos";
 
 // Proxy delgado: el softphone del navegador avisa aquí cuando un agente se
 // conecta o se desconecta (incluye el sendBeacon al cerrar la pestaña), y el
@@ -12,8 +13,9 @@ export async function POST(req: Request) {
 
   const { usuarioId, disponible, estado } = await req.json();
 
-  // Cada quien cambia SU estado; solo admin y supervisor pueden cambiar el de otro.
-  if (usuarioId && usuarioId !== sesion.usuarioId && sesion.rol === "operador") {
+  // Cada quien cambia SU estado; cambiar el de otro exige permiso de supervisión o de configuración.
+  const p = permisosDe(sesion);
+  if (usuarioId && usuarioId !== sesion.usuarioId && !(p.supervision || p.configuracion)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 

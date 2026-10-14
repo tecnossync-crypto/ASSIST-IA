@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { registrarAuditoria } from "./api";
+import type { Permisos } from "./permisos";
 
 /**
  * Sesión firmada del dashboard (quién entró, con qué rol) — la base para
@@ -13,6 +14,8 @@ export interface Sesion {
   nombre: string;
   rol: string;
   colaId: string | null;
+  // Permisos del rol al iniciar sesión (ver lib/permisos.ts). Ausente en sesiones antiguas.
+  permisos?: Permisos;
 }
 
 const COOKIE_NAME = "sesion_voz_ia";

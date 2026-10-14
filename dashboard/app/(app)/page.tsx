@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { obtenerResumen, listarLlamadas, obtenerTiempoConectado, type RangoFecha } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
+import { permisosDe } from "@/lib/permisos";
 import { formatFechaHoraCorta, formatDuracion, formatDuracionLarga, etiquetaEstado } from "@/lib/format";
 import { GraficoLlamadasSemana } from "@/components/GraficoLlamadasSemana";
 import { DonaSatisfaccion } from "@/components/DonaSatisfaccion";
@@ -41,17 +42,17 @@ export default async function ResumenPage({
   const rango: RangoFecha = (RANGOS.some((r) => r.valor === rangoParam) ? rangoParam : "hoy") as RangoFecha;
 
   const sesion = await obtenerSesion();
-  // Un agente (rol operador) solo ve los números y últimas llamadas de su
-  // propia cola.
-  const colaId = sesion?.rol === "operador" ? sesion?.colaId : undefined;
-  const esOperadorSinCola = sesion?.rol === "operador" && !sesion?.colaId;
-  // Tiempo conectado por agente: solo admin/supervisor lo ven — implica
-  // asomarse a la actividad de TODO el equipo, no solo la propia.
-  const veTiempoConectado = sesion?.rol === "admin" || sesion?.rol === "supervisor";
+  // Quien no ve todas las llamadas solo ve los números y últimas llamadas de su departamento.
+  const permisos = permisosDe(sesion);
+  const veTodo = permisos.llamadas === "todas";
+  const colaId = veTodo ? undefined : sesion?.colaId;
+  const esOperadorSinCola = !veTodo && !sesion?.colaId;
+  // Tiempo conectado por agente: implica asomarse a la actividad de TODO el equipo (permiso de Supervisión).
+  const veTiempoConectado = permisos.supervision;
 
   const [resumen, ultimas, tiempoConectado] = await Promise.all([
     obtenerResumen(colaId, rango),
-    esOperadorSinCola ? Promise.resolve([]) : listarLlamadas({ limite: 6, colaId }),
+    esOperadorSinCola ? Promise.resolve([]) : listarLlamadas({ limite: 6, colaId, agenteId: permisos.llamadas === "propias" ? sesion?.usuarioId : undefined }),
     veTiempoConectado ? obtenerTiempoConectado(rango).catch(() => []) : Promise.resolve([]),
   ]);
 

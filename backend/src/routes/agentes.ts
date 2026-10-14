@@ -8,6 +8,7 @@ import {
   registrarLatido,
   type EstadoPresencia,
 } from "../lib/agentes.js";
+import { rolExiste } from "../lib/roles.js";
 import { RANGOS_FECHA, rangoFechaValido } from "../lib/rangos-fecha.js";
 import { subirArchivo, streamArchivo, eliminarArchivo } from "../lib/storage.js";
 import {
@@ -20,9 +21,7 @@ import {
 
 const ESTADOS_PRESENCIA_VALIDOS: EstadoPresencia[] = ["disponible", "descanso", "desconectado"];
 
-/** Roles válidos de un usuario: admin (todo), supervisor (todo excepto
- *  Configuración) y operador (agente, solo su cola + softphone). */
-const ROLES_VALIDOS = ["admin", "supervisor", "operador"];
+// El rol de un usuario es la clave de un rol de la tabla `roles` (admin, supervisor, operador o uno propio).
 
 /**
  * Agentes/usuarios del dashboard: alta/gestión desde Configuración →
@@ -125,7 +124,7 @@ export async function agentesRoutes(app: FastifyInstance) {
       reply.code(400).send({ error: "El PIN debe ser numérico, de 4 a 6 dígitos" });
       return;
     }
-    const rolFinal = rol && ROLES_VALIDOS.includes(rol) ? rol : "operador";
+    const rolFinal = rol && (await rolExiste(empresaId, rol)) ? rol : "operador";
 
     try {
       const passwordHash = password ? await bcrypt.hash(password, 10) : null;
@@ -170,9 +169,26 @@ export async function agentesRoutes(app: FastifyInstance) {
       reply.code(400).send({ error: "El PIN debe ser numérico, de 4 a 6 dígitos" });
       return;
     }
-    if (rol && !ROLES_VALIDOS.includes(rol)) {
-      reply.code(400).send({ error: "Rol inválido" });
-      return;
+    if (rol) {
+      const emp = await pool.query<{ empresa_id: string; rol: string }>(
+        "SELECT empresa_id, rol FROM usuarios WHERE id = $1",
+        [id]
+      );
+      if (!emp.rows[0] || !(await rolExiste(emp.rows[0].empresa_id, rol))) {
+        reply.code(400).send({ error: "Rol inválido" });
+        return;
+      }
+      // Nunca dejar la empresa sin administradores.
+      if (emp.rows[0].rol === "admin" && rol !== "admin") {
+        const admins = await pool.query<{ n: number }>(
+          "SELECT COUNT(*)::int AS n FROM usuarios WHERE empresa_id = $1 AND rol = 'admin'",
+          [emp.rows[0].empresa_id]
+        );
+        if (admins.rows[0].n <= 1) {
+          reply.code(400).send({ error: "Debe quedar al menos un administrador." });
+          return;
+        }
+      }
     }
     if (password && password.length < 8) {
       reply.code(400).send({ error: "La contraseña debe tener al menos 8 caracteres" });

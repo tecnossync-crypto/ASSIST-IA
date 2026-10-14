@@ -30,6 +30,7 @@ import { asignarColaAAsesoresLibres, expirarColaVencida } from "./lib/cola-esper
 import { expirarPresenciaInactiva } from "./lib/agentes.js";
 import { ejecutarRespaldosCentralVencidos } from "./lib/respaldo-central.js";
 import { authRoutes } from "./routes/auth.js";
+import { rolesRoutes } from "./routes/roles.js";
 import { auditoriaRoutes } from "./routes/auditoria.js";
 import { monitoreoRoutes } from "./routes/monitoreo.js";
 import { llamadasAgenteRoutes } from "./routes/llamadas-agente.js";
@@ -103,6 +104,7 @@ await app.register(catalogoContactosRoutes);
 await app.register(contextoTransferenciasRoutes);
 await app.register(colaEsperaRoutes);
 await app.register(authRoutes);
+await app.register(rolesRoutes);
 await app.register(auditoriaRoutes);
 await app.register(monitoreoRoutes);
 await app.register(llamadasAgenteRoutes);

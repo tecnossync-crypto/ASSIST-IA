@@ -9,6 +9,7 @@ import {
   eliminarContacto,
 } from "@/lib/api";
 import { auditar } from "@/lib/session";
+import { exigirContacto } from "@/lib/guardias";
 
 export interface EstadoInfoBasica {
   error?: string;
@@ -29,6 +30,7 @@ export async function guardarInfoBasicaAction(
   }
 
   try {
+    await exigirContacto(contactoId, "editar");
     await actualizarInfoContacto(contactoId, { nombre, apellido, numero });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Error actualizando el contacto." };
@@ -51,6 +53,7 @@ export async function guardarEtiquetasAction(formData: FormData) {
     etiquetas = [];
   }
 
+  await exigirContacto(contactoId, "editar");
   await actualizarEtiquetasContacto(contactoId, etiquetas);
   revalidatePath(`/contactos/${contactoId}`);
   revalidatePath("/contactos");
@@ -67,6 +70,7 @@ export async function guardarDatosContactoAction(formData: FormData) {
     datos = {};
   }
 
+  await exigirContacto(contactoId, "editar");
   await actualizarDatosContacto(contactoId, datos);
   revalidatePath(`/contactos/${contactoId}`);
   revalidatePath("/contactos");
@@ -76,6 +80,7 @@ export async function guardarPropietarioAction(formData: FormData) {
   const contactoId = String(formData.get("contactoId"));
   const propietarioUsuarioId = String(formData.get("propietarioUsuarioId") ?? "").trim() || null;
 
+  await exigirContacto(contactoId, "propietario");
   await actualizarPropietarioContacto(contactoId, propietarioUsuarioId);
   revalidatePath(`/contactos/${contactoId}`);
   revalidatePath("/contactos");
@@ -89,6 +94,7 @@ export async function guardarPropietarioAction(formData: FormData) {
 // hace el propio componente cliente con router.push después de que esto
 // resuelva bien.
 export async function eliminarContactoAction(contactoId: string) {
+  await exigirContacto(contactoId, "eliminar");
   await eliminarContacto(contactoId);
   revalidatePath("/contactos");
   await auditar("eliminar", "contacto", { contactoId });

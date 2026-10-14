@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Network,
   Terminal,
+  ShieldCheck,
 } from "lucide-react";
 
 const SECCIONES = [
@@ -43,6 +44,12 @@ const SECCIONES = [
     Icon: Headset,
     titulo: "Agentes",
     descripcion: "Quiénes reciben las llamadas normales, organizados por cola.",
+  },
+  {
+    href: "/configuracion/roles",
+    Icon: ShieldCheck,
+    titulo: "Roles y permisos",
+    descripcion: "Qué puede ver y hacer cada tipo de usuario: llamadas, contactos, supervisión y más.",
   },
   {
     href: "/configuracion/enrutamiento",

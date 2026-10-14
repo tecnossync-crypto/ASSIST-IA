@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { pool } from "../db/pool.js";
 import { verificarCodigoTotp, verificarCodigoRespaldo } from "../lib/dos-fa.js";
 import { crearDesafio2FA, consumirDesafio2FA } from "../lib/auth-2fa-challenges.js";
+import { permisosDeRol } from "../lib/roles.js";
 
 /**
  * Login por usuario del dashboard (distinto del PIN de agentes del
@@ -50,7 +51,13 @@ export async function authRoutes(app: FastifyInstance) {
         return;
       }
 
-      reply.send({ usuarioId: usuario.id, nombre: usuario.nombre, rol: usuario.rol, colaId: usuario.cola_id });
+      reply.send({
+        usuarioId: usuario.id,
+        nombre: usuario.nombre,
+        rol: usuario.rol,
+        colaId: usuario.cola_id,
+        permisos: await permisosDeRol(empresaId, usuario.rol),
+      });
     }
   );
 
@@ -74,11 +81,12 @@ export async function authRoutes(app: FastifyInstance) {
         id: string;
         nombre: string;
         rol: string;
+        empresa_id: string;
         cola_id: string | null;
         totp_secret_enc: string | null;
         totp_codigos_respaldo: string[];
       }>(
-        "SELECT id, nombre, rol, cola_id, totp_secret_enc, totp_codigos_respaldo FROM usuarios WHERE id = $1",
+        "SELECT id, nombre, rol, empresa_id, cola_id, totp_secret_enc, totp_codigos_respaldo FROM usuarios WHERE id = $1",
         [usuarioId]
       );
       const usuario = result.rows[0];
@@ -103,7 +111,13 @@ export async function authRoutes(app: FastifyInstance) {
         await pool.query("UPDATE usuarios SET totp_codigos_respaldo = $2 WHERE id = $1", [usuarioId, restantes]);
       }
 
-      reply.send({ usuarioId: usuario.id, nombre: usuario.nombre, rol: usuario.rol, colaId: usuario.cola_id });
+      reply.send({
+        usuarioId: usuario.id,
+        nombre: usuario.nombre,
+        rol: usuario.rol,
+        colaId: usuario.cola_id,
+        permisos: await permisosDeRol(usuario.empresa_id, usuario.rol),
+      });
     }
   );
 }

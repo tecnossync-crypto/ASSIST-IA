@@ -39,11 +39,12 @@ export async function llamadasRoutes(app: FastifyInstance) {
       estado?: string;
       callSid?: string;
       colaId?: string;
+      agenteId?: string;
       limite?: string;
       offset?: string;
     };
   }>("/api/llamadas", async (req, reply) => {
-    const { empresaId, q, estado, callSid, colaId, limite, offset } = req.query;
+    const { empresaId, q, estado, callSid, colaId, agenteId, limite, offset } = req.query;
 
     if (!empresaId) {
       reply.code(400).send({ error: "empresaId es requerido" });
@@ -68,6 +69,12 @@ export async function llamadasRoutes(app: FastifyInstance) {
     if (colaId) {
       valores.push(colaId);
       condiciones.push(`l.cola_id = $${valores.length}`);
+    }
+
+    // Alcance "solo mis llamadas": las que atendió ese usuario.
+    if (agenteId) {
+      valores.push(agenteId);
+      condiciones.push(`l.agente_usuario_id = $${valores.length}`);
     }
 
     if (q) {
@@ -136,7 +143,7 @@ export async function llamadasRoutes(app: FastifyInstance) {
     const llamada = await pool.query(
       `SELECT id, empresa_id, call_sid, direccion, numero_origen, numero_destino,
               estado, transferida, transferencia_destino, duracion_segundos, iniciada_en, finalizada_en,
-              cola_id, conferencia_nombre, agente_call_sid
+              cola_id, conferencia_nombre, agente_call_sid, agente_usuario_id
        FROM llamadas WHERE id = $1`,
       [id]
     );

@@ -1,38 +1,29 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { decodificarSesion, NOMBRE_COOKIE_SESION } from "@/lib/session";
+import { permisosDe, type Permisos } from "@/lib/permisos";
 
 // Rutas que deben quedar públicas SIN sesión: la página de login, assets de
 // Next, y el webhook externo (POST /api/webhooks/llamadas) que se autentica
 // con su propio API key, no con la cookie de sesión del dashboard.
 const PUBLICAS = ["/login", "/_next", "/favicon.ico", "/api/webhooks"];
 
-// Solo el admin debería poder tocar esto — la Sidebar ya oculta el link de
-// Configuración a los operadores, pero eso es solo cosmético: sin esto,
-// cualquiera con sesión (incluso un operador) podía entrar directo por URL
-// y, por ejemplo, generar el API key o exportar grabaciones.
-const SOLO_ADMIN = [
-  "/configuracion",
-  "/api-logs",
-  "/api/grabaciones",
-  "/api/clonar-voz",
-  "/api/logs-webhooks",
-  "/api/reglas-api-llamadas",
+// Qué permiso exige cada zona (ver lib/permisos.ts y Configuración → Roles y permisos). Va de lo más
+// específico a lo más general: gana la primera regla que coincida. Esto es solo la puerta de entrada por URL;
+// el menú oculta lo mismo y cada página/acción vuelve a comprobar el alcance de lo que muestra.
+const REGLAS: { prefijos: string[]; permitido: (p: Permisos) => boolean }[] = [
+  { prefijos: ["/configuracion/roles"], permitido: (p) => p.configuracion && p.roles },
+  { prefijos: ["/configuracion", "/api/grabaciones", "/api/clonar-voz", "/api/reglas-api-llamadas"], permitido: (p) => p.configuracion },
+  { prefijos: ["/api-logs", "/api/logs-webhooks"], permitido: (p) => p.registros_api },
+  { prefijos: ["/api/monitoreo/intervenir"], permitido: (p) => p.supervision && p.intervenir },
+  { prefijos: ["/supervision", "/api/monitoreo", "/api/supervision"], permitido: (p) => p.supervision },
+  { prefijos: ["/campanas", "/api/campanas"], permitido: (p) => p.campanas },
+  { prefijos: ["/api/contactos/por-etiqueta"], permitido: (p) => p.campanas || p.contactos !== "ninguno" },
+  { prefijos: ["/api/contactos/importar"], permitido: (p) => p.contactos === "todos" && p.contactos_editar },
+  { prefijos: ["/contactos", "/api/contactos"], permitido: (p) => p.contactos !== "ninguno" },
 ];
-
-// El supervisor ve todo lo operativo (incluida Supervisión en vivo) pero
-// nunca Configuración — por eso esta lista es aparte de SOLO_ADMIN.
-const ADMIN_O_SUPERVISOR = ["/supervision", "/api/monitoreo", "/api/supervision"];
-
-// Un operador (agente) solo debe ver su propia cola de llamadas y el
-// softphone — nada de Campañas ni Contactos (son vista/gestión de cartera,
-// no operación diaria de un agente individual). El prefijo cubre también
-// las rutas /api/campanas y /api/contactos propias del dashboard (proxies),
-// no solo las páginas.
-const NO_OPERADOR = ["/campanas", "/api/campanas", "/contactos", "/api/contactos"];
-// A dónde mandar a un operador que cae en una ruta que no le toca — "/"
-// (Resumen) tampoco es para operadores, así que no puede ser el destino del
-// redirect (sería un loop). Su vista natural es su propia cola de llamadas.
-const DESTINO_OPERADOR = "/llamadas";
+// A dónde mandar a quien cae en una ruta que no le toca. /llamadas nunca se bloquea (si no tiene acceso a
+// llamadas, la propia página lo explica), así que no puede haber un bucle de redirecciones.
+const DESTINO_SIN_PERMISO = "/llamadas";
 
 // Protege todo el dashboard (páginas Y rutas /api propias): sin sesión
 // válida, redirige a /login o responde 401/403 si es una API. Corre en
@@ -63,37 +54,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (SOLO_ADMIN.some((p) => pathname.startsWith(p)) && sesion.rol !== "admin") {
-    if (esApi) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-    }
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
+  const permisos = permisosDe(sesion);
+  const regla = REGLAS.find((r) => r.prefijos.some((p) => pathname.startsWith(p)));
+  const sinPermiso = regla ? !regla.permitido(permisos) : pathname === "/" && !permisos.resumen;
 
-  if (
-    ADMIN_O_SUPERVISOR.some((p) => pathname.startsWith(p)) &&
-    sesion.rol !== "admin" &&
-    sesion.rol !== "supervisor"
-  ) {
+  if (sinPermiso) {
     if (esApi) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
     const url = req.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
-  if (
-    sesion.rol === "operador" &&
-    (pathname === "/" || NO_OPERADOR.some((p) => pathname.startsWith(p)))
-  ) {
-    if (esApi) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-    }
-    const url = req.nextUrl.clone();
-    url.pathname = DESTINO_OPERADOR;
+    url.pathname = DESTINO_SIN_PERMISO;
     return NextResponse.redirect(url);
   }
 

@@ -7,11 +7,17 @@ import { EditorDatosContacto } from "@/components/EditorDatosContacto";
 import { SelectorPropietarioContacto } from "@/components/SelectorPropietarioContacto";
 import { BotonEliminarContacto } from "@/components/BotonEliminarContacto";
 import { EditorInfoBasicaContacto } from "@/components/EditorInfoBasicaContacto";
+import { obtenerSesion } from "@/lib/session";
+import { permisosDe } from "@/lib/permisos";
 
 export default async function ContactoDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const sesion = await obtenerSesion();
+  const permisos = permisosDe(sesion);
+  if (permisos.contactos === "ninguno") notFound();
   const [data, empresa, agentes] = await Promise.all([
-    obtenerContacto(id).catch(() => null),
+    // Con alcance "solo los suyos", un contacto ajeno no existe para este usuario (aunque adivine la URL).
+    obtenerContacto(id, permisos.contactos === "propios" ? sesion?.usuarioId : undefined).catch(() => null),
     obtenerEmpresa(),
     listarAgentes().catch(() => []),
   ]);
@@ -36,45 +42,55 @@ export default async function ContactoDetallePage({ params }: { params: Promise<
               {contacto.numero} · última actividad {formatFechaHora(contacto.actualizado_en)}
             </p>
           </div>
-          <EditorInfoBasicaContacto
-            contactoId={contacto.id}
-            nombre={contacto.nombre}
-            apellido={contacto.apellido}
-            numero={contacto.numero}
-          />
+          <fieldset disabled={!permisos.contactos_editar} className="min-w-0 border-0 p-0 disabled:opacity-80">
+            <EditorInfoBasicaContacto
+              contactoId={contacto.id}
+              nombre={contacto.nombre}
+              apellido={contacto.apellido}
+              numero={contacto.numero}
+            />
+          </fieldset>
         </div>
-        <BotonEliminarContacto contactoId={contacto.id} nombre={nombreCompleto} />
+        {permisos.contactos_eliminar && <BotonEliminarContacto contactoId={contacto.id} nombre={nombreCompleto} />}
       </div>
 
       <section className="rounded-lg border border-edge bg-surface p-4">
         <h2 className="mb-3 text-sm font-semibold text-ink-2">Propietario</h2>
-        <SelectorPropietarioContacto
-          contactoId={contacto.id}
-          agentes={agentes}
-          valorInicial={
-            contacto.propietario_usuario_id
-              ? { id: contacto.propietario_usuario_id, nombre: contacto.propietario_nombre ?? "" }
-              : null
-          }
-        />
+        {permisos.contactos === "todos" && permisos.contactos_editar ? (
+          <SelectorPropietarioContacto
+            contactoId={contacto.id}
+            agentes={agentes}
+            valorInicial={
+              contacto.propietario_usuario_id
+                ? { id: contacto.propietario_usuario_id, nombre: contacto.propietario_nombre ?? "" }
+                : null
+            }
+          />
+        ) : (
+          <p className="text-sm text-ink-2">{contacto.propietario_nombre ?? "Sin propietario"}</p>
+        )}
       </section>
 
       <section className="rounded-lg border border-edge bg-surface p-4">
         <h2 className="mb-3 text-sm font-semibold text-ink-2">Etiquetas</h2>
-        <EditorEtiquetasContacto
-          contactoId={contacto.id}
-          catalogo={empresa.etiquetas_disponibles ?? []}
-          valorInicial={contacto.etiquetas ?? []}
-        />
+        <fieldset disabled={!permisos.contactos_editar} className="min-w-0 border-0 p-0 disabled:opacity-80">
+          <EditorEtiquetasContacto
+            contactoId={contacto.id}
+            catalogo={empresa.etiquetas_disponibles ?? []}
+            valorInicial={contacto.etiquetas ?? []}
+          />
+        </fieldset>
       </section>
 
       <section className="rounded-lg border border-edge bg-surface p-4">
         <h2 className="mb-3 text-sm font-semibold text-ink-2">Datos</h2>
-        <EditorDatosContacto
-          contactoId={contacto.id}
-          campos={empresa.campos_personalizados ?? []}
-          valorInicial={contacto.datos ?? {}}
-        />
+        <fieldset disabled={!permisos.contactos_editar} className="min-w-0 border-0 p-0 disabled:opacity-80">
+          <EditorDatosContacto
+            contactoId={contacto.id}
+            campos={empresa.campos_personalizados ?? []}
+            valorInicial={contacto.datos ?? {}}
+          />
+        </fieldset>
       </section>
 
       <section>

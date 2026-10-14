@@ -9,6 +9,12 @@ import { normalizarNumero } from "../lib/telefono.js";
  * `datos`), independiente de cualquier llamada individual. Fase 1: sin
  * auth todavía, mismo TODO que el resto de /api.
  */
+/** Condición SQL (alias `c` = contactos): el contacto es del usuario o es un cliente que él atendió. */
+const SQL_CONTACTO_VISIBLE_PARA = (n: number) => `(c.propietario_usuario_id = $${n} OR EXISTS (
+           SELECT 1 FROM llamadas lv
+           WHERE lv.empresa_id = c.empresa_id AND lv.agente_usuario_id = $${n}
+             AND (lv.numero_origen = c.numero OR lv.numero_destino = c.numero)))`;
+
 export async function contactosRoutes(app: FastifyInstance) {
   app.get<{
     Querystring: {
@@ -16,11 +22,12 @@ export async function contactosRoutes(app: FastifyInstance) {
       q?: string;
       etiqueta?: string;
       propietarioId?: string;
+      visiblePara?: string;
       limite?: string;
       offset?: string;
     };
   }>("/api/contactos", async (req, reply) => {
-      const { empresaId, q, etiqueta, propietarioId, limite, offset } = req.query;
+      const { empresaId, q, etiqueta, propietarioId, visiblePara, limite, offset } = req.query;
       if (!empresaId) {
         reply.code(400).send({ error: "empresaId es requerido" });
         return;
@@ -43,6 +50,12 @@ export async function contactosRoutes(app: FastifyInstance) {
       if (propietarioId) {
         valores.push(propietarioId);
         condiciones.push(`c.propietario_usuario_id = $${valores.length}`);
+      }
+
+      // Alcance "solo mis contactos": los que tiene asignados + los de clientes que él atendió por llamada.
+      if (visiblePara) {
+        valores.push(visiblePara);
+        condiciones.push(SQL_CONTACTO_VISIBLE_PARA(valores.length));
       }
 
       const lim = Math.min(parseInt(limite ?? "50", 10) || 50, 200);
@@ -267,16 +280,17 @@ export async function contactosRoutes(app: FastifyInstance) {
     }
   );
 
-  app.get<{ Params: { id: string } }>("/api/contactos/:id", async (req, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { visiblePara?: string } }>("/api/contactos/:id", async (req, reply) => {
     const { id } = req.params;
+    const { visiblePara } = req.query;
 
     const contacto = await pool.query(
       `SELECT c.id, c.empresa_id, c.numero, c.nombre, c.apellido, c.notas, c.datos, c.etiquetas,
               c.creado_en, c.actualizado_en, c.propietario_usuario_id, u.nombre AS propietario_nombre
        FROM contactos c
        LEFT JOIN usuarios u ON u.id = c.propietario_usuario_id
-       WHERE c.id = $1`,
-      [id]
+       WHERE c.id = $1${visiblePara ? ` AND ${SQL_CONTACTO_VISIBLE_PARA(2)}` : ""}`,
+      visiblePara ? [id, visiblePara] : [id]
     );
     if (contacto.rows.length === 0) {
       reply.code(404).send({ error: "no encontrado" });

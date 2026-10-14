@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Headset, KeyRound, Circle, Phone, Download, Puzzle } from "lucide-react";
-import { listarAgentes, listarColas } from "@/lib/api";
+import { listarAgentes, listarColas, listarRoles } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { BotonAccion } from "@/components/BotonAccion";
 import { NuevoAgenteForm } from "@/components/NuevoAgenteForm";
@@ -10,13 +10,8 @@ import { AvatarUsuario } from "@/components/AvatarUsuario";
 import { DireccionExtension } from "@/components/DireccionExtension";
 import { EditorIdExternoAgente } from "@/components/EditorIdExternoAgente";
 import { ColaAgenteSelect } from "@/components/ColaAgenteSelect";
+import { RolAgenteSelect } from "@/components/RolAgenteSelect";
 import { eliminarAgenteAction } from "./actions";
-
-const ETIQUETAS_ROL: Record<string, string> = {
-  admin: "Administrador",
-  supervisor: "Supervisor",
-  operador: "Agente",
-};
 
 const ESTADO_PRESENCIA: Record<string, { etiqueta: string; punto: string }> = {
   disponible: { etiqueta: "Disponible ahora", punto: "fill-emerald-500 text-emerald-500" },
@@ -25,7 +20,8 @@ const ESTADO_PRESENCIA: Record<string, { etiqueta: string; punto: string }> = {
 };
 
 export default async function AgentesPage() {
-  const [agentes, colas] = await Promise.all([listarAgentes(), listarColas()]);
+  const [agentes, colas, roles] = await Promise.all([listarAgentes(), listarColas(), listarRoles()]);
+  const nombreRol = new Map(roles.map((r) => [r.clave, r.nombre]));
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -69,10 +65,14 @@ export default async function AgentesPage() {
           <KeyRound size={16} className="text-indigo-600" />
           Nuevo usuario
         </div>
-        <NuevoAgenteForm colas={colas} />
+        <NuevoAgenteForm colas={colas} roles={roles.map((r) => ({ clave: r.clave, nombre: r.nombre }))} />
         <p className="mt-3 text-xs text-muted">
-          Agente: entra al softphone con PIN. Supervisor: ve todo excepto Configuración (incluye Supervisión en
-          vivo). Administrador: acceso total.
+          Cada usuario tiene un rol que define qué ve y qué puede hacer. Edita los permisos de cada rol, o crea
+          roles nuevos, en{" "}
+          <Link href="/configuracion/roles" className="text-indigo-700 hover:underline">
+            Configuración → Roles y permisos
+          </Link>
+          .
         </p>
       </section>
 
@@ -96,7 +96,7 @@ export default async function AgentesPage() {
                     />
                     {a.nombre}
                     <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
-                      {ETIQUETAS_ROL[a.rol] ?? a.rol}
+                      {nombreRol.get(a.rol) ?? a.rol}
                     </span>
                     {a.totp_habilitado && (
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
@@ -134,6 +134,7 @@ export default async function AgentesPage() {
             <div className="flex flex-wrap items-center gap-4 border-t border-edge pt-3">
               <CambiarPasswordAgente id={a.id} nombre={a.nombre} tieneAcceso={a.tiene_acceso_dashboard} />
               {a.tiene_acceso_dashboard && <Configurar2FA id={a.id} habilitado={a.totp_habilitado} />}
+              <RolAgenteSelect agenteId={a.id} rolActual={a.rol} roles={roles.map((r) => ({ clave: r.clave, nombre: r.nombre }))} />
               <ColaAgenteSelect agenteId={a.id} colaActual={a.cola_id} colas={colas.map((c) => ({ id: c.id, nombre: c.nombre }))} />
               <EditorIdExternoAgente id={a.id} valorInicial={a.id_externo} />
             </div>
