@@ -20,20 +20,17 @@
   </head>
   <body>
     <h1>Gestión de Llamadas</h1>
-    <p>Datos de conexión y cómo se comporta el teléfono flotante.</p>
+    <p>Datos de conexión y dónde queda el teléfono flotante. Arrástralo a donde quieras: se pega solo al borde más cercano.</p>
 
     <label for="url">Dirección de la plataforma</label>
     <input id="url" type="url" placeholder="https://dashboard.tu-empresa.com" />
 
-    <label for="esquina">Esquina del teléfono flotante</label>
-    <select id="esquina">
-      <option value="abajo-derecha">Abajo a la derecha</option>
-      <option value="abajo-izquierda">Abajo a la izquierda</option>
-      <option value="arriba-derecha">Arriba a la derecha</option>
-      <option value="arriba-izquierda">Arriba a la izquierda</option>
+    <label for="lado">Lado de la pantalla donde queda el teléfono</label>
+    <select id="lado">
+      <option value="izquierda">Izquierda</option>
+      <option value="derecha">Derecha</option>
     </select>
 
-    <label class="check"><input id="recordar" type="checkbox" /> Recordar dónde lo muevo</label>
     <label class="check"><input id="arranque" type="checkbox" /> Abrir automáticamente al encender el equipo</label>
 
     <button id="guardar">Guardar</button>
@@ -44,16 +41,14 @@
       const $ = (id) => document.getElementById(id);
       window.gestionLlamadas.ajustes.obtener().then((a) => {
         $("url").value = a.dashboardUrl || "";
-        $("esquina").value = a.esquina;
-        $("recordar").checked = a.recordarPosicion;
+        $("lado").value = a.lado;
         $("arranque").checked = a.abrirConWindows;
         $("version").textContent = "Versión " + a.version;
       });
       $("guardar").addEventListener("click", async () => {
         const r = await window.gestionLlamadas.ajustes.guardar({
           dashboardUrl: $("url").value,
-          esquina: $("esquina").value,
-          recordarPosicion: $("recordar").checked,
+          lado: $("lado").value,
           abrirConWindows: $("arranque").checked,
         });
         $("msg").className = r.error ? "err" : "ok";

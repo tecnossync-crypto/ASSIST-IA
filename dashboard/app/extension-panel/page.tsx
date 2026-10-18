@@ -20,7 +20,7 @@ export default async function ExtensionPanelPage() {
   return (
     <AgenteSoftphoneProvider usuario={{ usuarioId: sesion.usuarioId, nombre: sesion.nombre }}>
       <SoftphoneProvider>
-        <div className="h-full bg-surface">
+        <div className="h-full bg-surface" data-gl-fondo>
           <PanelTelefono modo="ventana" usuarioId={sesion.usuarioId} nombre={sesion.nombre} />
         </div>
       </SoftphoneProvider>

@@ -16,6 +16,7 @@ import {
   Phone,
   PhoneIncoming,
   PhoneOff,
+  Minus,
   PictureInPicture2,
   Play,
   Users,
@@ -28,6 +29,7 @@ import { ContextoLlamada } from "@/components/ContextoLlamada";
 import { formatDuracion, formatFechaHoraCorta } from "@/lib/format";
 import { useFijarEncima } from "@/components/useFijarEncima";
 import { puenteEscritorio } from "@/lib/escritorio";
+import { BurbujaTelefono } from "@/components/BurbujaTelefono";
 import { SelectorEstadoAsesor, opcionDeEstado, useActividadHoy, usePresencia } from "@/components/estado-asesor";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
@@ -151,7 +153,31 @@ export function PanelTelefono({
   const fijado = useFijarEncima();
   // Dentro de la app de escritorio la ventana ya queda siempre encima por sí sola: no hace falta "Fijar encima".
   const [enEscritorio, setEnEscritorio] = useState(false);
-  useEffect(() => setEnEscritorio(puenteEscritorio() !== null), []);
+  // La ventana del teléfono flotante: se contrae a burbuja pegada al borde de la pantalla y se abre con un clic.
+  const [esTelefonoEscritorio, setEsTelefonoEscritorio] = useState(false);
+  const [expandido, setExpandido] = useState(false);
+  useEffect(() => {
+    const p = puenteEscritorio();
+    setEnEscritorio(p !== null);
+    setEsTelefonoEscritorio(Boolean(p?.esTelefono));
+    // La app oculta la página hasta aquí para que el panel completo no se vea un instante antes de la burbuja.
+    document.documentElement.removeAttribute("data-gl-cargando");
+  }, []);
+  // Marca la página para que la ventana transparente no pinte fondos propios (ver globals.css).
+  useEffect(() => {
+    if (!esTelefonoEscritorio) return;
+    document.documentElement.setAttribute("data-gl-telefono", "");
+    return () => document.documentElement.removeAttribute("data-gl-telefono");
+  }, [esTelefonoEscritorio]);
+  // La app cambia el tamaño de la ventana según esté contraída o abierta.
+  useEffect(() => {
+    if (esTelefonoEscritorio) puenteEscritorio()?.fijarExpandido(expandido);
+  }, [esTelefonoEscritorio, expandido]);
+  // Atajo (Ctrl+Alt+P) o icono de la bandeja: abrir/contraer.
+  useEffect(() => {
+    if (!esTelefonoEscritorio) return;
+    return puenteEscritorio()?.alAlternarExpandido(() => setExpandido((v) => !v));
+  }, [esTelefonoEscritorio]);
 
   const idAsesor = sesionAgente?.usuarioId ?? usuarioId;
   const nombreAsesor = sesionAgente?.nombre ?? nombre ?? "Asesor";
@@ -248,6 +274,7 @@ export function PanelTelefono({
     if (sonando) {
       // En la app de escritorio esto muestra el teléfono flotante encima de todo y avisa con una notificación.
       puenteEscritorio()?.llamadaEntrante(sp.numeroEntrante);
+      setExpandido(true); // la burbuja se abre sola para poder contestar
       setAbierto(true);
       setMostrarTransferir(false);
       refrescarContextoRef.current();
@@ -557,11 +584,56 @@ export function PanelTelefono({
         <div
           className={
             esVentana
-              ? "flex h-full min-h-0 w-full flex-col bg-surface"
+              ? "flex h-full min-h-0 w-full flex-col bg-surface" +
+                (esTelefonoEscritorio ? " overflow-hidden rounded-2xl border border-edge shadow-2xl" : "")
               : "w-full overflow-hidden rounded-3xl border border-edge bg-surface shadow-2xl shadow-slate-900/25 ring-1 ring-black/5 transition-[width] " +
                 (anchoContexto ? "max-w-[24rem] sm:w-[24rem]" : "max-w-[20rem] sm:w-[20rem]")
           }
         >
+          {esTelefonoEscritorio && (
+            <div
+              className="flex shrink-0 items-center justify-between bg-slate-950 px-3 py-1.5 text-slate-400"
+              style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+            >
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em]">
+                <span className="grid grid-cols-3 gap-0.5" aria-hidden>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <span key={i} className="h-0.5 w-0.5 rounded-full bg-slate-500" />
+                  ))}
+                </span>
+                Mover
+              </span>
+              <div className="flex items-center gap-1" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+                <button
+                  type="button"
+                  onClick={() => puenteEscritorio()?.abrirPlataforma()}
+                  className="rounded-full px-2 py-0.5 text-[10px] font-medium text-slate-300 hover:bg-white/10"
+                  title="Abrir el sistema de gestión"
+                >
+                  Plataforma
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpandido(false)}
+                  className="rounded-full p-1 text-slate-300 hover:bg-white/10"
+                  title="Contraer a una burbuja"
+                  aria-label="Contraer"
+                >
+                  <Minus size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => puenteEscritorio()?.ocultarTelefono()}
+                  className="rounded-full p-1 text-slate-300 hover:bg-white/10"
+                  title="Ocultar (vuelve con el icono de la bandeja o Ctrl+Alt+P)"
+                  aria-label="Ocultar"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Encabezado: quién soy, mi estado y mi actividad de hoy */}
           <div className="relative shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-4 pb-3 pt-3.5">
             <div className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-indigo-500/25 blur-2xl" />
@@ -604,16 +676,6 @@ export function PanelTelefono({
                   >
                     <PictureInPicture2 size={11} />
                     {fijado.ventana ? "Soltar" : "Fijar encima"}
-                  </button>
-                )}
-                {esVentana && enEscritorio && (
-                  <button
-                    type="button"
-                    onClick={() => puenteEscritorio()?.abrirPlataforma()}
-                    className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-slate-300 transition-colors hover:bg-white/20"
-                    title="Abrir el sistema de gestión"
-                  >
-                    Plataforma
                   </button>
                 )}
                 {!esVentana && (
@@ -1160,6 +1222,21 @@ export function PanelTelefono({
       )}
     </div>
   );
+
+  // App de escritorio, teléfono contraído: solo la burbuja pegada al borde de la pantalla.
+  if (esTelefonoEscritorio && !expandido) {
+    return (
+      <BurbujaTelefono
+        puntoEstado={infoEstado.punto}
+        tituloEstado={infoEstado.etiqueta}
+        sonando={sonando}
+        enLlamada={enLlamada}
+        cronometro={formatCronometro(cronometro)}
+        avisos={totalAvisos}
+        onAbrir={() => setExpandido(true)}
+      />
+    );
+  }
 
   // Fijado: el panel vive en la mini-ventana (portal) y aquí queda un aviso para volver.
   if (esVentana && fijado.ventana) {

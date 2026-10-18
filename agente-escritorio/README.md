@@ -3,9 +3,9 @@
 App de escritorio para los asesores. No duplica la plataforma: abre **tu mismo dashboard** en dos ventanas, así que cada mejora del dashboard le llega sola.
 
 - **Ventana principal:** el sistema de gestión completo (llamadas, contactos, campañas, configuración según el rol).
-- **Teléfono flotante:** ventana pequeña que queda **siempre encima** de todo, en la esquina que se elija. Es la única que registra el teléfono, así que las llamadas no suenan dos veces. Al entrar una llamada, aparece sola encima de todo con una notificación de Windows.
-- **Bandeja del sistema** (junto al reloj): cerrar la ventana no desconecta al asesor. Menú con: abrir el sistema, mostrar/ocultar teléfono, esquina, *Abrir con Windows*, ajustes, salir.
-- **Atajo global:** `Ctrl + Alt + P` muestra/oculta el teléfono.
+- **Teléfono flotante (widget):** queda **pegado al borde izquierdo** de la pantalla como una **burbuja** pequeña, siempre encima de las demás ventanas. Con **un clic** se abre el panel (marcar, contactos, recientes, cola, contexto de la IA, llamadas entrantes); con el botón **—** vuelve a ser burbuja. Se puede **arrastrar** a donde se quiera y se pega solo al borde más cercano (izquierdo o derecho). La burbuja muestra el estado del asesor, el cronómetro durante una llamada y una insignia con los avisos pendientes. Cuando entra una llamada se abre sola, con notificación de Windows. Es la única ventana que registra el teléfono, así que las llamadas no suenan dos veces.
+- **Bandeja del sistema** (junto al reloj): cerrar la ventana principal no desconecta al asesor. Menú con: abrir el sistema, mostrar/ocultar teléfono, lado de la pantalla, *Abrir con Windows*, ajustes, salir.
+- **Atajo global:** `Ctrl + Alt + P` abre/contrae el teléfono (o lo muestra si estaba oculto).
 - **Se actualiza sola** (ver "Publicar una versión").
 
 La dirección de la plataforma viene de fábrica en `config.json` y se puede cambiar en *Ajustes* (menú de la bandeja).
@@ -40,7 +40,7 @@ La app no está firmada con certificado de código, así que la **primera vez** 
 
 ## Notas técnicas
 
-- El dashboard reconoce la app por la marca `GLDesktop-main` / `GLDesktop-mini` en el User-Agent: la ventana principal no registra el teléfono (ver `dashboard/app/(app)/layout.tsx`).
-- `preload.js` expone `window.gestionLlamadas` (avisar llamada entrante, mostrar teléfono, abrir plataforma). En un navegador normal ese objeto no existe y el dashboard funciona igual.
+- El dashboard reconoce la app por la marca `GLDesktop-main` / `GLDesktop-mini` en el User-Agent: la ventana principal no registra el teléfono (ver `dashboard/app/(app)/layout.tsx`). La burbuja y el panel son el mismo componente web (`PanelTelefono` + `BurbujaTelefono`); la app solo cambia el tamaño de la ventana y la pega al borde.
+- `preload.js` expone `window.gestionLlamadas` (avisar llamada entrante, contraer/abrir el panel, arrastrar la burbuja, abrir plataforma). En un navegador normal ese objeto no existe y el dashboard funciona igual.
 - Permisos: solo micrófono y notificaciones; los enlaces a otros sitios se abren en el navegador.
 - Solo Windows (x64). Mac requeriría otro instalador.

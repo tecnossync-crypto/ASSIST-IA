@@ -2,8 +2,10 @@
 //
 // Dos ventanas sobre la MISMA plataforma web (no duplica lógica, así cada mejora del dashboard llega sola):
 //   · Ventana principal: el sistema de gestión completo (llamadas, contactos, campañas, configuración…).
-//   · Teléfono: una ventana pequeña que queda SIEMPRE encima de las demás, en una esquina. Es la única que
-//     registra el teléfono (Twilio), así que no se duplican las llamadas entrantes.
+//   · Teléfono: un widget pegado al borde de la pantalla (izquierda por defecto), siempre encima de las demás
+//     ventanas. Está CONTRAÍDO como una burbuja pequeña; un clic lo abre (marcar, contactos, recientes,
+//     llamadas entrantes…) y otro lo vuelve a contraer. Se arrastra y se pega solo al borde más cercano.
+//     Es la única ventana que registra el teléfono (Twilio), así que no se duplican las llamadas entrantes.
 // La app vive en la bandeja del sistema (junto al reloj): cerrar la ventana no desconecta al asesor.
 
 const { app, BrowserWindow, Tray, Menu, screen, shell, ipcMain, session, nativeImage, globalShortcut, Notification } = require("electron");
@@ -18,9 +20,9 @@ try {
 }
 
 const NOMBRE = "Gestión de Llamadas";
-const ANCHO_TELEFONO = 380;
-const ALTO_TELEFONO = 640;
-const MARGEN = 16;
+const BURBUJA = 72; // ventana de la burbuja (el círculo mide 56; el resto es margen para la insignia)
+const ANCHO_EXPANDIDO = 380;
+const ALTO_EXPANDIDO = 640;
 const ATAJO_TELEFONO = "CommandOrControl+Alt+P";
 
 // ───────────────────────── Configuración (se guarda por usuario de Windows) ─────────────────────────
@@ -40,7 +42,7 @@ function cargarConfig() {
   } catch {
     // primera vez
   }
-  return { dashboardUrl: "", abrirConWindows: true, esquina: "abajo-derecha", recordarPosicion: true, ...base, ...guardada };
+  return { dashboardUrl: "", abrirConWindows: true, lado: "izquierda", yBurbuja: null, ...base, ...guardada };
 }
 
 let config = null;
@@ -75,8 +77,20 @@ let ventanaAjustes = null;
 let bandeja = null;
 let saliendo = false;
 let actualizacionLista = false;
+let telefonoExpandido = false;
+let origenArrastre = null;
 
 const iconoApp = () => path.join(__dirname, "build", "icon.png");
+
+function webPreferences(extra = {}) {
+  return {
+    preload: path.join(__dirname, "preload.js"),
+    contextIsolation: true,
+    nodeIntegration: false,
+    sandbox: true,
+    ...extra,
+  };
+}
 
 function prepararVentana(win, etiqueta) {
   // El dashboard reconoce la app por esta marca (solo la ventana del teléfono registra el softphone).
@@ -101,7 +115,7 @@ function prepararVentana(win, etiqueta) {
       e.preventDefault();
     }
   });
-  win.webContents.on("did-fail-load", (_e, codigo, descripcion, url, esPrincipal) => {
+  win.webContents.on("did-fail-load", (_e, codigo, descripcion, _url, esPrincipal) => {
     if (!esPrincipal || codigo === -3) return;
     mostrarErrorConexion(win, descripcion);
   });
@@ -117,6 +131,10 @@ function mostrarErrorConexion(win, descripcion) {
   win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
 }
 
+function iniciadaOculta() {
+  return process.argv.includes("--oculta");
+}
+
 function crearVentanaPrincipal() {
   ventanaPrincipal = new BrowserWindow({
     width: 1280,
@@ -128,13 +146,7 @@ function crearVentanaPrincipal() {
     icon: iconoApp(),
     autoHideMenuBar: true,
     backgroundColor: "#f8fafc",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      backgroundThrottling: false,
-    },
+    webPreferences: webPreferences({ backgroundThrottling: false, additionalArguments: ["--gl-ventana=principal"] }),
   });
   prepararVentana(ventanaPrincipal, "main");
   ventanaPrincipal.loadURL(`${urlBase()}/`);
@@ -150,72 +162,100 @@ function crearVentanaPrincipal() {
   });
 }
 
-function iniciadaOculta() {
-  return process.argv.includes("--oculta");
+// ── Geometría del widget del teléfono ──
+
+function pantallaDe(rect) {
+  return screen.getDisplayMatching(rect);
 }
 
-function posicionEnEsquina() {
-  const a = screen.getPrimaryDisplay().workArea;
-  const izquierda = config.esquina.endsWith("izquierda");
-  const arriba = config.esquina.startsWith("arriba");
+function limitar(valor, min, max) {
+  return Math.max(min, Math.min(valor, Math.max(min, max)));
+}
+
+/** Rectángulo de la burbuja pegada al borde (izquierda/derecha) de la pantalla, a la altura `y`. */
+function rectBurbuja(display, lado, y) {
+  const a = display.workArea;
   return {
-    x: izquierda ? a.x + MARGEN : a.x + a.width - ANCHO_TELEFONO - MARGEN,
-    y: arriba ? a.y + MARGEN : a.y + a.height - ALTO_TELEFONO - MARGEN,
+    x: lado === "izquierda" ? a.x : a.x + a.width - BURBUJA,
+    y: limitar(Math.round(y), a.y, a.y + a.height - BURBUJA),
+    width: BURBUJA,
+    height: BURBUJA,
   };
 }
 
-// La posición recordada solo vale si sigue dentro de alguna pantalla (por si quitaron un monitor).
-function posicionRecordadaValida() {
-  const p = config.posicionTelefono;
-  if (!config.recordarPosicion || !p) return null;
-  const visible = screen.getAllDisplays().some((d) => {
-    const a = d.workArea;
-    return p.x >= a.x - 40 && p.y >= a.y - 40 && p.x < a.x + a.width - 100 && p.y < a.y + a.height - 100;
-  });
-  return visible ? p : null;
+/** Rectángulo del panel abierto, pegado al mismo borde que la burbuja. */
+function rectExpandido(display, lado, y) {
+  const a = display.workArea;
+  const alto = Math.min(ALTO_EXPANDIDO, a.height);
+  return {
+    x: lado === "izquierda" ? a.x : a.x + a.width - ANCHO_EXPANDIDO,
+    y: limitar(Math.round(y), a.y, a.y + a.height - alto),
+    width: ANCHO_EXPANDIDO,
+    height: alto,
+  };
+}
+
+function rectInicialBurbuja() {
+  const display = screen.getPrimaryDisplay();
+  const y = config.yBurbuja ?? display.workArea.y + display.workArea.height * 0.35;
+  return rectBurbuja(display, config.lado, y);
+}
+
+/** Pasa el widget a burbuja o a panel abierto, manteniéndolo pegado al borde de la pantalla. */
+function aplicarTamanoTelefono(expandido) {
+  if (!ventanaTelefono || ventanaTelefono.isDestroyed()) return;
+  const actual = ventanaTelefono.getBounds();
+  const display = pantallaDe(actual);
+
+  if (expandido) {
+    ventanaTelefono.setBounds(rectExpandido(display, config.lado, actual.y));
+  } else if (telefonoExpandido) {
+    // Al contraer: la burbuja se pega al borde más cercano a donde se haya dejado el panel.
+    const centro = actual.x + actual.width / 2;
+    const lado = centro < display.workArea.x + display.workArea.width / 2 ? "izquierda" : "derecha";
+    const r = rectBurbuja(display, lado, actual.y);
+    guardarConfig({ lado, yBurbuja: r.y });
+    ventanaTelefono.setBounds(r);
+    actualizarMenuBandeja();
+  } else {
+    ventanaTelefono.setBounds(rectBurbuja(display, config.lado, actual.y));
+  }
+  telefonoExpandido = expandido;
 }
 
 function crearVentanaTelefono() {
-  const pos = posicionRecordadaValida() ?? posicionEnEsquina();
+  const r = rectInicialBurbuja();
+  telefonoExpandido = false;
   ventanaTelefono = new BrowserWindow({
-    width: ANCHO_TELEFONO,
-    height: ALTO_TELEFONO,
-    x: pos.x,
-    y: pos.y,
-    minWidth: 320,
-    minHeight: 420,
+    ...r,
     show: false,
     title: "Teléfono",
     icon: iconoApp(),
-    autoHideMenuBar: true,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    fullscreenable: false,
-    maximizable: false,
-    backgroundColor: "#ffffff",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      // La ventana puede estar oculta y debe seguir recibiendo llamadas.
-      backgroundThrottling: false,
-    },
+    backgroundColor: "#00000000",
+    // La ventana puede estar contraída u oculta y debe seguir recibiendo llamadas.
+    webPreferences: webPreferences({ backgroundThrottling: false, additionalArguments: ["--gl-ventana=telefono"] }),
   });
   // "screen-saver" la mantiene incluso sobre programas a pantalla completa y sobre la barra de tareas.
   ventanaTelefono.setAlwaysOnTop(true, "screen-saver");
   prepararVentana(ventanaTelefono, "mini");
   ventanaTelefono.loadURL(`${urlBase()}/extension-panel`);
 
-  let t = null;
-  ventanaTelefono.on("moved", () => {
-    clearTimeout(t);
-    t = setTimeout(() => {
-      if (ventanaTelefono && !ventanaTelefono.isDestroyed()) {
-        const [x, y] = ventanaTelefono.getPosition();
-        guardarConfig({ posicionTelefono: { x, y } });
-      }
-    }, 500);
+  // Si hay que iniciar sesión, la pantalla de login necesita espacio: se abre el panel completo.
+  ventanaTelefono.webContents.on("did-navigate", (_e, url) => {
+    try {
+      if (new URL(url).pathname.startsWith("/login")) aplicarTamanoTelefono(true);
+    } catch {
+      // url rara: nada
+    }
   });
   ventanaTelefono.on("close", (e) => {
     if (!saliendo) {
@@ -229,16 +269,19 @@ function crearVentanaTelefono() {
 
 function mostrarTelefono({ sinRobarFoco = false } = {}) {
   if (!ventanaTelefono || ventanaTelefono.isDestroyed()) crearVentanaTelefono();
-  if (ventanaTelefono.isMinimized()) ventanaTelefono.restore();
   if (sinRobarFoco) ventanaTelefono.showInactive();
   else ventanaTelefono.show();
   ventanaTelefono.setAlwaysOnTop(true, "screen-saver");
   ventanaTelefono.moveTop();
 }
 
+/** Atajo / clic en la bandeja: si está oculto lo muestra; si no, abre o contrae el panel. */
 function alternarTelefono() {
-  if (ventanaTelefono && ventanaTelefono.isVisible()) ventanaTelefono.hide();
-  else mostrarTelefono();
+  if (!ventanaTelefono || ventanaTelefono.isDestroyed() || !ventanaTelefono.isVisible()) {
+    mostrarTelefono();
+    return;
+  }
+  ventanaTelefono.webContents.send("alternar-expandido");
 }
 
 function mostrarPrincipal() {
@@ -255,7 +298,7 @@ function abrirAjustes() {
   }
   ventanaAjustes = new BrowserWindow({
     width: 440,
-    height: 470,
+    height: 430,
     resizable: false,
     minimizable: false,
     maximizable: false,
@@ -263,12 +306,7 @@ function abrirAjustes() {
     icon: iconoApp(),
     autoHideMenuBar: true,
     backgroundColor: "#ffffff",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
+    webPreferences: webPreferences({ additionalArguments: ["--gl-ventana=ajustes"] }),
   });
   ventanaAjustes.loadFile(path.join(__dirname, "ajustes.html"));
   ventanaAjustes.on("closed", () => (ventanaAjustes = null));
@@ -281,24 +319,31 @@ function actualizarMenuBandeja() {
   const telefonoVisible = Boolean(ventanaTelefono && !ventanaTelefono.isDestroyed() && ventanaTelefono.isVisible());
   const menu = Menu.buildFromTemplate([
     { label: "Abrir el sistema de gestión", click: mostrarPrincipal },
-    { label: telefonoVisible ? "Ocultar el teléfono" : "Mostrar el teléfono", accelerator: ATAJO_TELEFONO, click: alternarTelefono },
+    {
+      label: telefonoVisible ? "Ocultar el teléfono" : "Mostrar el teléfono",
+      click: () => {
+        if (telefonoVisible) ventanaTelefono.hide();
+        else mostrarTelefono();
+      },
+    },
     { type: "separator" },
     {
-      label: "Esquina del teléfono",
+      label: "Lado de la pantalla",
       submenu: [
-        ["abajo-derecha", "Abajo a la derecha"],
-        ["abajo-izquierda", "Abajo a la izquierda"],
-        ["arriba-derecha", "Arriba a la derecha"],
-        ["arriba-izquierda", "Arriba a la izquierda"],
+        ["izquierda", "Izquierda"],
+        ["derecha", "Derecha"],
       ].map(([valor, etiqueta]) => ({
         label: etiqueta,
         type: "radio",
-        checked: config.esquina === valor,
+        checked: config.lado === valor,
         click: () => {
-          guardarConfig({ esquina: valor, posicionTelefono: null });
+          guardarConfig({ lado: valor });
           if (ventanaTelefono && !ventanaTelefono.isDestroyed()) {
-            const p = posicionEnEsquina();
-            ventanaTelefono.setPosition(p.x, p.y);
+            const actual = ventanaTelefono.getBounds();
+            const display = pantallaDe(actual);
+            ventanaTelefono.setBounds(
+              telefonoExpandido ? rectExpandido(display, valor, actual.y) : rectBurbuja(display, valor, actual.y)
+            );
           }
           actualizarMenuBandeja();
         },
@@ -312,7 +357,16 @@ function actualizarMenuBandeja() {
     },
     { label: "Ajustes…", click: abrirAjustes },
     ...(actualizacionLista
-      ? [{ type: "separator" }, { label: "Reiniciar para actualizar", click: () => { saliendo = true; autoUpdater.quitAndInstall(); } }]
+      ? [
+          { type: "separator" },
+          {
+            label: "Reiniciar para actualizar",
+            click: () => {
+              saliendo = true;
+              autoUpdater.quitAndInstall();
+            },
+          },
+        ]
       : []),
     { type: "separator" },
     {
@@ -329,7 +383,7 @@ function actualizarMenuBandeja() {
 function crearBandeja() {
   const icono = nativeImage.createFromPath(path.join(__dirname, "build", "tray.png"));
   bandeja = new Tray(icono);
-  bandeja.setToolTip(NOMBRE);
+  bandeja.setToolTip(`${NOMBRE} — clic: teléfono (${ATAJO_TELEFONO.replace("CommandOrControl", "Ctrl")})`);
   bandeja.on("click", alternarTelefono);
   bandeja.on("double-click", mostrarPrincipal);
   actualizarMenuBandeja();
@@ -348,9 +402,8 @@ function aplicarAbrirConWindows(activo) {
 
 ipcMain.on("llamada-entrante", (_e, datos) => {
   // Suena una llamada: el teléfono se muestra encima de todo (sin quitarle el foco a lo que se esté escribiendo).
+  // La propia página lo abre en grande al detectar la llamada.
   mostrarTelefono({ sinRobarFoco: true });
-  ventanaTelefono.flashFrame(true);
-  setTimeout(() => ventanaTelefono && !ventanaTelefono.isDestroyed() && ventanaTelefono.flashFrame(false), 6000);
   if (Notification.isSupported()) {
     const n = new Notification({ title: "Llamada entrante", body: datos?.numero ? String(datos.numero) : NOMBRE, icon: iconoApp() });
     n.on("click", () => mostrarTelefono());
@@ -360,23 +413,45 @@ ipcMain.on("llamada-entrante", (_e, datos) => {
 ipcMain.on("mostrar-telefono", () => mostrarTelefono());
 ipcMain.on("ocultar-telefono", () => ventanaTelefono && ventanaTelefono.hide());
 ipcMain.on("abrir-plataforma", () => mostrarPrincipal());
+ipcMain.on("telefono:expandido", (_e, expandido) => aplicarTamanoTelefono(Boolean(expandido)));
+
+// Arrastre de la burbuja (la burbuja es clicable, así que no puede usar la zona de arrastre del sistema).
+ipcMain.on("arrastre:inicio", () => {
+  if (ventanaTelefono && !ventanaTelefono.isDestroyed()) origenArrastre = ventanaTelefono.getBounds();
+});
+ipcMain.on("arrastre:mover", (_e, { dx, dy }) => {
+  if (!ventanaTelefono || ventanaTelefono.isDestroyed() || !origenArrastre) return;
+  ventanaTelefono.setBounds({
+    x: Math.round(origenArrastre.x + dx),
+    y: Math.round(origenArrastre.y + dy),
+    width: origenArrastre.width,
+    height: origenArrastre.height,
+  });
+});
+ipcMain.on("arrastre:fin", () => {
+  if (!ventanaTelefono || ventanaTelefono.isDestroyed()) return;
+  origenArrastre = null;
+  const actual = ventanaTelefono.getBounds();
+  const display = pantallaDe(actual);
+  const centro = actual.x + actual.width / 2;
+  const lado = centro < display.workArea.x + display.workArea.width / 2 ? "izquierda" : "derecha";
+  const r = rectBurbuja(display, lado, actual.y);
+  guardarConfig({ lado, yBurbuja: r.y });
+  ventanaTelefono.setBounds(r); // se pega al borde más cercano
+  actualizarMenuBandeja();
+});
+
 ipcMain.handle("ajustes:obtener", () => ({
   dashboardUrl: config.dashboardUrl,
   abrirConWindows: config.abrirConWindows,
-  esquina: config.esquina,
-  recordarPosicion: config.recordarPosicion,
+  lado: config.lado,
   version: app.getVersion(),
 }));
 ipcMain.handle("ajustes:guardar", (_e, nuevos) => {
   const url = String(nuevos?.dashboardUrl || "").trim().replace(/\/+$/, "");
   if (!/^https?:\/\/.+/i.test(url)) return { error: "Escribe la dirección completa, por ejemplo https://dashboard.tu-empresa.com" };
   const cambioUrl = url !== urlBase();
-  guardarConfig({
-    dashboardUrl: url,
-    esquina: nuevos.esquina,
-    recordarPosicion: Boolean(nuevos.recordarPosicion),
-    posicionTelefono: null,
-  });
+  guardarConfig({ dashboardUrl: url, lado: nuevos.lado === "derecha" ? "derecha" : "izquierda" });
   aplicarAbrirConWindows(Boolean(nuevos.abrirConWindows));
   if (cambioUrl) {
     ventanaPrincipal && !ventanaPrincipal.isDestroyed() && ventanaPrincipal.loadURL(`${url}/`);
@@ -384,8 +459,11 @@ ipcMain.handle("ajustes:guardar", (_e, nuevos) => {
     configurarActualizador();
   }
   if (ventanaTelefono && !ventanaTelefono.isDestroyed()) {
-    const p = posicionEnEsquina();
-    ventanaTelefono.setPosition(p.x, p.y);
+    const actual = ventanaTelefono.getBounds();
+    const display = pantallaDe(actual);
+    ventanaTelefono.setBounds(
+      telefonoExpandido ? rectExpandido(display, config.lado, actual.y) : rectBurbuja(display, config.lado, actual.y)
+    );
   }
   actualizarMenuBandeja();
   return { ok: true };
@@ -431,8 +509,8 @@ if (!app.requestSingleInstanceLock()) {
     } else {
       crearVentanaPrincipal();
       crearVentanaTelefono();
-      // Al arrancar con Windows queda solo el teléfono; abierta a mano, se ve el sistema de gestión.
-      if (iniciadaOculta()) mostrarTelefono({ sinRobarFoco: true });
+      // La burbuja siempre queda a la vista; el sistema de gestión solo si no se arrancó con Windows.
+      ventanaTelefono.once("ready-to-show", () => mostrarTelefono({ sinRobarFoco: true }));
     }
 
     if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: config.abrirConWindows, args: ["--oculta"] });

@@ -63,6 +63,18 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Teléfono flotante de la app de escritorio: la ventana es transparente (burbuja redonda, panel con
+   esquinas redondeadas), así que ni la página ni el contenedor pueden pintar fondo propio. */
+html[data-gl-cargando] body {
+  visibility: hidden;
+}
+
+html[data-gl-telefono],
+html[data-gl-telefono] body,
+html[data-gl-telefono] [data-gl-fondo] {
+  background: transparent !important;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

@@ -4,10 +4,19 @@
  */
 export interface PuenteEscritorio {
   esEscritorio: true;
+  /** true solo en la ventana del teléfono flotante (la que se contrae a burbuja). */
+  esTelefono: boolean;
   llamadaEntrante(numero?: string): void;
   mostrarTelefono(): void;
   ocultarTelefono(): void;
   abrirPlataforma(): void;
+  /** Contrae el teléfono a burbuja (false) o abre el panel (true); la ventana se mantiene pegada al borde. */
+  fijarExpandido(expandido: boolean): void;
+  /** El usuario pulsó el atajo o el icono de la bandeja: abrir/contraer. Devuelve cómo dejar de escuchar. */
+  alAlternarExpandido(callback: () => void): () => void;
+  arrastreInicio(): void;
+  arrastreMover(dx: number, dy: number): void;
+  arrastreFin(): void;
 }
 
 export function puenteEscritorio(): PuenteEscritorio | null {
