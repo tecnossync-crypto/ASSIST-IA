@@ -218,9 +218,17 @@ export default async function IntegracionesPage({
   -d '{
     "numero": "+18095551234",
     "colaId": "opcional, id de un departamento",
+    "operador": "correo del asesor que hizo clic",
     "origen": "mi-crm"
   }'`}</Codigo>
             <ul className="mt-3 space-y-1.5 text-xs text-muted">
+              <li>
+                <span className="font-mono text-ink-2">operador</span> — opcional pero recomendado: el correo (o id
+                externo, o nombre) del asesor que presionó “Llamar” en el CRM, tal como lo tienes en Configuración →
+                Agentes. La llamada le suena <strong>a ese asesor</strong> (su panel contesta solo) y se conecta con el
+                cliente. Si no se identifica, o no está Activo y libre, se reparte como siempre. La respuesta trae{" "}
+                <span className="font-mono">operador_identificado</span> y <span className="font-mono">operador_asignado</span>.
+              </li>
               <li>
                 <span className="font-mono text-ink-2">numero</span> — requerido, el teléfono a llamar (con código de
                 país).

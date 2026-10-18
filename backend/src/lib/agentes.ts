@@ -233,6 +233,16 @@ export async function modoOperadorOrigenActivo(empresaId: string, colaId: string
  * Va aparte de elegirAgentesParaLlamada porque el operador puede ser de otro
  * departamento: quien disparó la etiqueta es quien debe recibir la llamada.
  */
+/** El asesor está Activo y libre (no está en otra llamada ni tiene una timbrando): se le puede pasar una llamada ya. */
+export async function asesorLibre(empresaId: string, usuarioId: string | null | undefined): Promise<string | null> {
+  if (!usuarioId) return null;
+  const r = await pool.query<{ id: string }>(
+    `SELECT u.id FROM usuarios u WHERE u.id = $1 AND u.empresa_id = $2 AND u.disponible = true AND ${SQL_ASESOR_LIBRE}`,
+    [usuarioId, empresaId]
+  );
+  return r.rows[0]?.id ?? null;
+}
+
 export async function operadorOrigenDisponible(
   empresaId: string,
   colaId: string | null | undefined,

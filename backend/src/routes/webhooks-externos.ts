@@ -7,6 +7,7 @@ import { asegurarContacto, upsertContacto } from "../lib/contactos.js";
 import { registrarWebhookRecibido } from "../lib/webhooks-log.js";
 import { evaluarReglaApiLlamadas, proximaOcurrencia } from "../lib/reglas-api-llamadas.js";
 import { resolverOperadorExterno } from "../lib/operador-origen.js";
+import { asesorLibre } from "../lib/agentes.js";
 
 interface CampoPersonalizado {
   nombre: string;
@@ -279,7 +280,16 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
   // iniciarConferenciaConAgentes), solo que el número lo origina un webhook
   // externo en vez del botón "Llamar" del dashboard.
   app.post<{
-    Body: { numero: string; colaId?: string; origen?: string };
+    Body: {
+      numero: string;
+      colaId?: string;
+      origen?: string;
+      // Quién hizo clic en el CRM (email, id externo o nombre): la llamada se le pasa a ESE asesor.
+      operador?: string;
+      operador_id?: string;
+      operador_email?: string;
+      agente?: string;
+    };
     Headers: { "x-api-key"?: string; "x-prueba-interna"?: string };
   }>(
     "/api/webhooks/llamar-agente",
@@ -350,8 +360,16 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
 
       await asegurarContacto(empresaId, numero);
 
+      // Si el CRM dice quién hizo clic, la llamada se conecta con ESE asesor (su panel contesta solo, igual que
+      // al marcar desde el panel). Si no se identifica, o no está Activo y libre, se reparte como siempre.
+      const operadorRecibido = req.body.operador ?? req.body.operador_id ?? req.body.operador_email ?? req.body.agente;
+      const operadorIdentificadoId = await resolverOperadorExterno(empresaId, operadorRecibido);
+      const asesorDirectoId = await asesorLibre(empresaId, operadorIdentificadoId);
+      const informoOperador = typeof operadorRecibido === "string" && operadorRecibido.trim() !== "";
+
       const params = new URLSearchParams({ empresaId });
       if (colaId) params.set("colaId", colaId);
+      if (asesorDirectoId) params.set("usuarioId", asesorDirectoId);
       params.set("origenExterno", origen?.trim() || "externo");
 
       try {
@@ -387,7 +405,13 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           esPrueba,
           callSid: call.sid,
         });
-        reply.send({ ok: true, callSid: call.sid });
+        reply.send({
+          ok: true,
+          callSid: call.sid,
+          ...(informoOperador
+            ? { operador_identificado: Boolean(operadorIdentificadoId), operador_asignado: Boolean(asesorDirectoId) }
+            : {}),
+        });
       } catch (err) {
         app.log.error({ err, numero }, "Error originando llamada a agente vía webhook externo");
         await registrarWebhookRecibido({
