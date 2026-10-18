@@ -64,7 +64,8 @@ export function ContextoLlamada({
 }) {
   const [verConversacion, setVerConversacion] = useState(false);
   const [copiado, setCopiado] = useState(false);
-  // Solo aplica dentro de la llamada (compacto): deja ver los controles y atender a más de un cliente.
+  // Minimizar deja ver los controles y atender a más de un cliente. Dentro de la llamada (compacto) se
+  // recuerda la preferencia; en la pestaña Contexto cada tarjeta se pliega por separado.
   const [minimizado, setMinimizado] = useState(false);
   useEffect(() => {
     if (!compacto) return;
@@ -78,6 +79,7 @@ export function ContextoLlamada({
   function alternarMinimizado() {
     setMinimizado((actual) => {
       const nuevo = !actual;
+      if (!compacto) return nuevo;
       try {
         window.localStorage.setItem(CLAVE_MINIMIZADO, nuevo ? "1" : "0");
       } catch {
@@ -102,7 +104,7 @@ export function ContextoLlamada({
     }
   }
 
-  if (compacto && minimizado) {
+  if (minimizado) {
     return (
       <button
         type="button"
@@ -137,17 +139,15 @@ export function ContextoLlamada({
           </p>
         </div>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
-          {compacto && (
-            <button
-              type="button"
-              onClick={alternarMinimizado}
-              aria-label="Minimizar el contexto"
-              title="Minimizar"
-              className="rounded-full p-1 text-muted hover:bg-surface-2 hover:text-ink-2"
-            >
-              <ChevronUp size={14} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={alternarMinimizado}
+            aria-label="Minimizar el contexto"
+            title="Minimizar"
+            className="rounded-full p-1 text-muted hover:bg-surface-2 hover:text-ink-2"
+          >
+            <ChevronUp size={14} />
+          </button>
           {!visto && (
             <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
               Nueva
@@ -209,7 +209,7 @@ export function ContextoLlamada({
             </div>
           )}
 
-          {!compacto && item.turnos.length > 0 && (
+          {item.turnos.length > 0 && (
             <div>
               <button
                 type="button"
@@ -220,7 +220,7 @@ export function ContextoLlamada({
                 {verConversacion ? "Ocultar conversación" : "Ver conversación con la IA"}
               </button>
               {verConversacion && (
-                <div className="mt-2 flex flex-col gap-1.5">
+                <div className="mt-2 flex max-h-60 flex-col gap-1.5 overflow-y-auto pr-0.5">
                   {item.turnos.map((t, i) => (
                     <p
                       key={i}
