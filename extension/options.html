@@ -26,6 +26,30 @@
         font-weight: 500;
         margin: 16px 0 4px;
       }
+      select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 13px;
+        background: white;
+      }
+      .check {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 400;
+      }
+      .check input {
+        width: auto;
+      }
+      h2 {
+        font-size: 14px;
+        margin: 26px 0 0;
+        padding-top: 18px;
+        border-top: 1px solid #e2e8f0;
+      }
       input {
         width: 100%;
         box-sizing: border-box;
@@ -65,6 +89,21 @@
     </p>
     <label for="dashboardUrl">Dirección del dashboard</label>
     <input id="dashboardUrl" type="url" placeholder="https://dashboard.tu-dominio.com" />
+
+    <h2>Ventana del teléfono</h2>
+    <p>
+      Dónde aparece la ventana al abrirla. Para que se quede <b>siempre encima</b> de tus otras ventanas (como un
+      widget en la esquina), abre el panel y pulsa <b>Fijar encima</b> en su encabezado.
+    </p>
+    <label for="esquina">Esquina de la pantalla</label>
+    <select id="esquina">
+      <option value="abajo-derecha">Abajo a la derecha</option>
+      <option value="abajo-izquierda">Abajo a la izquierda</option>
+      <option value="arriba-derecha">Arriba a la derecha</option>
+      <option value="arriba-izquierda">Arriba a la izquierda</option>
+    </select>
+    <label class="check"><input id="recordarPosicion" type="checkbox" /> Recordar dónde la dejo y abrirla ahí la próxima vez</label>
+
     <button id="guardar">Guardar</button>
     <p id="mensaje">Guardado — ya puedes usar el ícono de la extensión.</p>
     <script src="options.js"></script>

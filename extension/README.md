@@ -37,6 +37,7 @@ Click derecho en el ícono de la extensión → **"Opciones"**, o `chrome://exte
 
 ## Notas
 
-- La ventana es una ventana normal de Chrome — no queda "siempre encima" de otras apps a nivel del sistema operativo (eso no lo permite ningún navegador). Puedes moverla a un segundo monitor o dejarla en una esquina.
-- No hace falta ningún permiso especial de acceso a otras páginas — la extensión solo abre una ventana apuntando a tu propio dashboard, nada de content scripts ni lectura de otras pestañas.
+- **Siempre encima:** la ventana normal de Chrome se puede tapar con otras. Para que se quede en una esquina por encima de todo (también de otros programas), pulsa **Fijar encima** en el encabezado del panel: se abre una mini-ventana flotante (Chrome/Edge 116 o más reciente). Muévela y agrándala como quieras; Chrome recuerda dónde la dejas. No cierres la ventana original: ahí sigue funcionando el teléfono. **Soltar** devuelve el panel a su ventana. Por una regla del navegador hay que pulsar el botón cada vez que se abre el panel (no puede abrirse sola).
+- En Opciones puedes elegir en qué esquina aparece la ventana y si recuerda su última posición.
+- Solo pide leer el tamaño de tu pantalla (para colocar la ventana en la esquina). No hace falta ningún permiso de acceso a otras páginas — la extensión solo abre una ventana apuntando a tu propio dashboard, nada de content scripts ni lectura de otras pestañas.
 - Si cambias el dominio del dashboard (nuevo servidor, dominio propio, etc.), solo hay que actualizar la URL en Opciones — no hace falta reinstalar nada.

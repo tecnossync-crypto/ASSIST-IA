@@ -18,9 +18,9 @@ export async function GET() {
     permisos.contactos === "ninguno"
       ? Promise.resolve([])
       : listarContactos(undefined, undefined, permisos.contactos === "propios" ? sesion?.usuarioId : undefined).catch(() => []),
-    filtro.sinAcceso
-      ? Promise.resolve([])
-      : listarLlamadas({ limite: 15, colaId: filtro.colaId, agenteId: filtro.agenteId }).catch(() => []),
+    // "Recientes" del panel son SIEMPRE las llamadas del propio asesor (las que atendió o hizo él), sea cual sea
+    // su alcance en el listado de Llamadas.
+    sesion ? listarLlamadas({ limite: 15, agenteId: sesion.usuarioId }).catch(() => []) : Promise.resolve([]),
     listarColas().catch(() => []),
     listarAgentes().catch(() => []),
   ]);

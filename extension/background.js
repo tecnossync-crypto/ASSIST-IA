@@ -11,6 +11,30 @@
 
 const ANCHO_VENTANA = 380;
 const ALTO_VENTANA = 640;
+const MARGEN = 16;
+
+// Preferencias (ver options.html): en qué esquina aparece y si recuerda dónde la dejaste.
+async function obtenerPreferencias() {
+  const { esquina, recordarPosicion } = await chrome.storage.sync.get(["esquina", "recordarPosicion"]);
+  return { esquina: esquina || "abajo-derecha", recordarPosicion: recordarPosicion !== false };
+}
+
+// Posición de la ventana en la esquina elegida, sobre el área útil del monitor principal (sin barra de tareas).
+async function posicionEnEsquina(esquina) {
+  try {
+    const pantallas = await chrome.system.display.getInfo();
+    const p = pantallas.find((d) => d.isPrimary) || pantallas[0];
+    const a = p.workArea;
+    const izquierda = esquina.endsWith("izquierda");
+    const arriba = esquina.startsWith("arriba");
+    return {
+      left: izquierda ? a.left + MARGEN : a.left + a.width - ANCHO_VENTANA - MARGEN,
+      top: arriba ? a.top + MARGEN : a.top + a.height - ALTO_VENTANA - MARGEN,
+    };
+  } catch {
+    return {};
+  }
+}
 
 async function obtenerUrlDashboard() {
   const { dashboardUrl } = await chrome.storage.sync.get("dashboardUrl");
@@ -39,18 +63,35 @@ async function abrirPanel() {
     }
   }
 
+  const prefs = await obtenerPreferencias();
+  const { posicionGuardada } = await chrome.storage.local.get("posicionGuardada");
+  const posicion =
+    prefs.recordarPosicion && posicionGuardada ? posicionGuardada : await posicionEnEsquina(prefs.esquina);
+
   const ventana = await chrome.windows.create({
     url: `${dashboardUrl}/extension-panel`,
     type: "popup",
     width: ANCHO_VENTANA,
     height: ALTO_VENTANA,
     focused: true,
+    ...posicion,
   });
 
   await chrome.storage.session.set({ ventanaId: ventana.id });
 }
 
 chrome.action.onClicked.addListener(abrirPanel);
+
+// Recuerda dónde dejas la ventana para abrirla ahí la próxima vez (si esa preferencia está activa).
+let temporizadorPosicion = null;
+chrome.windows.onBoundsChanged.addListener((ventana) => {
+  clearTimeout(temporizadorPosicion);
+  temporizadorPosicion = setTimeout(async () => {
+    const { ventanaId } = await chrome.storage.session.get("ventanaId");
+    if (ventana.id !== ventanaId || ventana.state !== "normal") return;
+    await chrome.storage.local.set({ posicionGuardada: { left: ventana.left, top: ventana.top } });
+  }, 600);
+});
 
 chrome.windows.onRemoved.addListener(async (id) => {
   const { ventanaId } = await chrome.storage.session.get("ventanaId");

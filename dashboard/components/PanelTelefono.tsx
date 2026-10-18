@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
@@ -15,6 +16,7 @@ import {
   Phone,
   PhoneIncoming,
   PhoneOff,
+  PictureInPicture2,
   Play,
   Users,
   X,
@@ -23,6 +25,8 @@ import type { ContactoResumen, LlamadaResumen, Cola, TransferenciaContexto, Llam
 import { useAgenteSoftphone } from "@/components/AgenteSoftphoneContext";
 import { useSoftphone } from "@/components/SoftphoneContext";
 import { ContextoLlamada } from "@/components/ContextoLlamada";
+import { formatDuracion, formatFechaHoraCorta } from "@/lib/format";
+import { useFijarEncima } from "@/components/useFijarEncima";
 import { SelectorEstadoAsesor, opcionDeEstado, useActividadHoy, usePresencia } from "@/components/estado-asesor";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
@@ -142,6 +146,8 @@ export function PanelTelefono({
   // repartir entre varios, no para esto.
   const { sesion: sesionAgente } = useAgenteSoftphone();
   const sp = useSoftphone();
+  // Solo en la ventana de la extensión: sacar el panel a una mini-ventana siempre visible en una esquina.
+  const fijado = useFijarEncima();
 
   const idAsesor = sesionAgente?.usuarioId ?? usuarioId;
   const nombreAsesor = sesionAgente?.nombre ?? nombre ?? "Asesor";
@@ -533,7 +539,7 @@ export function PanelTelefono({
 
   const anchoContexto = tab === "contexto" && !sonando && !enLlamada;
 
-  return (
+  const contenido = (
     <div
       className={
         esVentana
@@ -574,6 +580,26 @@ export function PanelTelefono({
                   <span className={"h-1.5 w-1.5 rounded-full " + (sp.estado === "desconectado" ? "bg-amber-400" : "bg-emerald-400")} />
                   {sp.estado === "desconectado" ? "Sin conexión" : "Conectado"}
                 </span>
+                {esVentana && fijado.soportado && (
+                  <button
+                    type="button"
+                    onClick={fijado.ventana ? fijado.soltar : () => fijado.fijar()}
+                    className={
+                      "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors " +
+                      (fijado.ventana
+                        ? "bg-indigo-400/25 text-indigo-200 hover:bg-indigo-400/35"
+                        : "bg-white/10 text-slate-300 hover:bg-white/20")
+                    }
+                    title={
+                      fijado.ventana
+                        ? "Volver a esta ventana"
+                        : "Sacar el panel a una mini-ventana que se queda siempre encima de las demás, en una esquina"
+                    }
+                  >
+                    <PictureInPicture2 size={11} />
+                    {fijado.ventana ? "Soltar" : "Fijar encima"}
+                  </button>
+                )}
                 {!esVentana && (
                   <button
                     type="button"
@@ -1042,14 +1068,17 @@ export function PanelTelefono({
                         >
                           <span>
                             <span className="block text-ink">{nombreDeContacto(num, contactos) ?? num}</span>
-                            <span className="block text-xs capitalize text-muted">{l.direccion}</span>
+                            <span className="block text-xs text-muted">
+                              <span className="capitalize">{l.direccion}</span> · {formatFechaHoraCorta(l.iniciada_en)}
+                              {l.duracion_segundos ? ` · ${formatDuracion(l.duracion_segundos)}` : ""}
+                            </span>
                           </span>
                           <Phone size={14} className="text-indigo-500" />
                         </button>
                       );
                     })}
                     {recientes.length === 0 && (
-                      <p className="py-4 text-center text-xs text-muted">Sin llamadas recientes.</p>
+                      <p className="py-4 text-center text-xs text-muted">Aún no has atendido llamadas.</p>
                     )}
                   </div>
                 )}
@@ -1114,6 +1143,43 @@ export function PanelTelefono({
         </div>
       )}
     </div>
+  );
+
+  // Fijado: el panel vive en la mini-ventana (portal) y aquí queda un aviso para volver.
+  if (esVentana && fijado.ventana) {
+    return (
+      <>
+        {createPortal(contenido, fijado.ventana.document.body)}
+        <div className="flex h-full flex-col items-center justify-center gap-3 bg-surface p-6 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15">
+            <PictureInPicture2 size={22} />
+          </span>
+          <p className="text-sm font-medium text-ink">Panel fijado en una esquina</p>
+          <p className="max-w-[16rem] text-xs text-muted">
+            Se queda encima de tus otras ventanas. Puedes mover o agrandar esa mini-ventana y minimizar esta; no la
+            cierres, porque aquí sigue funcionando el teléfono.
+          </p>
+          <button
+            type="button"
+            onClick={fijado.soltar}
+            className="rounded-full border border-edge px-3 py-1.5 text-xs font-medium text-ink-2 hover:bg-surface-2"
+          >
+            Volver el panel aquí
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {contenido}
+      {esVentana && fijado.error && (
+        <p className="fixed inset-x-3 bottom-2 z-50 rounded-lg bg-red-50 px-3 py-2 text-center text-xs text-red-700 shadow">
+          {fijado.error}
+        </p>
+      )}
+    </>
   );
 }
 
