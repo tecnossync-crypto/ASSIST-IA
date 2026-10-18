@@ -1,5 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import Link from "next/link";
-import { Headset, KeyRound, Circle, Phone, Download, Puzzle } from "lucide-react";
+import { Headset, KeyRound, Circle, Phone, Download, Puzzle, MonitorSmartphone } from "lucide-react";
 import { listarAgentes, listarColas, listarRoles } from "@/lib/api";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { BotonAccion } from "@/components/BotonAccion";
@@ -12,6 +14,7 @@ import { EditorIdExternoAgente } from "@/components/EditorIdExternoAgente";
 import { ColaAgenteSelect } from "@/components/ColaAgenteSelect";
 import { RolAgenteSelect } from "@/components/RolAgenteSelect";
 import { eliminarAgenteAction } from "./actions";
+import { INSTALADOR_ESCRITORIO } from "@/lib/escritorio";
 
 const ESTADO_PRESENCIA: Record<string, { etiqueta: string; punto: string }> = {
   disponible: { etiqueta: "Disponible ahora", punto: "fill-emerald-500 text-emerald-500" },
@@ -22,6 +25,8 @@ const ESTADO_PRESENCIA: Record<string, { etiqueta: string; punto: string }> = {
 export default async function AgentesPage() {
   const [agentes, colas, roles] = await Promise.all([listarAgentes(), listarColas(), listarRoles()]);
   const nombreRol = new Map(roles.map((r) => [r.clave, r.nombre]));
+  // El instalador no va en git (pesa ~80 MB): se copia al servidor en dashboard/public/descargas/.
+  const instaladorPublicado = fs.existsSync(path.join(process.cwd(), "public", "descargas", INSTALADOR_ESCRITORIO));
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -41,8 +46,42 @@ export default async function AgentesPage() {
 
       <section className="rounded-lg border border-edge bg-surface p-5">
         <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
+          <MonitorSmartphone size={16} className="text-indigo-600" />
+          App de escritorio para Windows
+          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+            Recomendada
+          </span>
+        </div>
+        <p className="mb-4 text-xs text-muted">
+          Instala &quot;Gestión de Llamadas&quot; en la computadora de cada asesor: abre el sistema completo en una ventana
+          propia y deja el teléfono como una mini-ventana que se queda siempre encima de las demás, en una esquina.
+          Vive junto al reloj de Windows, puede abrirse sola al encender el equipo y se actualiza sola.
+        </p>
+        {instaladorPublicado ? (
+          <a
+            href={`/descargas/${INSTALADOR_ESCRITORIO}`}
+            download
+            className="ts-brand-button inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium text-white shadow shadow-indigo-500/30"
+          >
+            <Download size={14} />
+            Descargar para Windows (.exe)
+          </a>
+        ) : (
+          <p className="rounded-md border border-dashed border-edge p-3 text-xs text-muted">
+            El instalador todavía no está publicado en este servidor. Para publicarlo, sigue las instrucciones de{" "}
+            <span className="font-mono">agente-escritorio/README.md</span>.
+          </p>
+        )}
+        <p className="mt-3 text-xs text-muted">
+          Al abrirlo por primera vez Windows puede mostrar &quot;Windows protegió su PC&quot; porque la app no está firmada
+          con certificado: pulsa <strong>Más información → Ejecutar de todas formas</strong>. Es normal y solo ocurre una vez.
+        </p>
+      </section>
+
+      <section className="rounded-lg border border-edge bg-surface p-5">
+        <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-ink">
           <Puzzle size={16} className="text-indigo-600" />
-          Extensión de teléfono para el navegador
+          Alternativa: extensión de teléfono para Chrome
         </div>
         <p className="mb-4 text-xs text-muted">
           Abre el panel de teléfono en una ventana aparte del navegador — para dejarlo a mano mientras se trabaja

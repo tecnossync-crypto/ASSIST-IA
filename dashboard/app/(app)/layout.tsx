@@ -9,6 +9,8 @@ import { MobileNavProvider } from "@/components/MobileNavContext";
 import { MobileMenuButton } from "@/components/MobileMenuButton";
 import { BannerEntorno } from "@/components/BannerEntorno";
 import { obtenerSesion } from "@/lib/session";
+import { BotonTelefonoEscritorio } from "@/components/BotonTelefonoEscritorio";
+import { headers } from "next/headers";
 
 // Shell de la plataforma ya autenticada: Sidebar (con quién entró), panel de
 // teléfono flotante y softphone, visibles en todas las páginas EXCEPTO
@@ -23,10 +25,12 @@ import { obtenerSesion } from "@/lib/session";
 // secciones no muestra ninguna pantalla de carga.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const sesion = await obtenerSesion();
+  // En la app de escritorio, la ventana principal es solo el sistema de gestión: el teléfono vive en su propia
+  // ventana flotante (/extension-panel). Si ambas registraran el teléfono, cada llamada sonaría dos veces.
+  const ua = (await headers()).get("user-agent") ?? "";
+  const esEscritorioPrincipal = ua.includes("GLDesktop-main");
 
-  return (
-    <AgenteSoftphoneProvider usuario={sesion ? { usuarioId: sesion.usuarioId, nombre: sesion.nombre } : null}>
-      <SoftphoneProvider>
+  const cuerpo = (
       <MobileNavProvider>
         <div className="flex h-full">
           <Sidebar sesion={sesion} />
@@ -35,17 +39,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-edge bg-surface/80 px-3 py-2.5 backdrop-blur sm:px-4 md:justify-end md:px-6">
               <MobileMenuButton />
               <div className="flex items-center gap-3">
+                <BotonTelefonoEscritorio />
                 {sesion && <EstadoDashboardBoton usuarioId={sesion.usuarioId} />}
                 <ThemeToggle />
               </div>
             </div>
             <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-5 sm:px-6 sm:py-8">{children}</main>
           </div>
-          <PanelTelefono usuarioId={sesion?.usuarioId} nombre={sesion?.nombre} />
+          {!esEscritorioPrincipal && <PanelTelefono usuarioId={sesion?.usuarioId} nombre={sesion?.nombre} />}
           <LlamadasExternasWidget />
         </div>
       </MobileNavProvider>
-      </SoftphoneProvider>
+  );
+
+  return (
+    <AgenteSoftphoneProvider usuario={sesion ? { usuarioId: sesion.usuarioId, nombre: sesion.nombre } : null}>
+      {esEscritorioPrincipal ? cuerpo : <SoftphoneProvider>{cuerpo}</SoftphoneProvider>}
     </AgenteSoftphoneProvider>
   );
 }

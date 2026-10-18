@@ -1,0 +1,64 @@
+{
+  "name": "gestion-de-llamadas",
+  "version": "1.0.0",
+  "description": "Gestión de Llamadas — app de escritorio (Windows): plataforma completa y teléfono flotante siempre visible.",
+  "author": "Tecnossync",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.tecnossync.gestionllamadas",
+    "productName": "Gestión de Llamadas",
+    "copyright": "Tecnossync",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "ajustes.html",
+      "config.json",
+      "build/tray.png",
+      "build/icon.png"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Gestion-de-Llamadas-Setup.${ext}",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Gestión de Llamadas",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://dashboard.3-147-190-197.sslip.io/descargas/"
+      }
+    ]
+  }
+}

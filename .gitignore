@@ -10,3 +10,8 @@ deploy/.env.compose
 *.log
 .DS_Store
 
+
+# Instalador de la app de escritorio (pesa ~80 MB): se copia al servidor a mano, no va en git
+dashboard/public/descargas/*.exe
+dashboard/public/descargas/*.blockmap
+dashboard/public/descargas/latest.yml

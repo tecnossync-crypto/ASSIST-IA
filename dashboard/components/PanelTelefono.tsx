@@ -27,6 +27,7 @@ import { useSoftphone } from "@/components/SoftphoneContext";
 import { ContextoLlamada } from "@/components/ContextoLlamada";
 import { formatDuracion, formatFechaHoraCorta } from "@/lib/format";
 import { useFijarEncima } from "@/components/useFijarEncima";
+import { puenteEscritorio } from "@/lib/escritorio";
 import { SelectorEstadoAsesor, opcionDeEstado, useActividadHoy, usePresencia } from "@/components/estado-asesor";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
@@ -148,6 +149,9 @@ export function PanelTelefono({
   const sp = useSoftphone();
   // Solo en la ventana de la extensión: sacar el panel a una mini-ventana siempre visible en una esquina.
   const fijado = useFijarEncima();
+  // Dentro de la app de escritorio la ventana ya queda siempre encima por sí sola: no hace falta "Fijar encima".
+  const [enEscritorio, setEnEscritorio] = useState(false);
+  useEffect(() => setEnEscritorio(puenteEscritorio() !== null), []);
 
   const idAsesor = sesionAgente?.usuarioId ?? usuarioId;
   const nombreAsesor = sesionAgente?.nombre ?? nombre ?? "Asesor";
@@ -242,6 +246,8 @@ export function PanelTelefono({
   // Una llamada que suena abre el panel sola: es lo primero que hay que ver.
   useEffect(() => {
     if (sonando) {
+      // En la app de escritorio esto muestra el teléfono flotante encima de todo y avisa con una notificación.
+      puenteEscritorio()?.llamadaEntrante(sp.numeroEntrante);
       setAbierto(true);
       setMostrarTransferir(false);
       refrescarContextoRef.current();
@@ -580,7 +586,7 @@ export function PanelTelefono({
                   <span className={"h-1.5 w-1.5 rounded-full " + (sp.estado === "desconectado" ? "bg-amber-400" : "bg-emerald-400")} />
                   {sp.estado === "desconectado" ? "Sin conexión" : "Conectado"}
                 </span>
-                {esVentana && fijado.soportado && (
+                {esVentana && fijado.soportado && !enEscritorio && (
                   <button
                     type="button"
                     onClick={fijado.ventana ? fijado.soltar : () => fijado.fijar()}
@@ -598,6 +604,16 @@ export function PanelTelefono({
                   >
                     <PictureInPicture2 size={11} />
                     {fijado.ventana ? "Soltar" : "Fijar encima"}
+                  </button>
+                )}
+                {esVentana && enEscritorio && (
+                  <button
+                    type="button"
+                    onClick={() => puenteEscritorio()?.abrirPlataforma()}
+                    className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-slate-300 transition-colors hover:bg-white/20"
+                    title="Abrir el sistema de gestión"
+                  >
+                    Plataforma
                   </button>
                 )}
                 {!esVentana && (

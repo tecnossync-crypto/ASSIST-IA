@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Ajustes</title>
+    <style>
+      body { font-family: "Segoe UI", system-ui, sans-serif; margin: 0; padding: 24px; color: #1e293b; background: #fff; }
+      h1 { font-size: 16px; margin: 0 0 4px; }
+      p { font-size: 12.5px; color: #64748b; line-height: 1.5; margin: 0 0 14px; }
+      label { display: block; font-size: 13px; font-weight: 500; margin: 14px 0 4px; }
+      input[type="url"], select { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #fff; }
+      .check { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+      button { margin-top: 18px; padding: 9px 18px; border: 0; border-radius: 8px; background: #4f46e5; color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; }
+      button:hover { background: #4338ca; }
+      #msg { margin-top: 12px; font-size: 12.5px; min-height: 18px; }
+      .ok { color: #059669; } .err { color: #dc2626; }
+      small { display: block; margin-top: 18px; color: #94a3b8; font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <h1>Gestión de Llamadas</h1>
+    <p>Datos de conexión y cómo se comporta el teléfono flotante.</p>
+
+    <label for="url">Dirección de la plataforma</label>
+    <input id="url" type="url" placeholder="https://dashboard.tu-empresa.com" />
+
+    <label for="esquina">Esquina del teléfono flotante</label>
+    <select id="esquina">
+      <option value="abajo-derecha">Abajo a la derecha</option>
+      <option value="abajo-izquierda">Abajo a la izquierda</option>
+      <option value="arriba-derecha">Arriba a la derecha</option>
+      <option value="arriba-izquierda">Arriba a la izquierda</option>
+    </select>
+
+    <label class="check"><input id="recordar" type="checkbox" /> Recordar dónde lo muevo</label>
+    <label class="check"><input id="arranque" type="checkbox" /> Abrir automáticamente al encender el equipo</label>
+
+    <button id="guardar">Guardar</button>
+    <div id="msg"></div>
+    <small id="version"></small>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      window.gestionLlamadas.ajustes.obtener().then((a) => {
+        $("url").value = a.dashboardUrl || "";
+        $("esquina").value = a.esquina;
+        $("recordar").checked = a.recordarPosicion;
+        $("arranque").checked = a.abrirConWindows;
+        $("version").textContent = "Versión " + a.version;
+      });
+      $("guardar").addEventListener("click", async () => {
+        const r = await window.gestionLlamadas.ajustes.guardar({
+          dashboardUrl: $("url").value,
+          esquina: $("esquina").value,
+          recordarPosicion: $("recordar").checked,
+          abrirConWindows: $("arranque").checked,
+        });
+        $("msg").className = r.error ? "err" : "ok";
+        $("msg").textContent = r.error || "Guardado.";
+        if (r.ok) setTimeout(() => window.close(), 900);
+      });
+    </script>
+  </body>
+</html>
