@@ -95,6 +95,9 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
       // el que llamó no estaba marcado "disponible" en ese momento),
       // dejando al cliente esperando sin que nadie le conteste.
       const parametroUsuario = usuarioId ? `&usuarioId=${encodeURIComponent(usuarioId)}` : "";
+      // Si el cliente nunca contesta (ocupado, no contesta, número inexistente), no llega a existir la fila de la
+      // llamada; con estos datos el callback de estado la crea como "fallida" y el panel deja de mostrar "Marcando…".
+      const urlEstado = `${publicBaseUrl}/webhooks/twilio/call-status?empresaId=${empresaId}&numero=${encodeURIComponent(numero)}&salienteNormal=1`;
 
       try {
         const { to, porCentralPropia, sendDigits, urlExtra } = resolverDestinoSaliente(numero, twilioEmpresa.centralPropia);
@@ -107,7 +110,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           // contesta — no acá al originar.
           url: `${publicBaseUrl}/webhooks/twilio/voice-normal?empresaId=${empresaId}${parametroCola}${parametroUsuario}${urlExtra}`,
           method: "POST",
-          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
+          statusCallback: urlEstado,
           statusCallbackMethod: "POST",
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
@@ -118,7 +121,7 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
           empresaId,
           numero,
           voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-normal?empresaId=${empresaId}${parametroCola}${parametroUsuario}`,
-          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
+          statusCallback: urlEstado,
         });
 
         app.log.info(

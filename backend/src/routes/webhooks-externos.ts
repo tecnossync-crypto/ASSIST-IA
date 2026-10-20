@@ -372,6 +372,9 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       if (asesorDirectoId) params.set("usuarioId", asesorDirectoId);
       params.set("origenExterno", origen?.trim() || "externo");
 
+      // Ver llamadas-salientes.ts: si el cliente nunca contesta, el callback deja la llamada como "fallida".
+      const urlEstado = `${publicBaseUrl}/webhooks/twilio/call-status?empresaId=${empresaId}&numero=${encodeURIComponent(numero)}&salienteNormal=1`;
+
       try {
         const { to, sendDigits, urlExtra, porCentralPropia } = resolverDestinoSaliente(
           numero,
@@ -382,7 +385,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           from: twilioEmpresa.fromNumber,
           url: `${publicBaseUrl}/webhooks/twilio/voice-normal?${params.toString()}${urlExtra}`,
           method: "POST",
-          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
+          statusCallback: urlEstado,
           statusCallbackMethod: "POST",
           statusCallbackEvent: ["completed"],
           timeout: twilioEmpresa.timeoutTimbrado,
@@ -393,7 +396,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           empresaId,
           numero,
           voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-normal?${params.toString()}`,
-          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
+          statusCallback: urlEstado,
         });
 
         app.log.info({ callSid: call.sid, numero, origen }, "Llamada a agente originada vía webhook externo");

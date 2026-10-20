@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
 import { registrarFallbackCentral } from "../lib/fallback-central.js";
+import { normalizarNumero } from "../lib/telefono.js";
 
 /**
  * CRUD de campañas de llamadas salientes masivas + su lista de contactos.
@@ -76,8 +77,14 @@ export async function campanasRoutes(app: FastifyInstance) {
       );
       const campanaId = campana.rows[0].id;
 
+      // Sin números repetidos ("809-555-1234" y "8095551234" son el mismo) ni basura sin dígitos suficientes: no se
+      // le llama dos veces al mismo cliente ni se gastan intentos en números imposibles.
+      const vistos = new Set<string>();
       for (const c of contactos) {
         if (!c.numero) continue;
+        const clave = normalizarNumero(c.numero);
+        if (clave.replace(/\D/g, "").length < 7 || vistos.has(clave)) continue;
+        vistos.add(clave);
         await client.query(
           `INSERT INTO campana_contactos (campana_id, empresa_id, numero, nombre) VALUES ($1, $2, $3, $4)`,
           [campanaId, empresaId, c.numero, c.nombre ?? null]
@@ -190,8 +197,8 @@ export async function campanasRoutes(app: FastifyInstance) {
       }
 
       const contactoPrueba = await pool.query<{ id: string }>(
-        `INSERT INTO campana_contactos (campana_id, empresa_id, numero, estado, intentos, es_prueba)
-         VALUES ($1, $2, $3, 'llamando', 1, true)
+        `INSERT INTO campana_contactos (campana_id, empresa_id, numero, estado, intentos, es_prueba, llamando_desde)
+         VALUES ($1, $2, $3, 'llamando', 1, true, now())
          RETURNING id`,
         [id, empresaId, numero]
       );

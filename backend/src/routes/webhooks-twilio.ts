@@ -247,6 +247,73 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     }
   );
 
+  async function soltarFinAlSalirAgentes(empresaId: string, conferenciaSid: string | undefined, agentesSids: string[]) {
+    if (!conferenciaSid) return;
+    const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
+    if (!twilioEmpresa) return;
+    const participantes = await twilioEmpresa.client.conferences(conferenciaSid).participants.list();
+    await Promise.all(
+      participantes
+        .filter((p) => agentesSids.includes(p.callSid))
+        .map((p) =>
+          twilioEmpresa.client
+            .conferences(conferenciaSid)
+            .participants(p.callSid)
+            .update({ endConferenceOnExit: false })
+            .catch(() => {})
+        )
+    );
+  }
+
+  async function alSalirAgenteDeConferencia(llamadaId: string, callSidQueSale: string, conferenciaSid: string | undefined) {
+    if (!conferenciaSid) return;
+    const r = await pool.query<{
+      empresa_id: string;
+      agentes_call_sids: string[];
+      agente_call_sid: string | null;
+      agentes_call_sids_identidad: Record<string, string>;
+    }>(
+      "SELECT empresa_id, agentes_call_sids, agente_call_sid, agentes_call_sids_identidad FROM llamadas WHERE id = $1",
+      [llamadaId]
+    );
+    const llamada = r.rows[0];
+    // Solo cuenta la salida de un agente (no la del cliente ni la de un supervisor que escuchaba).
+    if (!llamada || !llamada.agentes_call_sids.includes(callSidQueSale)) return;
+
+    const twilioEmpresa = await clienteTwilioEmpresa(llamada.empresa_id);
+    if (!twilioEmpresa) return;
+
+    let participantes;
+    try {
+      participantes = await twilioEmpresa.client.conferences(conferenciaSid).participants.list();
+    } catch {
+      return; // la conferencia ya terminó
+    }
+    const agentesQueQuedan = participantes.filter((p) => llamada.agentes_call_sids.includes(p.callSid));
+
+    if (agentesQueQuedan.length === 0) {
+      // Se fue el último agente: se cuelga al cliente (y a quien esté escuchando).
+      await twilioEmpresa.client
+        .conferences(conferenciaSid)
+        .update({ status: "completed" })
+        .catch(() => {});
+      return;
+    }
+
+    // Quedó otro agente atendiendo (transferencia entre agentes): la llamada pasa a ser suya — así se marca ocupado
+    // él y no el que ya colgó.
+    if (llamada.agente_call_sid === callSidQueSale) {
+      const nuevo = agentesQueQuedan[0].callSid;
+      const identidad = llamada.agentes_call_sids_identidad?.[nuevo];
+      const usuarioId = identidad ? usuarioIdDesdeIdentidad(identidad) : null;
+      await pool.query("UPDATE llamadas SET agente_call_sid = $2, agente_usuario_id = COALESCE($3, agente_usuario_id) WHERE id = $1", [
+        llamadaId,
+        nuevo,
+        usuarioId,
+      ]);
+    }
+  }
+
   // Cuando el primer agente entra a la conferencia, cancela las piernas de
   // los demás agentes que todavía estén timbrando (mismo comportamiento que
   // "el primero que conteste se la queda" del <Dial> con varios <Client>).
@@ -257,7 +324,18 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     const evento = body.StatusCallbackEvent;
     const friendlyName = body.FriendlyName; // "llamada-<id>"
     const callSid = body.CallSid;
-    if (evento !== "participant-join" || !friendlyName?.startsWith("llamada-") || !callSid) return;
+    if (!friendlyName?.startsWith("llamada-") || !callSid) return;
+
+    // Un agente se sale de la conferencia (ver más abajo cómo se llega a necesitar esto): si ya no queda ningún
+    // agente, se termina la llamada del cliente; si queda otro (transferencia entre agentes), la llamada sigue y se
+    // le pasa a él.
+    if (evento === "participant-leave") {
+      await alSalirAgenteDeConferencia(friendlyName.slice("llamada-".length), callSid, body.ConferenceSid).catch((err) =>
+        app.log.error({ err, callSid }, "Error manejando la salida de un agente de la conferencia")
+      );
+      return;
+    }
+    if (evento !== "participant-join") return;
 
     const llamadaId = friendlyName.slice("llamada-".length);
     const llamada = await pool.query<{
@@ -272,7 +350,17 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     const row = llamada.rows[0];
     if (!row || !row.agentes_call_sids.includes(callSid)) return; // es el cliente entrando, no un agente
 
-    if (row.agente_call_sid) return; // ya había un agente conectado, nada que hacer
+    if (row.agente_call_sid) {
+      // Entra un SEGUNDO agente (transferencia entre agentes): ya no se puede dejar que el primero, al colgar, termine
+      // la conferencia para todos — se quita ese comportamiento a todos los agentes y, cuando se sale el último, se
+      // termina la llamada (ver "participant-leave" arriba).
+      if (row.agente_call_sid !== callSid) {
+        await soltarFinAlSalirAgentes(row.empresa_id, body.ConferenceSid, row.agentes_call_sids).catch((err) =>
+          app.log.error({ err, callSid }, "No se pudo preparar la transferencia entre agentes")
+        );
+      }
+      return;
+    }
 
     // Resuelve qué agente contestó (para el panel de supervisión en vivo) a
     // partir de la identidad con la que se marcó esa pierna.
@@ -526,12 +614,12 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     }
   );
 
-  app.post<{ Querystring: { campanaContactoId?: string } }>(
+  app.post<{ Querystring: { campanaContactoId?: string; empresaId?: string; numero?: string; salienteNormal?: string } }>(
     "/webhooks/twilio/call-status",
     async (req, reply) => {
       const body = req.body as Record<string, string>;
       const { CallSid: callSid, CallStatus: status, CallDuration: duration } = body;
-      const { campanaContactoId } = req.query;
+      const { campanaContactoId, empresaId, numero, salienteNormal } = req.query;
 
       app.log.info({ callSid, status, duration, campanaContactoId }, "Actualización de estado de llamada");
 
@@ -561,6 +649,31 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           [callSid]
         )
           .catch(() => {});
+      }
+
+      // La llamada terminó SIN contestarse (ocupado, no contesta, número inexistente, cancelada, falló). Antes no se
+      // anotaba en ningún lado: la fila quedaba "en curso" para siempre (o ni existía, y el panel de teléfono se
+      // quedaba en "Marcando…"). Ahora queda "fallida" y cierra; una llamada normal (panel / click-to-call) que nunca
+      // llegó a tener fila se crea ya cerrada para que el panel se entere.
+      if (["busy", "no-answer", "failed", "canceled"].includes(status)) {
+        const cerrada = await pool
+          .query(
+            `UPDATE llamadas SET estado = 'fallida', finalizada_en = now()
+             WHERE call_sid = $1 AND estado = 'en_curso' AND finalizada_en IS NULL
+             RETURNING id`,
+            [callSid]
+          )
+          .catch(() => ({ rows: [] as unknown[] }));
+        if (cerrada.rows.length === 0 && salienteNormal === "1" && empresaId && !campanaContactoId) {
+          await pool
+            .query(
+              `INSERT INTO llamadas (empresa_id, call_sid, direccion, numero_origen, numero_destino, estado, finalizada_en)
+               VALUES ($1, $2, 'saliente', $3, $4, 'fallida', now())
+               ON CONFLICT (call_sid) DO NOTHING`,
+              [empresaId, callSid, body.From ?? "", numero || body.To || ""]
+            )
+            .catch((err) => app.log.error({ err, callSid }, "No se pudo registrar la llamada saliente fallida"));
+        }
       }
 
       if (status === "completed") {
