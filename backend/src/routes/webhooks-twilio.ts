@@ -21,6 +21,7 @@ import { descartarFallbackCentral, reintentarDirectoSiCorresponde } from "../lib
 import { destinoDeTransferencia, extensionesDeTransferencia } from "../lib/enrutamiento.js";
 import { esperaConfig } from "../lib/espera.js";
 import { operadorDeLlamada } from "../lib/operador-origen.js";
+import { terminarLlamadaTwilio } from "../lib/colgar.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -378,10 +379,7 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     const otrasPiernas = row.agentes_call_sids.filter((sid) => sid !== callSid);
     await Promise.all(
       otrasPiernas.map((sid) =>
-        twilioEmpresa.client
-          .calls(sid)
-          .update({ status: "completed" })
-          .catch(() => {}) // ya contestada, ya colgada, etc. — no importa
+        terminarLlamadaTwilio(twilioEmpresa.client, sid) // ya contestada, ya colgada, etc. — no importa
       )
     );
   });

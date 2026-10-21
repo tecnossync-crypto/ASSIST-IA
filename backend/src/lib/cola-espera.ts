@@ -1,5 +1,6 @@
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa } from "./twilio-empresa.js";
+import { terminarLlamadaCompleta, terminarLlamadaTwilio } from "./colgar.js";
 import { identidadAgente, SQL_ASESOR_LIBRE } from "./agentes.js";
 import { destinoDeTransferencia } from "./enrutamiento.js";
 
@@ -71,16 +72,8 @@ export async function cerrarLlamada(empresaId: string, llamadaId: string): Promi
     [llamadaId]
   );
 
-  const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
-  if (!twilioEmpresa) return { ok: false, error: "La empresa no tiene credenciales Twilio configuradas." };
-  await Promise.all(
-    [llamada.call_sid, ...(llamada.agentes_call_sids ?? [])].map((sid) =>
-      twilioEmpresa.client
-        .calls(sid)
-        .update({ status: "completed" })
-        .catch(() => {}) // ya estaba colgada
-    )
-  );
+  const corte = await terminarLlamadaCompleta(empresaId, [llamada.call_sid, ...(llamada.agentes_call_sids ?? [])]);
+  if (!corte.ok && corte.terminadas === 0) return { ok: false, error: "No se pudo cortar la llamada." };
   return { ok: true };
 }
 
@@ -165,10 +158,7 @@ export async function atenderDeCola(opts: {
   // Cancela los timbres que siguieran sonando a otros asesores.
   await Promise.all(
     (fila.agentes_call_sids ?? []).map((sid) =>
-      twilioEmpresa.client
-        .calls(sid)
-        .update({ status: "completed" })
-        .catch(() => {})
+      terminarLlamadaTwilio(twilioEmpresa.client, sid)
     )
   );
 
@@ -240,10 +230,7 @@ async function timbrarAsesorParaCola(
   // Cancela los timbres anteriores de esta llamada (otro asesor al que ya no se le insiste).
   await Promise.all(
     (fila.agentes_call_sids ?? []).map((sid) =>
-      twilioEmpresa.client
-        .calls(sid)
-        .update({ status: "completed" })
-        .catch(() => {})
+      terminarLlamadaTwilio(twilioEmpresa.client, sid)
     )
   );
 

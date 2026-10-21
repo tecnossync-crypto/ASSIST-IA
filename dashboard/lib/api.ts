@@ -287,11 +287,11 @@ export async function iniciarLlamadaSaliente(numero: string): Promise<{ callSid:
   return res.json();
 }
 
-export async function colgarLlamada(callSid: string): Promise<void> {
+export async function colgarLlamada(callSid?: string, agenteCallSid?: string): Promise<void> {
   const res = await fetch(new URL("/api/llamadas/colgar", BACKEND_URL), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ empresaId: EMPRESA_ID, callSid }),
+    body: JSON.stringify({ empresaId: EMPRESA_ID, callSid, agenteCallSid }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

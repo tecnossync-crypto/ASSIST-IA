@@ -27,6 +27,8 @@ interface SoftphoneCtx {
   contestar: () => void;
   rechazar: () => void;
   colgar: () => void;
+  /** CallSid de la pierna de ESTE asesor en la llamada actual ("" si no hay): permite cortar la conferencia desde el servidor. */
+  callSidAgente: () => string;
   alternarSilencio: () => void;
   alternarEspera: () => Promise<void>;
   cargarAgentes: () => Promise<void>;
@@ -262,6 +264,8 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
     callRef.current?.disconnect();
   }, []);
 
+  const callSidAgente = useCallback(() => callRef.current?.parameters?.CallSid ?? "", []);
+
   // Silenciar el propio micrófono lo resuelve el SDK de Twilio en el
   // navegador — no hace falta ningún endpoint del backend para esto.
   const alternarSilencio = useCallback(() => {
@@ -346,6 +350,7 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
         contestar,
         rechazar,
         colgar,
+        callSidAgente,
         alternarSilencio,
         alternarEspera,
         cargarAgentes,

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
 import { registrarFallbackCentral } from "../lib/fallback-central.js";
 import { generarTokenVoz } from "../lib/voice-token.js";
+import { terminarLlamadaCompleta } from "../lib/colgar.js";
 
 /**
  * Dispara llamadas salientes manuales desde el dashboard (panel de
@@ -159,28 +160,21 @@ export async function llamadasSalientesRoutes(app: FastifyInstance) {
   // teléfono). No depende de que el otro lado cuelgue primero ni de esperar
   // el webhook de Twilio — termina la llamada ya mismo en la API de Twilio;
   // el webhook de call-status llega después y solo confirma en la BD.
-  app.post<{ Body: { empresaId: string; callSid: string } }>("/api/llamadas/colgar", async (req, reply) => {
-    const { empresaId, callSid } = req.body;
-    if (!empresaId || !callSid) {
-      reply.code(400).send({ error: "empresaId y callSid son requeridos" });
+  app.post<{ Body: { empresaId: string; callSid?: string; agenteCallSid?: string } }>("/api/llamadas/colgar", async (req, reply) => {
+    const { empresaId, callSid, agenteCallSid } = req.body;
+    if (!empresaId || (!callSid && !agenteCallSid)) {
+      reply.code(400).send({ error: "empresaId y callSid (o agenteCallSid) son requeridos" });
       return;
     }
 
-    const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
-    if (!twilioEmpresa) {
-      reply.code(400).send({ error: "La empresa no tiene credenciales Twilio configuradas" });
+    // Corta la conferencia entera y cada pierna según su estado real (ver lib/colgar.ts). Antes se mandaba siempre
+    // "completed" y se tragaba el error: una llamada que aún timbraba (o ya en buzón) se quedaba viva sin avisar.
+    const r = await terminarLlamadaCompleta(empresaId, [callSid ?? "", agenteCallSid ?? ""]);
+    if (r.errores > 0) app.log.warn({ callSid, agenteCallSid, r }, "No se pudo cortar alguna pierna de la llamada");
+    if (!r.ok && r.terminadas === 0) {
+      reply.code(502).send({ error: "No se pudo cortar la llamada", detalle: r });
       return;
     }
-
-    try {
-      await twilioEmpresa.client.calls(callSid).update({ status: "completed" });
-      reply.send({ ok: true });
-    } catch (err) {
-      // Si ya estaba colgada (ej. el otro lado colgó primero), Twilio
-      // responde con error — no es un fallo real desde la perspectiva del
-      // usuario, la llamada de todos modos ya terminó.
-      app.log.warn({ err, callSid }, "Error colgando llamada (puede que ya estuviera terminada)");
-      reply.send({ ok: true });
-    }
+    reply.send({ ...r, ok: true });
   });
 }

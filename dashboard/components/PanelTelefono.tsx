@@ -485,26 +485,32 @@ export function PanelTelefono({
   }
 
   async function colgar() {
-    // El lado del navegador SIEMPRE se corta primero y sin esperar a nadie: así el botón nunca queda "pegado" aunque
-    // la API tarde o falle (por ejemplo, cuando el cliente no contestó y entró el buzón de voz). Cortar la pierna del
-    // asesor termina la conferencia para todos.
+    // 1) El lado del navegador se corta primero y sin esperar a nadie: el botón nunca queda "pegado".
+    const agenteCallSid = sp.callSidAgente();
     sp.colgar();
 
-    // Llamada que entró por el softphone (transferida por la IA o por otro agente): no hay llamada "propia" que
-    // cortar por API.
-    const callSid = callSidRef.current;
-    if (!callSid) return;
+    // 2) Además se le ORDENA al servidor cortar la llamada de punta a punta (conferencia completa + cada pierna según
+    //    su estado real). Es lo que garantiza que el cliente también cuelgue aunque la pierna del navegador no se
+    //    llegue a cerrar bien, o el cliente esté todavía timbrando o en el buzón de voz. Se reintenta si falla.
+    const callSid = callSidRef.current ?? undefined;
+    if (!callSid && !agenteCallSid) return;
+    if (callSid) terminarLlamada("Llamada finalizada.", true);
 
-    // Llamada que marcó este panel: además se corta la del cliente por API (por si el buzón o el operador la
-    // mantienen viva), con un reintento. En pantalla se da por terminada ya mismo.
-    terminarLlamada("Llamada finalizada.", true);
-    const cortar = () =>
-      fetch("/api/colgar", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ callSid }),
-      });
-    cortar().catch(() => setTimeout(() => cortar().catch(() => {}), 1500));
+    const cortar = async (intento: number): Promise<void> => {
+      try {
+        const res = await fetch("/api/colgar", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ callSid, agenteCallSid: agenteCallSid || undefined }),
+        });
+        if (res.ok) return;
+      } catch {
+        // se reintenta abajo
+      }
+      if (intento < 3) setTimeout(() => void cortar(intento + 1), 2000);
+      else window.alert("No se pudo confirmar que la llamada se cortó. Si el cliente sigue en línea, avísale a un administrador o usa Cerrar en la pestaña Cola.");
+    };
+    void cortar(1);
   }
 
   // El cliente no contestó (buzón de voz) y la llamada llegó hasta aquí: cuelga al cliente desde nuestro lado.

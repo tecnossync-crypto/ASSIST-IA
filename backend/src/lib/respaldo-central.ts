@@ -4,6 +4,7 @@ import { extensionAleatoriaDeVendedor, extensionDelOperador, extensionesDeTransf
 import { modoOperadorOrigenActivo } from "./agentes.js";
 import { operadorDeLlamada } from "./operador-origen.js";
 import { twimlTransferirCentralPropia } from "./twiml.js";
+import { terminarLlamadaTwilio } from "./colgar.js";
 
 /**
  * TwiML para pasar una llamada a las extensiones de la central (teléfonos
@@ -113,10 +114,7 @@ export async function ejecutarRespaldosCentralVencidos(publicBaseUrl: string): P
       // Deja de timbrar a los asesores de la plataforma y manda al cliente a la central.
       await Promise.all(
         (l.agentes_call_sids ?? []).map((sid) =>
-          twilioEmpresa.client
-            .calls(sid)
-            .update({ status: "completed" })
-            .catch(() => {})
+          terminarLlamadaTwilio(twilioEmpresa.client, sid)
         )
       );
       await pool.query("UPDATE llamadas SET en_cola_desde = NULL WHERE id = $1", [l.id]);
