@@ -485,27 +485,41 @@ export function PanelTelefono({
   }
 
   async function colgar() {
-    // Llamada que entró por el softphone (transferida por la IA o por otro
-    // agente): no hay una llamada "propia" que cortar por API, se cuelga la
-    // pierna del navegador y la conferencia termina para todos.
-    if (!callSidRef.current) {
-      sp.colgar();
-      return;
-    }
-    if (colgando) return;
-    setColgando(true);
-    try {
-      await fetch("/api/colgar", {
+    // El lado del navegador SIEMPRE se corta primero y sin esperar a nadie: así el botón nunca queda "pegado" aunque
+    // la API tarde o falle (por ejemplo, cuando el cliente no contestó y entró el buzón de voz). Cortar la pierna del
+    // asesor termina la conferencia para todos.
+    sp.colgar();
+
+    // Llamada que entró por el softphone (transferida por la IA o por otro agente): no hay llamada "propia" que
+    // cortar por API.
+    const callSid = callSidRef.current;
+    if (!callSid) return;
+
+    // Llamada que marcó este panel: además se corta la del cliente por API (por si el buzón o el operador la
+    // mantienen viva), con un reintento. En pantalla se da por terminada ya mismo.
+    terminarLlamada("Llamada finalizada.", true);
+    const cortar = () =>
+      fetch("/api/colgar", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ callSid: callSidRef.current }),
+        body: JSON.stringify({ callSid }),
       });
-      // No hace falta esperar el webhook: la damos por terminada ya mismo,
-      // el sondeo de arriba solo confirma cuando Twilio lo refleje en la BD.
-      terminarLlamada("Llamada finalizada.", true);
-    } finally {
-      setColgando(false);
+    cortar().catch(() => setTimeout(() => cortar().catch(() => {}), 1500));
+  }
+
+  // El cliente no contestó (buzón de voz) y la llamada llegó hasta aquí: cuelga al cliente desde nuestro lado.
+  async function cerrarLlamadaDelCliente(llamadaId: string) {
+    try {
+      await fetch("/api/panel/cola/cerrar", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ llamadaId }),
+      });
+    } catch {
+      // se reintenta con el siguiente sondeo / el asesor puede volver a pulsar
     }
+    setCola((actual) => actual.filter((x) => x.id !== llamadaId));
+    cargarDatos();
   }
 
   async function llamar(num: string) {
@@ -802,6 +816,20 @@ export function PanelTelefono({
                   <Phone size={16} /> Contestar
                 </button>
               </div>
+              {sp.llamadaIdEntrante && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = sp.llamadaIdEntrante;
+                    sp.rechazar();
+                    void cerrarLlamadaDelCliente(id);
+                  }}
+                  className="mt-2 w-full rounded-full border border-edge py-2 text-xs font-medium text-ink-2 transition-colors hover:bg-surface-2"
+                  title="Úsalo si es un buzón de voz o el cliente no está: rechaza y cuelga la llamada del cliente"
+                >
+                  Es buzón / no contesta — cerrar la llamada
+                </button>
+              )}
             </div>
           )}
 
@@ -898,8 +926,7 @@ export function PanelTelefono({
               <button
                 type="button"
                 onClick={colgar}
-                disabled={colgando}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-red-500 to-red-600 py-3 text-sm font-semibold text-white shadow-lg shadow-red-500/30 transition-transform hover:scale-[1.01] active:scale-95 disabled:opacity-60"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-red-500 to-red-600 py-3 text-sm font-semibold text-white shadow-lg shadow-red-500/30 transition-transform hover:scale-[1.01] active:scale-95"
               >
                 {estado === "marcando" ? (
                   <>
@@ -1032,6 +1059,18 @@ export function PanelTelefono({
                             ) : (
                               <span />
                             )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm("¿Cerrar esta llamada? Se le cuelga al cliente (úsalo si es un buzón de voz o ya no está).")) {
+                                  void cerrarLlamadaDelCliente(l.id);
+                                }
+                              }}
+                              className="rounded-full border border-edge px-3 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-surface-2"
+                              title="Colgarle al cliente (buzón de voz / ya no está)"
+                            >
+                              Cerrar
+                            </button>
                             <button
                               type="button"
                               onClick={() => atenderDeCola(l)}

@@ -677,9 +677,12 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       }
 
       if (status === "completed") {
+        // Una llamada que la IA colgó sola porque contestó un buzón / una grabación (o que un asesor cerró porque no
+        // contestaba nadie) NO es una llamada completada: queda "fallida".
         await pool.query(
           `UPDATE llamadas
-           SET estado = 'completada', duracion_segundos = $2, finalizada_en = now()
+           SET estado = CASE WHEN resultado_automatico IS NOT NULL THEN 'fallida' ELSE 'completada' END,
+               duracion_segundos = $2, finalizada_en = now()
            WHERE call_sid = $1`,
           [callSid, duration ? parseInt(duration, 10) : null]
         );
@@ -701,14 +704,19 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           numero_origen: string;
           numero_destino: string;
           transferida: boolean;
+          resultado_automatico: string | null;
         }>(
-          "SELECT id, empresa_id, direccion, numero_origen, numero_destino, transferida FROM llamadas WHERE call_sid = $1",
+          "SELECT id, empresa_id, direccion, numero_origen, numero_destino, transferida, resultado_automatico FROM llamadas WHERE call_sid = $1",
           [callSid]
         );
         const l = llamada.rows[0];
         if (l) {
           const disparador =
-            status === "completed" ? (l.transferida ? "llamada_transferida" : "llamada_completada") : "llamada_no_contesta";
+            status === "completed" && !l.resultado_automatico
+              ? l.transferida
+                ? "llamada_transferida"
+                : "llamada_completada"
+              : "llamada_no_contesta";
           const numeroCliente = l.direccion === "entrante" ? l.numero_origen : l.numero_destino;
           await ejecutarFlujosTrabajo({ empresaId: l.empresa_id, disparador, numeroCliente, llamadaId: l.id }).catch(
             (err) => app.log.error({ err, callSid }, "Error ejecutando flujos de trabajo")
@@ -720,9 +728,26 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       // si contestó, o reprograma/marca fallida según reintentos restantes.
       if (campanaContactoId) {
         if (status === "completed") {
-          await pool.query(`UPDATE campana_contactos SET estado = 'completada' WHERE id = $1`, [
-            campanaContactoId,
-          ]);
+          const auto = await pool.query<{ resultado_automatico: string | null }>(
+            "SELECT resultado_automatico FROM llamadas WHERE call_sid = $1",
+            [callSid]
+          );
+          const tipoAuto = auto.rows[0]?.resultado_automatico;
+          if (tipoAuto === "numero_inexistente") {
+            // Número que no existe: reintentar no sirve de nada.
+            await pool.query(`UPDATE campana_contactos SET estado = 'fallida' WHERE id = $1`, [campanaContactoId]);
+          } else if (tipoAuto) {
+            // Buzón de voz / nadie contestó: cuenta como "no contestó" y se reintenta como cualquier otro.
+            const contacto = await pool.query<{ campana_id: string }>(
+              "SELECT campana_id FROM campana_contactos WHERE id = $1",
+              [campanaContactoId]
+            );
+            if (contacto.rows[0]) await reprogramarOFallar(campanaContactoId, contacto.rows[0].campana_id);
+          } else {
+            await pool.query(`UPDATE campana_contactos SET estado = 'completada' WHERE id = $1`, [
+              campanaContactoId,
+            ]);
+          }
         } else if (["busy", "no-answer", "failed", "canceled"].includes(status)) {
           const contacto = await pool.query<{ campana_id: string }>(
             "SELECT campana_id FROM campana_contactos WHERE id = $1",

@@ -55,6 +55,14 @@ export async function marcarTransferencia(callSid: string, colaId?: string) {
   });
 }
 
+/** La llamada resultó ser una grabación (número inexistente) o un buzón de voz: el backend la cierra como "no contestada". */
+export async function marcarResultadoAutomatico(callSid: string, tipo: "numero_inexistente" | "buzon") {
+  await internalFetch(`/internal/llamadas/${callSid}/resultado-automatico`, {
+    method: "POST",
+    body: JSON.stringify({ tipo }),
+  });
+}
+
 export async function guardarTranscripcion(
   callSid: string,
   data: {

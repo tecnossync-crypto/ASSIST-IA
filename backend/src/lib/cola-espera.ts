@@ -51,6 +51,39 @@ export interface LlamadaEnCola {
  * Llamadas esperando ahora mismo. Con colaId (operadores) solo las de su
  * departamento y las que no tienen departamento. Siempre filtra por empresa.
  */
+/**
+ * Un asesor cierra una llamada desde su panel: el cliente no contesta (buzón de voz) o ya no hay nadie. Se cuelga la
+ * llamada del cliente y se cancelan las piernas de asesores que sigan timbrando. Queda anotada como "sin contacto"
+ * (en una campaña se reintenta).
+ */
+export async function cerrarLlamada(empresaId: string, llamadaId: string): Promise<{ ok: boolean; error?: string }> {
+  const r = await pool.query<{ call_sid: string; agentes_call_sids: string[] }>(
+    `SELECT call_sid, agentes_call_sids FROM llamadas WHERE id = $1 AND empresa_id = $2 AND finalizada_en IS NULL`,
+    [llamadaId, empresaId]
+  );
+  const llamada = r.rows[0];
+  if (!llamada) return { ok: false, error: "La llamada ya terminó." };
+
+  await pool.query(
+    `UPDATE llamadas SET resultado_automatico = COALESCE(resultado_automatico, 'sin_contacto'),
+            en_cola_desde = NULL, respaldo_central_en = NULL, asignada_a = NULL, asignada_en = NULL
+     WHERE id = $1`,
+    [llamadaId]
+  );
+
+  const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
+  if (!twilioEmpresa) return { ok: false, error: "La empresa no tiene credenciales Twilio configuradas." };
+  await Promise.all(
+    [llamada.call_sid, ...(llamada.agentes_call_sids ?? [])].map((sid) =>
+      twilioEmpresa.client
+        .calls(sid)
+        .update({ status: "completed" })
+        .catch(() => {}) // ya estaba colgada
+    )
+  );
+  return { ok: true };
+}
+
 export async function listarColaEspera(empresaId: string, colaId?: string | null): Promise<LlamadaEnCola[]> {
   const cola = colaId && UUID.test(colaId) ? colaId : null;
   const r = await pool.query(

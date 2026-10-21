@@ -1320,6 +1320,16 @@ export async function atenderLlamadaCola(llamadaId: string, usuarioId?: string):
   );
 }
 
+/** Cierra una llamada (cuelga al cliente): buzón de voz o nadie contesta. */
+export async function cerrarLlamadaPorId(llamadaId: string): Promise<void> {
+  await enviarJson(
+    `/api/llamadas/${encodeURIComponent(llamadaId)}/cerrar`,
+    "POST",
+    { empresaId: EMPRESA_ID },
+    "No se pudo cerrar la llamada"
+  );
+}
+
 export type TipoEspera = "musica" | "audio" | "mensaje" | "mensaje_musica" | "silencio";
 
 // Lo que oye el cliente mientras espera (en pausa o tras una transferencia).

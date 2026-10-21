@@ -125,6 +125,20 @@ export async function internalRoutes(app: FastifyInstance) {
   // (ej. número de póliza, placa) y que el agente extrajo durante la llamada.
   app.post<{
     Params: { callSid: string };
+    Body: { tipo: string };
+  }>("/internal/llamadas/:callSid/resultado-automatico", async (req, reply) => {
+    const { callSid } = req.params;
+    const { tipo } = req.body ?? {};
+    if (!["numero_inexistente", "buzon", "sin_contacto"].includes(tipo)) {
+      reply.code(400).send({ error: "tipo inválido" });
+      return;
+    }
+    await pool.query("UPDATE llamadas SET resultado_automatico = $2 WHERE call_sid = $1", [callSid, tipo]);
+    reply.send({ ok: true });
+  });
+
+  app.post<{
+    Params: { callSid: string };
     Body: { campo: string; valor: string };
   }>("/internal/llamadas/:callSid/dato", async (req, reply) => {
     const { callSid } = req.params;

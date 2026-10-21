@@ -9,7 +9,8 @@ config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), "../../.e
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { ConversationSession } from "./session.js";
-import { esMensajeDeNumeroInexistente } from "./numero-inexistente.js";
+import { clasificarGrabacion } from "./numero-inexistente.js";
+import { marcarResultadoAutomatico } from "./backend-client.js";
 import type { ConversationRelayIncoming, ConversationRelayOutgoing } from "./types.js";
 import { registrarSupervisionStream } from "./supervision-stream.js";
 import { sintetizarVozElevenLabs } from "./backend-client.js";
@@ -457,10 +458,17 @@ wss.on("connection", (ws) => {
 
           // Llamada saliente cuyo "cliente" es la grabación del operador ("el número marcado no existe",
           // "fuera de cobertura"...): no hay nadie con quien hablar, se cuelga ya, sin saludar ni responder.
-          if (session.esSaliente() && esMensajeDeNumeroInexistente(msg.voicePrompt)) {
-            console.log(`[${session.callSid}] número inexistente / fuera de servicio ("${msg.voicePrompt}") — se cuelga`);
+          const grabacion = session.esSaliente() ? clasificarGrabacion(msg.voicePrompt) : null;
+          if (grabacion) {
+            console.log(`[${session.callSid}] ${grabacion === "buzon" ? "buzón de voz" : "número inexistente / fuera de servicio"} ("${msg.voicePrompt}") — se cuelga`);
             session.nuevoTurno(); // invalida cualquier respuesta que estuviera generándose
-            session.registrarTurnoCliente(`[Grabación del operador] ${msg.voicePrompt}`);
+            session.registrarTurnoCliente(`[${grabacion === "buzon" ? "Buzón de voz" : "Grabación del operador"}] ${msg.voicePrompt}`);
+            // El backend la deja como "no contestada" (en una campaña se reintenta si era buzón).
+            // Se espera a que quede anotado ANTES de colgar: el aviso de "llamada terminada" de Twilio llega justo después.
+            const callSidGrabacion = session.callSid;
+            await marcarResultadoAutomatico(callSidGrabacion, grabacion).catch((err) =>
+              console.error(`[${callSidGrabacion}] no se pudo anotar el resultado automático:`, err)
+            );
             if (temporizadorLimite) clearTimeout(temporizadorLimite);
             if (temporizadorSilencio) clearTimeout(temporizadorSilencio);
             cancelarReanudacion();
