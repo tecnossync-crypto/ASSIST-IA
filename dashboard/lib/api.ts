@@ -1510,3 +1510,54 @@ export async function eliminarRol(id: string): Promise<void> {
 export async function actualizarRolAgente(id: string, rol: string): Promise<void> {
   await enviarJson(`/api/agentes/${id}`, "PUT", { rol }, "No se pudo cambiar el rol");
 }
+
+// ───────────── Reporte de llamadas de IA ─────────────
+export interface ReporteIA {
+  periodo: { desde: string; hasta: string; zona: string; campanaId: string | null };
+  resumen: {
+    total: number;
+    entrantes: number;
+    salientes: number;
+    no_contestadas: number;
+    buzon: number;
+    numero_inexistente: number;
+    cerradas_sin_contacto: number;
+    otras_no_contestadas: number;
+    con_conversacion: number;
+    transferidas: number;
+    atendidas_por_asesor: number;
+    duracion_promedio_segundos: number;
+    segundos_totales: number;
+    sat_positiva: number;
+    sat_neutral: number;
+    sat_negativa: number;
+  };
+  por_dia: { dia: string; total: number; con_conversacion: number; no_contestadas: number; transferidas: number }[];
+  por_campana: {
+    campana_id: string;
+    campana_nombre: string;
+    llamadas: number;
+    con_conversacion: number;
+    no_contestadas: number;
+    buzon: number;
+    transferidas: number;
+  }[];
+  motivos: { motivo: string; n: number }[];
+  solicitudes: { tipo: string; n: number }[];
+}
+
+export async function obtenerReporteIA(params: {
+  desde: string;
+  hasta: string;
+  campanaId?: string;
+  tz?: string;
+}): Promise<ReporteIA> {
+  const url = new URL("/api/reportes/ia", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  url.searchParams.set("desde", params.desde);
+  url.searchParams.set("hasta", params.hasta);
+  if (params.campanaId) url.searchParams.set("campanaId", params.campanaId);
+  if (params.tz) url.searchParams.set("tz", params.tz);
+  const res = await fetch(url, { cache: "no-store" });
+  return leerJson<ReporteIA>(res, "Error obteniendo el reporte");
+}

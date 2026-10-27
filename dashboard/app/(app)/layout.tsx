@@ -32,11 +32,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const cuerpo = (
       <MobileNavProvider>
-        <div className="flex h-full">
-          <Sidebar sesion={sesion} />
-          <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="flex h-full print:block print:h-auto">
+          <div className="contents print:hidden">
+            <Sidebar sesion={sesion} />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col overflow-y-auto print:block print:overflow-visible">
             <BannerEntorno />
-            <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-edge bg-surface/80 px-3 py-2.5 backdrop-blur sm:px-4 md:justify-end md:px-6">
+            <div className="sticky top-0 z-30 print:hidden flex items-center justify-between gap-3 border-b border-edge bg-surface/80 px-3 py-2.5 backdrop-blur sm:px-4 md:justify-end md:px-6">
               <MobileMenuButton />
               <div className="flex items-center gap-3">
                 <BotonTelefonoEscritorio />

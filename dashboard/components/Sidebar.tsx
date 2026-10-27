@@ -22,6 +22,7 @@ import {
   Plug,
   HardDrive,
   History,
+  BarChart3,
 } from "lucide-react";
 import { cerrarSesionAction } from "@/app/logout/actions";
 import { useMobileNav } from "./MobileNavContext";
@@ -31,6 +32,7 @@ import { ShieldCheck } from "lucide-react";
 const ITEMS = [
   { href: "/", label: "Resumen", Icon: LayoutDashboard },
   { href: "/llamadas", label: "Llamadas", Icon: Phone },
+  { href: "/reportes", label: "Reportes", Icon: BarChart3 },
   { href: "/campanas", label: "Campañas", Icon: Megaphone },
   { href: "/contactos", label: "Contactos", Icon: Users },
 ];
@@ -97,6 +99,7 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string; per
   const visible: Record<string, boolean> = {
     "/": permisos.resumen,
     "/llamadas": true,
+    "/reportes": permisos.resumen,
     "/campanas": permisos.campanas,
     "/contactos": permisos.contactos !== "ninguno",
     "/supervision": permisos.supervision,

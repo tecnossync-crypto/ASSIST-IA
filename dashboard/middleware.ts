@@ -16,6 +16,7 @@ const REGLAS: { prefijos: string[]; permitido: (p: Permisos) => boolean }[] = [
   { prefijos: ["/api-logs", "/api/logs-webhooks"], permitido: (p) => p.registros_api },
   { prefijos: ["/api/monitoreo/intervenir"], permitido: (p) => p.supervision && p.intervenir },
   { prefijos: ["/supervision", "/api/monitoreo", "/api/supervision"], permitido: (p) => p.supervision },
+  { prefijos: ["/reportes", "/api/reportes"], permitido: (p) => p.resumen },
   { prefijos: ["/campanas", "/api/campanas"], permitido: (p) => p.campanas },
   { prefijos: ["/api/contactos/por-etiqueta"], permitido: (p) => p.campanas || p.contactos !== "ninguno" },
   { prefijos: ["/api/contactos/importar"], permitido: (p) => p.contactos === "todos" && p.contactos_editar },
