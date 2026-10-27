@@ -1512,8 +1512,10 @@ export async function actualizarRolAgente(id: string, rol: string): Promise<void
 }
 
 // ───────────── Reporte de llamadas de IA ─────────────
+export type TipoReporte = "entrante" | "campana" | "api" | "flujo" | "click_to_call";
+
 export interface ReporteIA {
-  periodo: { desde: string; hasta: string; zona: string; campanaId: string | null };
+  periodo: { desde: string; hasta: string; zona: string; campanaId: string | null; tipo: TipoReporte | null };
   resumen: {
     total: number;
     entrantes: number;
@@ -1526,6 +1528,7 @@ export interface ReporteIA {
     con_conversacion: number;
     transferidas: number;
     atendidas_por_asesor: number;
+    con_grabacion: number;
     duracion_promedio_segundos: number;
     segundos_totales: number;
     sat_positiva: number;
@@ -1544,12 +1547,62 @@ export interface ReporteIA {
   }[];
   motivos: { motivo: string; n: number }[];
   solicitudes: { tipo: string; n: number }[];
+  por_tipo: {
+    tipo: string;
+    llamadas: number;
+    con_conversacion: number;
+    no_contestadas: number;
+    transferidas: number;
+    con_grabacion: number;
+  }[];
+}
+
+export interface LlamadaReporte {
+  id: string;
+  fecha: string;
+  direccion: "entrante" | "saliente";
+  numero_cliente: string;
+  tipo: string;
+  tipo_texto: string;
+  detalle: string;
+  resultado: string;
+  transferida: boolean;
+  duracion_segundos: number;
+  asesor: string;
+  satisfaccion: string;
+  motivo: string;
+  tiene_grabacion: boolean;
+  grabacion_url: string | null;
+  falta_grabacion: boolean;
+}
+
+export async function obtenerLlamadasReporteIA(params: {
+  desde: string;
+  hasta: string;
+  campanaId?: string;
+  tipo?: string;
+  tz?: string;
+  pagina?: number;
+  limite?: number;
+}): Promise<{ llamadas: LlamadaReporte[]; total: number; pagina: number; limite: number }> {
+  const url = new URL("/api/reportes/ia/llamadas", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  url.searchParams.set("desde", params.desde);
+  url.searchParams.set("hasta", params.hasta);
+  if (params.campanaId) url.searchParams.set("campanaId", params.campanaId);
+  if (params.tipo) url.searchParams.set("tipo", params.tipo);
+  if (params.tz) url.searchParams.set("tz", params.tz);
+  if (params.pagina) url.searchParams.set("pagina", String(params.pagina));
+  if (params.limite) url.searchParams.set("limite", String(params.limite));
+  const res = await fetch(url, { cache: "no-store" });
+  return leerJson(res, "Error obteniendo las llamadas del reporte");
 }
 
 export async function obtenerReporteIA(params: {
   desde: string;
   hasta: string;
   campanaId?: string;
+  tipo?: string;
   tz?: string;
 }): Promise<ReporteIA> {
   const url = new URL("/api/reportes/ia", BACKEND_URL);
@@ -1557,6 +1610,7 @@ export async function obtenerReporteIA(params: {
   url.searchParams.set("desde", params.desde);
   url.searchParams.set("hasta", params.hasta);
   if (params.campanaId) url.searchParams.set("campanaId", params.campanaId);
+  if (params.tipo) url.searchParams.set("tipo", params.tipo);
   if (params.tz) url.searchParams.set("tz", params.tz);
   const res = await fetch(url, { cache: "no-store" });
   return leerJson<ReporteIA>(res, "Error obteniendo el reporte");

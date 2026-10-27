@@ -46,6 +46,19 @@ export async function iniciarLlamadaIA(opts: {
     sendDigits,
   });
 
+  // Una llamada lanzada por un flujo de trabajo (o cualquier proceso interno) no tenía rastro de su origen: ahora queda
+  // anotada igual que las del webhook, para poder separarla en los reportes ("flujo:<id>").
+  if (!llamadaWebhookId && origen) {
+    await pool
+      .query("INSERT INTO llamadas_webhook (empresa_id, numero, origen, call_sid) VALUES ($1, $2, $3, $4)", [
+        empresaId,
+        numero,
+        origen.slice(0, 200),
+        call.sid,
+      ])
+      .catch((err) => console.error("[llamadas-ia] no se pudo anotar el origen de la llamada:", err));
+  }
+
   registrarFallbackCentral(call.sid, porCentralPropia, {
     empresaId,
     numero,

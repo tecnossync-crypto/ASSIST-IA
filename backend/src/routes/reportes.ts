@@ -1,17 +1,25 @@
 import type { FastifyInstance } from "fastify";
 import { pool } from "../db/pool.js";
+import { urlFirmadaGrabacion } from "../lib/storage.js";
 
 /**
- * Reporte de llamadas de IA: cómo van las llamadas que atiende o hace el agente de voz (entrantes, campañas, API y
- * flujos) en un periodo — cuántas se contestaron, cuántas cayeron en buzón o no existen, cuántas se transfirieron a un
- * asesor, duración, satisfacción, motivos más frecuentes y solicitudes registradas. Se puede exportar a CSV.
+ * Reporte de llamadas de IA: cómo van las llamadas que atiende o hace el agente de voz — cuántas se contestaron, cuántas
+ * cayeron en buzón o no existen, cuántas se transfirieron a un asesor, duración, satisfacción, motivos y solicitudes —
+ * organizado por TIPO de llamada y con la grabación de cada una:
  *
- * "Llamada de IA" = toda llamada entrante (la contesta la IA primero), o saliente que salió de una campaña, de un
- * webhook / flujo, o que tiene transcripción. Quedan fuera las llamadas que un asesor marca a mano desde el panel.
+ *   entrante       → el cliente llamó y contestó la IA
+ *   campana        → salió de una campaña
+ *   api            → la pidió una plataforma externa por webhook (CRM, SalesIQ…)
+ *   flujo          → la lanzó un flujo de trabajo automático
+ *   click_to_call  → una llamada de ASESOR pedida desde el CRM (no es de IA: solo aparece si se elige ese tipo)
+ *
+ * Las llamadas que un asesor marca a mano desde el panel no entran.
  */
 
 const ZONA_POR_DEFECTO = process.env.REPORTES_TZ ?? "America/Santo_Domingo";
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+export const TIPOS_REPORTE = ["entrante", "campana", "api", "flujo", "click_to_call"] as const;
+type TipoReporte = (typeof TIPOS_REPORTE)[number];
 
 function zonaValida(z: string | undefined): string {
   if (!z) return ZONA_POR_DEFECTO;
@@ -39,9 +47,12 @@ interface Filtros {
   hasta: string;
   zona: string;
   campanaId: string | null;
+  tipo: TipoReporte | null;
 }
 
-function leerFiltros(q: { empresaId?: string; desde?: string; hasta?: string; tz?: string; campanaId?: string }): Filtros | string {
+type Consulta = { empresaId?: string; desde?: string; hasta?: string; tz?: string; campanaId?: string; tipo?: string };
+
+function leerFiltros(q: Consulta): Filtros | string {
   if (!q.empresaId) return "empresaId es requerido";
   const zona = zonaValida(q.tz);
   const hasta = q.hasta && FECHA.test(q.hasta) ? q.hasta : hoyEn(zona);
@@ -50,28 +61,56 @@ function leerFiltros(q: { empresaId?: string; desde?: string; hasta?: string; tz
   if (new Date(`${hasta}T00:00:00Z`).getTime() - new Date(`${desde}T00:00:00Z`).getTime() > 366 * 86_400_000) {
     return "El periodo no puede pasar de un año";
   }
-  return { empresaId: q.empresaId, desde, hasta, zona, campanaId: q.campanaId || null };
+  const tipo = (TIPOS_REPORTE as readonly string[]).includes(q.tipo ?? "") ? (q.tipo as TipoReporte) : null;
+  return { empresaId: q.empresaId, desde, hasta, zona, campanaId: q.campanaId || null, tipo };
 }
 
-/** CTE con las llamadas de IA del periodo (zona horaria de la empresa, no la del servidor). */
-function baseSQL(f: Filtros): { sql: string; params: unknown[] } {
+/**
+ * CTE `todas` = llamadas candidatas del periodo con su tipo, resultado y grabación (zona horaria de la empresa, no la
+ * del servidor); CTE `base` = las del tipo pedido. Sin tipo: todas las de IA (sin click-to-call). `conTipo=false`
+ * deja pasar todos los tipos (para el desglose por tipo).
+ */
+function baseSQL(f: Filtros, conTipo: boolean): { sql: string; params: unknown[] } {
   const params: unknown[] = [f.empresaId, f.desde, f.hasta, f.zona];
   let filtroCampana = "";
   if (f.campanaId) {
     params.push(f.campanaId);
     filtroCampana = `AND cam.id = $${params.length}`;
   }
+  let filtroTipo = "";
+  if (!conTipo) filtroTipo = "";
+  else if (f.tipo) {
+    params.push(f.tipo);
+    filtroTipo = `WHERE tipo = $${params.length}`;
+  } else filtroTipo = "WHERE tipo <> 'click_to_call'";
+
   const sql = `
-    WITH base AS (
-      SELECT l.id, l.direccion, l.numero_origen, l.numero_destino, l.estado, l.transferida, l.duracion_segundos,
+    WITH todas AS (
+      SELECT l.id, l.estado, l.direccion, l.numero_origen, l.numero_destino, l.transferida, l.duracion_segundos,
              l.iniciada_en, l.resultado_automatico, l.agente_usuario_id,
              t.satisfaccion, t.resumen_motivo, t.resumen_resultado, (t.id IS NOT NULL) AS hubo_conversacion,
-             cam.id AS campana_id, cam.nombre AS campana_nombre
+             cam.id AS campana_id, cam.nombre AS campana_nombre,
+             w.origen AS origen_api, l.origen_externo,
+             g.url_storage AS grabacion_path, g.duracion_segundos AS grabacion_segundos,
+             CASE
+               WHEN l.campana_contacto_id IS NOT NULL THEN 'campana'
+               WHEN w.id IS NOT NULL AND w.origen LIKE 'flujo:%' THEN 'flujo'
+               WHEN w.id IS NOT NULL THEN 'api'
+               WHEN l.origen_externo IS NOT NULL THEN 'click_to_call'
+               WHEN l.direccion = 'entrante' THEN 'entrante'
+               ELSE 'otro'
+             END AS tipo
       FROM llamadas l
       LEFT JOIN LATERAL (
         SELECT tt.id, tt.satisfaccion, tt.resumen_motivo, tt.resumen_resultado
         FROM transcripciones tt WHERE tt.llamada_id = l.id ORDER BY tt.creado_en DESC LIMIT 1
       ) t ON true
+      LEFT JOIN LATERAL (
+        SELECT ww.id, ww.origen FROM llamadas_webhook ww WHERE ww.call_sid = l.call_sid ORDER BY ww.creado_en DESC LIMIT 1
+      ) w ON true
+      LEFT JOIN LATERAL (
+        SELECT gg.url_storage, gg.duracion_segundos FROM grabaciones gg WHERE gg.llamada_id = l.id ORDER BY gg.creado_en DESC LIMIT 1
+      ) g ON true
       LEFT JOIN campana_contactos cc ON cc.id = l.campana_contacto_id
       LEFT JOIN campanas cam ON cam.id = cc.campana_id
       WHERE l.empresa_id = $1
@@ -80,10 +119,10 @@ function baseSQL(f: Filtros): { sql: string; params: unknown[] } {
         ${filtroCampana}
         AND (
           t.id IS NOT NULL OR l.campana_contacto_id IS NOT NULL OR l.resultado_automatico IS NOT NULL
-          OR l.direccion = 'entrante'
-          OR EXISTS (SELECT 1 FROM llamadas_webhook w WHERE w.call_sid = l.call_sid)
+          OR l.direccion = 'entrante' OR w.id IS NOT NULL OR l.origen_externo IS NOT NULL
         )
-    )`;
+    ),
+    base AS (SELECT * FROM todas ${filtroTipo})`;
   return { sql, params };
 }
 
@@ -102,18 +141,27 @@ const RESULTADO_TEXTO = `
     ELSE 'Sin conversación'
   END`;
 
+const TIPO_TEXTO = `
+  CASE tipo
+    WHEN 'entrante' THEN 'Entrante'
+    WHEN 'campana' THEN 'Campaña'
+    WHEN 'api' THEN 'API'
+    WHEN 'flujo' THEN 'Flujo automático'
+    WHEN 'click_to_call' THEN 'Click-to-call (asesor)'
+    ELSE 'Otra'
+  END`;
+
 export async function reportesRoutes(app: FastifyInstance) {
-  app.get<{
-    Querystring: { empresaId?: string; desde?: string; hasta?: string; tz?: string; campanaId?: string };
-  }>("/api/reportes/ia", async (req, reply) => {
+  app.get<{ Querystring: Consulta }>("/api/reportes/ia", async (req, reply) => {
     const f = leerFiltros(req.query);
     if (typeof f === "string") {
       reply.code(400).send({ error: f });
       return;
     }
-    const { sql, params } = baseSQL(f);
+    const { sql, params } = baseSQL(f, true);
+    const todos = baseSQL(f, false);
 
-    const [resumen, porDia, porCampana, motivos, solicitudes] = await Promise.all([
+    const [resumen, porDia, porCampana, motivos, solicitudes, porTipo] = await Promise.all([
       pool.query(
         `${sql}
          SELECT
@@ -128,6 +176,7 @@ export async function reportesRoutes(app: FastifyInstance) {
            COUNT(*) FILTER (WHERE ${CON_CONVERSACION})::int AS con_conversacion,
            COUNT(*) FILTER (WHERE transferida)::int AS transferidas,
            COUNT(*) FILTER (WHERE transferida AND agente_usuario_id IS NOT NULL)::int AS atendidas_por_asesor,
+           COUNT(*) FILTER (WHERE grabacion_path IS NOT NULL)::int AS con_grabacion,
            COALESCE(ROUND(AVG(duracion_segundos) FILTER (WHERE ${CON_CONVERSACION})), 0)::int AS duracion_promedio_segundos,
            COALESCE(SUM(duracion_segundos), 0)::int AS segundos_totales,
            COUNT(*) FILTER (WHERE satisfaccion = 'positiva')::int AS sat_positiva,
@@ -172,37 +221,108 @@ export async function reportesRoutes(app: FastifyInstance) {
          GROUP BY 1 ORDER BY n DESC`,
         params
       ),
+      // Desglose por tipo: ignora el tipo elegido para poder mostrar todas las pestañas con su conteo.
+      pool.query(
+        `${todos.sql}
+         SELECT tipo,
+                COUNT(*)::int AS llamadas,
+                COUNT(*) FILTER (WHERE ${CON_CONVERSACION})::int AS con_conversacion,
+                COUNT(*) FILTER (WHERE ${NO_CONTESTO})::int AS no_contestadas,
+                COUNT(*) FILTER (WHERE transferida)::int AS transferidas,
+                COUNT(*) FILTER (WHERE grabacion_path IS NOT NULL)::int AS con_grabacion
+         FROM base GROUP BY tipo`,
+        todos.params
+      ),
     ]);
 
     reply.send({
-      periodo: { desde: f.desde, hasta: f.hasta, zona: f.zona, campanaId: f.campanaId },
+      periodo: { desde: f.desde, hasta: f.hasta, zona: f.zona, campanaId: f.campanaId, tipo: f.tipo },
       resumen: resumen.rows[0],
       por_dia: porDia.rows,
       por_campana: porCampana.rows,
       motivos: motivos.rows,
       solicitudes: solicitudes.rows,
+      por_tipo: porTipo.rows,
     });
   });
 
-  // CSV con el detalle llamada por llamada del mismo periodo (se abre directo en Excel).
-  app.get<{
-    Querystring: { empresaId?: string; desde?: string; hasta?: string; tz?: string; campanaId?: string };
-  }>("/api/reportes/ia/exportar", async (req, reply) => {
+  // Detalle llamada por llamada del periodo (con reproductor de la grabación), paginado.
+  app.get<{ Querystring: Consulta & { limite?: string; pagina?: string } }>("/api/reportes/ia/llamadas", async (req, reply) => {
     const f = leerFiltros(req.query);
     if (typeof f === "string") {
       reply.code(400).send({ error: f });
       return;
     }
-    const { sql, params } = baseSQL(f);
+    const limite = Math.min(Math.max(parseInt(req.query.limite ?? "25", 10) || 25, 1), 100);
+    const pagina = Math.max(parseInt(req.query.pagina ?? "1", 10) || 1, 1);
+    const { sql, params } = baseSQL(f, true);
+    params.push(limite, (pagina - 1) * limite);
+
+    const r = await pool.query(
+      `${sql}
+       SELECT id,
+              to_char(iniciada_en AT TIME ZONE $4, 'YYYY-MM-DD HH24:MI') AS fecha,
+              direccion,
+              CASE WHEN direccion = 'entrante' THEN numero_origen ELSE numero_destino END AS numero_cliente,
+              tipo,
+              ${TIPO_TEXTO} AS tipo_texto,
+              COALESCE(campana_nombre, origen_api, origen_externo, '') AS detalle,
+              ${RESULTADO_TEXTO} AS resultado,
+              transferida,
+              COALESCE(duracion_segundos, 0) AS duracion_segundos,
+              COALESCE((SELECT u.nombre FROM usuarios u WHERE u.id = agente_usuario_id), '') AS asesor,
+              COALESCE(satisfaccion, '') AS satisfaccion,
+              COALESCE(resumen_motivo, '') AS motivo,
+              grabacion_path,
+              (grabacion_path IS NULL AND estado <> 'en_curso' AND COALESCE(duracion_segundos, 0) >= 10) AS falta_grabacion,
+              COUNT(*) OVER()::int AS total_filas
+       FROM base ORDER BY iniciada_en DESC
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    // Enlaces temporales a las grabaciones (1 hora: la pantalla puede quedarse abierta un rato).
+    const llamadas = await Promise.all(
+      r.rows.map(async (fila) => {
+        let grabacionUrl: string | null = null;
+        if (fila.grabacion_path) {
+          grabacionUrl = await urlFirmadaGrabacion(fila.grabacion_path, 3600).catch((err) => {
+            app.log.error({ err, llamadaId: fila.id }, "No se pudo firmar la grabación del reporte");
+            return null;
+          });
+        }
+        const { grabacion_path: _omitida, total_filas: _total, ...resto } = fila;
+        return { ...resto, grabacion_url: grabacionUrl, tiene_grabacion: Boolean(fila.grabacion_path) };
+      })
+    );
+
+    reply.send({
+      llamadas,
+      total: r.rows[0]?.total_filas ?? 0,
+      pagina,
+      limite,
+    });
+  });
+
+  // CSV con el detalle del mismo periodo (se abre directo en Excel).
+  app.get<{ Querystring: Consulta }>("/api/reportes/ia/exportar", async (req, reply) => {
+    const f = leerFiltros(req.query);
+    if (typeof f === "string") {
+      reply.code(400).send({ error: f });
+      return;
+    }
+    const { sql, params } = baseSQL(f, true);
     const r = await pool.query(
       `${sql}
        SELECT to_char(iniciada_en AT TIME ZONE $4, 'YYYY-MM-DD HH24:MI:SS') AS fecha,
               CASE WHEN direccion = 'entrante' THEN 'Entrante' ELSE 'Saliente' END AS direccion,
+              ${TIPO_TEXTO} AS tipo,
+              COALESCE(campana_nombre, origen_api, origen_externo, '') AS detalle,
               CASE WHEN direccion = 'entrante' THEN numero_origen ELSE numero_destino END AS numero_cliente,
               ${RESULTADO_TEXTO} AS resultado,
               CASE WHEN transferida THEN 'Sí' ELSE 'No' END AS transferida,
               COALESCE(duracion_segundos, 0) AS duracion_segundos,
-              COALESCE(campana_nombre, '') AS campana,
+              CASE WHEN grabacion_path IS NOT NULL THEN 'Sí' ELSE 'No' END AS grabacion,
               COALESCE((SELECT u.nombre FROM usuarios u WHERE u.id = agente_usuario_id), '') AS asesor,
               COALESCE(satisfaccion, '') AS satisfaccion,
               COALESCE(resumen_motivo, '') AS motivo,
@@ -214,11 +334,13 @@ export async function reportesRoutes(app: FastifyInstance) {
     const columnas = [
       ["fecha", "Fecha"],
       ["direccion", "Dirección"],
+      ["tipo", "Tipo de llamada"],
+      ["detalle", "Campaña / origen"],
       ["numero_cliente", "Número del cliente"],
       ["resultado", "Resultado"],
       ["transferida", "Transferida a asesor"],
       ["duracion_segundos", "Duración (s)"],
-      ["campana", "Campaña"],
+      ["grabacion", "Tiene grabación"],
       ["asesor", "Asesor"],
       ["satisfaccion", "Satisfacción"],
       ["motivo", "Motivo"],

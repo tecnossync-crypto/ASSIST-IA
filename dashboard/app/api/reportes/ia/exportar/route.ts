@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const url = new URL("/api/reportes/ia/exportar", BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
-  for (const clave of ["desde", "hasta", "campanaId", "tz"]) {
+  for (const clave of ["desde", "hasta", "campanaId", "tipo", "tz"]) {
     const valor = searchParams.get(clave);
     if (valor) url.searchParams.set(clave, valor);
   }
