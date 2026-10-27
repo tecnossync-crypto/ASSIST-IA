@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileSpreadsheet,
   Forward,
   Headset,
   Layers,
@@ -140,7 +141,7 @@ function Tarjeta({
 
 function Seccion({ titulo, descripcion, children }: { titulo: string; descripcion?: string; children: React.ReactNode }) {
   return (
-    <section className="break-inside-avoid rounded-xl border border-edge bg-surface p-5">
+    <section className="break-inside-avoid rounded-xl border border-edge bg-surface p-5 print:p-3">
       <h2 className="text-sm font-semibold text-ink">{titulo}</h2>
       {descripcion && <p className="mb-3 text-xs text-muted">{descripcion}</p>}
       <div className={descripcion ? "" : "mt-3"}>{children}</div>
@@ -188,6 +189,20 @@ function FilaLlamada({ l }: { l: LlamadaReporte }) {
         <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${COLOR_RESULTADO[l.resultado] ?? "bg-surface-2 text-ink-2"}`}>
           {l.resultado}
         </span>
+        {l.departamento && <span className="mt-0.5 block text-[11px] text-muted">→ {l.departamento}</span>}
+        {l.regla === "Sin regla" && (
+          <span
+            className="mt-0.5 block text-[11px] text-amber-700 dark:text-amber-300"
+            title="La solicitud de la API no coincidió con ninguna regla de Configuración → Integraciones: se usó el guion general."
+          >
+            Sin regla de API
+          </span>
+        )}
+        {l.departamento_recibido && !l.departamento && (
+          <span className="mt-0.5 block text-[11px] text-amber-700 dark:text-amber-300" title="El departamento que mandó la API no coincide con ninguno configurado.">
+            Depto. «{l.departamento_recibido}» no existe
+          </span>
+        )}
       </td>
       <td className="whitespace-nowrap py-2.5 pr-3 text-right text-xs tabular-nums text-ink-2">
         {l.duracion_segundos > 0 ? formatDuracion(l.duracion_segundos) : "—"}
@@ -196,7 +211,10 @@ function FilaLlamada({ l }: { l: LlamadaReporte }) {
       <td className="py-2.5 pr-3">
         {l.grabacion_url ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
-          <audio controls preload="none" src={l.grabacion_url} className="h-8 w-44 print:hidden" />
+          <>
+            <audio controls preload="none" src={l.grabacion_url} className="h-8 w-44 print:hidden" />
+            <span className="hidden text-[11px] text-ink-2 print:inline">Con grabación</span>
+          </>
         ) : l.falta_grabacion ? (
           <span
             className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300"
@@ -264,6 +282,7 @@ export default async function ReportesPage({
   if (campanaId) consultaCsv.set("campanaId", campanaId);
   if (tipo) consultaCsv.set("tipo", tipo);
   const hrefExportar = `/api/reportes/ia/exportar?${consultaCsv.toString()}`;
+  const hrefExcel = `/api/reportes/ia/excel?${consultaCsv.toString()}`;
   const nombreCampana = campanas.find((c) => c.id === campanaId)?.nombre;
 
   const r = reporte?.resumen;
@@ -275,7 +294,7 @@ export default async function ReportesPage({
   const totalPaginas = listado ? Math.max(1, Math.ceil(listado.total / listado.limite)) : 1;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 print:gap-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-semibold">
@@ -290,11 +309,20 @@ export default async function ReportesPage({
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <a
-            href={hrefExportar}
+            href={hrefExcel}
             className="ts-brand-button flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white shadow shadow-indigo-500/30"
+            title="Libro de Excel con resumen, estadísticas, gráficos y el detalle de cada llamada"
+          >
+            <FileSpreadsheet size={15} />
+            Exportar Excel
+          </a>
+          <a
+            href={hrefExportar}
+            className="flex items-center gap-1.5 rounded-lg border border-edge bg-surface px-3 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface-2"
+            title="Solo el detalle, en CSV"
           >
             <Download size={15} />
-            Exportar CSV
+            CSV
           </a>
           <BotonImprimir />
         </div>
@@ -402,7 +430,7 @@ export default async function ReportesPage({
         <>
           {/* Indicadores */}
           {esClick ? (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4">
               <Tarjeta
                 Icon={Headset}
                 color="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15"
@@ -431,7 +459,7 @@ export default async function ReportesPage({
               />
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 print:grid-cols-6">
               <Tarjeta
                 Icon={Bot}
                 color="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15"
@@ -478,7 +506,7 @@ export default async function ReportesPage({
           )}
 
           {!esClick && (
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 print:grid-cols-2 print:gap-3">
               <Seccion titulo="Cómo terminaron las llamadas" descripcion="De todas las llamadas de este tipo en el periodo.">
                 <div className="flex flex-col gap-3.5">
                   <BarraEmbudo etiqueta="Llamadas de IA" valor={r.total} total={r.total} clase="bg-indigo-500" />
@@ -518,6 +546,46 @@ export default async function ReportesPage({
           <Seccion titulo="Llamadas por día">
             <GraficoReporteIA datos={reporte.por_dia} />
           </Seccion>
+
+          {!esClick && (reporte.por_regla.length > 0 || reporte.por_departamento.length > 0) && (
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 print:grid-cols-2 print:gap-3">
+              {reporte.por_regla.length > 0 && (
+                <Seccion
+                  titulo="Regla de API aplicada"
+                  descripcion="Qué regla de Configuración → Integraciones usó cada llamada pedida por API."
+                >
+                  <ul className="divide-y divide-edge text-sm">
+                    {reporte.por_regla.map((x) => (
+                      <li key={x.regla} className="flex items-center justify-between gap-3 py-2">
+                        <span className={x.regla.startsWith("Sin regla") ? "text-amber-700 dark:text-amber-300" : "text-ink-2"}>{x.regla}</span>
+                        <span className="font-medium tabular-nums text-ink">{x.llamadas}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {reporte.por_regla.some((x) => x.regla.startsWith("Sin regla")) && (
+                    <p className="mt-3 rounded-md bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                      “Sin regla” = la solicitud no traía el campo (etiqueta) que espera alguna regla, así que la IA usó el guion
+                      general de la empresa.
+                    </p>
+                  )}
+                </Seccion>
+              )}
+              {reporte.por_departamento.length > 0 && (
+                <Seccion titulo="Departamento al que quedaron" descripcion="Llamadas transferidas o con departamento asignado.">
+                  <ul className="divide-y divide-edge text-sm">
+                    {reporte.por_departamento.map((x) => (
+                      <li key={x.departamento} className="flex items-center justify-between gap-3 py-2">
+                        <span className="text-ink-2">{x.departamento}</span>
+                        <span className="font-medium tabular-nums text-ink">
+                          {x.llamadas} <span className="text-xs font-normal text-muted">({x.transferidas} transf.)</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </Seccion>
+              )}
+            </div>
+          )}
 
           {!esClick && reporte.por_campana.length > 0 && (
             <Seccion titulo="Por campaña" descripcion="Cómo le fue a cada campaña en el periodo.">
@@ -559,7 +627,7 @@ export default async function ReportesPage({
           )}
 
           {!esClick && (
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 print:grid-cols-2 print:gap-3">
               <Seccion titulo="De qué hablan los clientes" descripcion="Motivos más frecuentes que resumió la IA.">
                 {reporte.motivos.length === 0 ? (
                   <p className="text-sm text-muted">Todavía no hay resúmenes en este periodo.</p>

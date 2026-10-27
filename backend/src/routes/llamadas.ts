@@ -153,6 +153,18 @@ export async function llamadasRoutes(app: FastifyInstance) {
       return;
     }
 
+    // Si la pidió una plataforma externa: qué regla de la API se aplicó y a qué departamento se envió.
+    const origenApi = await pool.query(
+      `SELECT w.origen, w.departamento_recibido, rg.nombre AS regla_nombre, c.nombre AS departamento_asignado
+       FROM llamadas_webhook w
+       LEFT JOIN reglas_api_llamadas rg ON rg.id = w.regla_aplicada_id
+       LEFT JOIN colas c ON c.id = w.cola_id
+       WHERE w.call_sid = (SELECT call_sid FROM llamadas WHERE id = $1)
+       ORDER BY w.creado_en DESC LIMIT 1`,
+      [id]
+    );
+    const colaLlamada = await pool.query("SELECT c.nombre FROM llamadas l JOIN colas c ON c.id = l.cola_id WHERE l.id = $1", [id]);
+
     const [transcripcion, grabacion, datos] = await Promise.all([
       pool.query(
         `SELECT texto_completo, resumen_motivo, resumen_solicitud, resumen_resultado, accion_pendiente
@@ -181,6 +193,8 @@ export async function llamadasRoutes(app: FastifyInstance) {
       transcripcion: transcripcion.rows[0] ?? null,
       grabacion: grabacionRow ? { ...grabacionRow, audioUrl } : null,
       datos: datos.rows,
+      origen_api: origenApi.rows[0] ?? null,
+      departamento_nombre: colaLlamada.rows[0]?.nombre ?? null,
     });
   });
 }

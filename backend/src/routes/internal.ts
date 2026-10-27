@@ -48,7 +48,10 @@ export async function internalRoutes(app: FastifyInstance) {
       const { callSid } = req.params;
       const { colaId } = req.body ?? {};
 
-      if (colaId && UUID.test(colaId)) {
+      // Si la solicitud de API fijó el departamento, la IA no lo puede cambiar.
+      const fija = await pool.query("SELECT 1 FROM llamadas_webhook WHERE call_sid = $1 AND cola_id IS NOT NULL", [callSid]);
+
+      if (fija.rows.length === 0 && colaId && UUID.test(colaId)) {
         const colaValida = await pool.query(
           `SELECT 1 FROM llamadas l JOIN colas c ON c.empresa_id = l.empresa_id
            WHERE l.call_sid = $1 AND c.id = $2`,
@@ -121,8 +124,8 @@ export async function internalRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  // Guarda un campo personalizado que la empresa configuró recolectar
-  // (ej. número de póliza, placa) y que el agente extrajo durante la llamada.
+  // La IA colgó sola porque quien contestó era un buzón de voz / una grabación del operador (ver
+  // voice-server/src/numero-inexistente.ts): la llamada se cierra como "no contestada".
   app.post<{
     Params: { callSid: string };
     Body: { tipo: string };
@@ -137,6 +140,8 @@ export async function internalRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
+  // Guarda un campo personalizado que la empresa configuró recolectar
+  // (ej. número de póliza, placa) y que el agente extrajo durante la llamada.
   app.post<{
     Params: { callSid: string };
     Body: { campo: string; valor: string };
@@ -206,7 +211,14 @@ export async function internalRoutes(app: FastifyInstance) {
     const { id: llamadaId, empresa_id: empresaId } = llamada.rows[0];
 
     let colaIdValida: string | null = null;
-    if (colaId && UUID.test(colaId)) {
+    // Departamento fijado por la solicitud de API: manda sobre lo que elija la IA.
+    const fija = await pool.query<{ cola_id: string }>(
+      "SELECT cola_id FROM llamadas_webhook WHERE call_sid = $1 AND cola_id IS NOT NULL ORDER BY creado_en DESC LIMIT 1",
+      [callSid]
+    );
+    if (fija.rows[0]) {
+      colaIdValida = fija.rows[0].cola_id;
+    } else if (colaId && UUID.test(colaId)) {
       const cola = await pool.query("SELECT 1 FROM colas WHERE id = $1 AND empresa_id = $2", [colaId, empresaId]);
       if (cola.rows.length > 0) colaIdValida = colaId;
     }
@@ -312,15 +324,15 @@ export async function internalRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { llamadaWebhookId } = req.params;
 
-      const solicitud = await pool.query<{ empresa_id: string; prompt: string | null; numero: string }>(
-        "SELECT empresa_id, prompt, numero FROM llamadas_webhook WHERE id = $1",
+      const solicitud = await pool.query<{ empresa_id: string; prompt: string | null; numero: string; cola_id: string | null }>(
+        "SELECT empresa_id, prompt, numero, cola_id FROM llamadas_webhook WHERE id = $1",
         [llamadaWebhookId]
       );
       if (solicitud.rows.length === 0) {
         reply.code(404).send({ error: "solicitud de llamada no encontrada" });
         return;
       }
-      const { empresa_id: empresaId, prompt, numero } = solicitud.rows[0];
+      const { empresa_id: empresaId, prompt, numero, cola_id: colaFija } = solicitud.rows[0];
 
       const empresa = await pool.query(
         `SELECT nombre, guion_agente, horario_atencion, voz_agente, tts_provider, campos_personalizados,
@@ -350,7 +362,9 @@ export async function internalRoutes(app: FastifyInstance) {
         obtenerColasParaPrompt(empresaId),
       ]);
 
-      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas, contacto_conocido: contactoConocido });
+      // Con un departamento fijado por la API, la IA solo ve ese (y no tiene nada que elegir).
+      const colasVisibles = colaFija ? colas.filter((c) => c.id === colaFija) : colas;
+      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas: colasVisibles, contacto_conocido: contactoConocido });
     }
   );
 

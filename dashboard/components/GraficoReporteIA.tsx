@@ -40,7 +40,7 @@ export function GraficoReporteIA({ datos }: { datos: PuntoDia[] }) {
         <svg
           viewBox={`0 0 ${ancho} ${alto}`}
           style={{ minWidth: Math.min(ancho, 900) }}
-          className="w-full"
+          className="w-full print:mx-auto print:max-h-[190px]"
           role="img"
           aria-label="Llamadas de IA por día"
         >

@@ -8,6 +8,7 @@ import { registrarWebhookRecibido } from "../lib/webhooks-log.js";
 import { evaluarReglaApiLlamadas, proximaOcurrencia } from "../lib/reglas-api-llamadas.js";
 import { resolverOperadorExterno } from "../lib/operador-origen.js";
 import { asesorLibre } from "../lib/agentes.js";
+import { resolverDepartamento } from "../lib/departamentos.js";
 
 interface CampoPersonalizado {
   nombre: string;
@@ -179,10 +180,25 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       const operadorExterno =
         typeof operadorRecibido === "string" && operadorRecibido.trim() ? operadorRecibido.trim().slice(0, 200) : null;
 
+      // Departamento explícito (nombre o id): toda la llamada queda en él. Sin esto la IA elige sola, por el NOMBRE de
+      // los departamentos y el contexto de la llamada (por eso una llamada de pagos podía terminar en "Cobros").
+      const departamentoRecibido = cuerpo.departamento ?? cuerpo.colaId ?? cuerpo.cola_id ?? cuerpo.cola;
+      const departamento = await resolverDepartamento(empresaId, departamentoRecibido);
+      const departamentoTexto =
+        typeof departamentoRecibido === "string" && departamentoRecibido.trim() ? departamentoRecibido.trim().slice(0, 200) : null;
+      const infoDepartamento = departamentoTexto
+        ? {
+            departamento_encontrado: Boolean(departamento),
+            ...(departamento
+              ? { departamento_asignado: departamento.nombre }
+              : { aviso: `El departamento "${departamentoTexto}" no coincide con ninguno de Configuración → Enrutamiento; la IA elegirá sola.` }),
+          }
+        : {};
+
       const solicitud = await pool.query<{ id: string }>(
         `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para,
-                                       operador_usuario_id, operador_externo)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+                                       operador_usuario_id, operador_externo, cola_id, departamento_recibido)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
         [
           empresaId,
           numero,
@@ -192,6 +208,8 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           llamarDespues ? programadaPara : null,
           operadorUsuarioId,
           operadorExterno,
+          departamento?.id ?? null,
+          departamentoTexto,
         ]
       );
       const llamadaWebhookId = solicitud.rows[0].id;
@@ -213,6 +231,8 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           programada: true,
           fecha_programada: programadaPara.toISOString(),
           id: llamadaWebhookId,
+          regla_aplicada: reglaAplicada?.nombre ?? null,
+          ...infoDepartamento,
           ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
         });
         return;
@@ -255,6 +275,8 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
           ok: true,
           callSid: call.sid,
           id: llamadaWebhookId,
+          regla_aplicada: reglaAplicada?.nombre ?? null,
+          ...infoDepartamento,
           ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
         });
       } catch (err) {

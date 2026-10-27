@@ -46,7 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <ThemeToggle />
               </div>
             </div>
-            <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-5 sm:px-6 sm:py-8">{children}</main>
+            <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-5 sm:px-6 sm:py-8 print:max-w-none print:p-0">{children}</main>
           </div>
           {!esEscritorioPrincipal && <PanelTelefono usuarioId={sesion?.usuarioId} nombre={sesion?.nombre} />}
           <LlamadasExternasWidget />

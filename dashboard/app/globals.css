@@ -83,17 +83,48 @@ body {
 
 /* Impresión / "Guardar como PDF" (Reportes): sin paneles flotantes, sin recortar por el alto de la pantalla y
    conservando los colores de las barras. */
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
 @media print {
+  /* El PDF siempre sale en claro (aunque se imprima desde el modo oscuro): tarjetas negras con título blanco
+     sobre papel blanco se veían rotas y gastaban tinta. Se repiten los tres selectores de tema para ganar en todos. */
+  :root,
+  :root:not([data-theme="light"]),
+  :root[data-theme="dark"] {
+    --background: #ffffff;
+    --foreground: #0f172a;
+    --color-surface: #ffffff;
+    --color-surface-2: #f8fafc;
+    --color-edge: #e2e8f0;
+    --color-ink: #1e293b;
+    --color-ink-2: #475569;
+    --color-muted: #64748b;
+  }
   html,
   body {
     height: auto !important;
     overflow: visible !important;
     background: #fff !important;
+    color: #0f172a;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+    font-size: 12px;
   }
   .fixed {
     display: none !important;
+  }
+  /* Las tablas anchas se ajustan al papel en vez de salirse. */
+  table {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  /* Los bloques no se parten por la mitad entre dos hojas. */
+  section,
+  tr {
+    break-inside: avoid;
   }
 }
 

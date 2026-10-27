@@ -140,6 +140,13 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
 
       if (webhookLlamadaId) {
         await pool.query(`UPDATE llamadas_webhook SET call_sid = $2 WHERE id = $1`, [webhookLlamadaId, callSid]);
+        // Si la solicitud de API trajo un departamento, la llamada queda en él desde el principio.
+        await pool.query(
+          `UPDATE llamadas SET cola_id = w.cola_id
+           FROM llamadas_webhook w
+           WHERE w.id = $1 AND w.cola_id IS NOT NULL AND llamadas.call_sid = $2`,
+          [webhookLlamadaId, callSid]
+        );
       }
 
       const voiceWsUrl = process.env.VOICE_WS_URL;

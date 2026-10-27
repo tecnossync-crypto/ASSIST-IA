@@ -92,6 +92,14 @@ export interface LlamadaDetalle {
     agente_call_sid: string | null;
     agente_usuario_id?: string | null;
   };
+  /** Si la pidió una plataforma externa: qué regla de la API se aplicó y a qué departamento quedó. */
+  origen_api?: {
+    origen: string | null;
+    regla_nombre: string | null;
+    departamento_recibido: string | null;
+    departamento_asignado: string | null;
+  } | null;
+  departamento_nombre?: string | null;
   transcripcion: {
     texto_completo: { hablante: string; texto: string; timestamp: string }[];
     resumen_motivo: string | null;
@@ -1555,6 +1563,8 @@ export interface ReporteIA {
     transferidas: number;
     con_grabacion: number;
   }[];
+  por_regla: { regla: string; llamadas: number; transferidas: number }[];
+  por_departamento: { departamento: string; llamadas: number; transferidas: number }[];
 }
 
 export interface LlamadaReporte {
@@ -1566,6 +1576,9 @@ export interface LlamadaReporte {
   tipo_texto: string;
   detalle: string;
   resultado: string;
+  departamento: string;
+  regla: string;
+  departamento_recibido: string;
   transferida: boolean;
   duracion_segundos: number;
   asesor: string;

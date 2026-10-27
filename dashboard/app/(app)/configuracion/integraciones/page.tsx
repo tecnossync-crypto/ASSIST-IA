@@ -107,12 +107,21 @@ export default async function IntegracionesPage({
     "prompt": "Llama para confirmar la cita de mañana a las 3pm",
     "fecha_programada": "2026-10-10T15:00:00-04:00",
     "operador": "maria@tuempresa.com",
+    "departamento": "Ventas",
     "origen": "mi-crm"
   }'`}</Codigo>
             <ul className="mt-3 space-y-1.5 text-xs text-muted">
               <li>
                 <span className="font-mono text-ink-2">numero</span> — requerido, el teléfono a llamar (con código de
                 país).
+              </li>
+              <li>
+                <span className="font-mono text-ink-2">departamento</span> — opcional pero recomendado: el nombre (o el
+                id) del departamento de Configuración → Enrutamiento al que pertenece esta llamada. La llamada y sus
+                solicitudes quedan <strong>siempre en ese departamento</strong>. Si no lo mandas, la IA elige sola según
+                el nombre de los departamentos y de qué trate la llamada (por eso una llamada de pagos puede terminar en
+                “Cobros”). La respuesta trae <span className="font-mono">departamento_asignado</span>, o un{" "}
+                <span className="font-mono">aviso</span> si el nombre no coincide con ninguno.
               </li>
               <li>
                 <span className="font-mono text-ink-2">prompt</span> — opcional. Si lo mandas (y ninguna regla aplica),

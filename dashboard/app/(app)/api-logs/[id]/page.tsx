@@ -107,6 +107,32 @@ export default async function ApiLogDetallePage({ params }: { params: Promise<{ 
                 </div>
               </dl>
 
+              <div className="rounded-md border border-edge bg-surface-2/50 p-3 text-sm">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">Cómo se procesó</p>
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-3">
+                  <div>
+                    <dt className="text-xs text-muted">Regla de API aplicada</dt>
+                    <dd className={detalle.origen_api?.regla_nombre ? "text-ink" : "text-amber-700 dark:text-amber-300"}>
+                      {detalle.origen_api?.regla_nombre ?? "Ninguna — usó el guion general"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted">Departamento que mandó la API</dt>
+                    <dd className="text-ink">{detalle.origen_api?.departamento_recibido ?? "No mandó"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted">Departamento al que quedó</dt>
+                    <dd className="text-ink">{detalle.departamento_nombre ?? "Ninguno (se reparte entre todos)"}</dd>
+                  </div>
+                </dl>
+                {detalle.origen_api?.departamento_recibido && !detalle.origen_api.departamento_asignado && (
+                  <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                    El departamento «{detalle.origen_api.departamento_recibido}» no coincide con ninguno de Configuración →
+                    Enrutamiento, así que la IA eligió sola.
+                  </p>
+                )}
+              </div>
+
               {detalle.transcripcion?.resumen_motivo && (
                 <p className="text-sm text-ink-2">
                   <span className="text-xs font-medium text-muted">Motivo: </span>
