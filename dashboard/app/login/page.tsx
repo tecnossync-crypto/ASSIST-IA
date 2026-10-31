@@ -23,14 +23,12 @@ export default async function LoginPage({
       <div className="grid w-full max-w-4xl grid-cols-1 overflow-hidden rounded-2xl border border-edge bg-surface shadow-xl shadow-slate-900/5 md:grid-cols-2">
         {/* Panel de marca */}
         <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-10 text-white md:flex">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-violet-500/20 blur-3xl" />
 
           <div className="relative">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-black shadow shadow-indigo-500/30">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-semibold shadow shadow-indigo-500/30">
               V
             </span>
-            <h1 className="mt-6 text-2xl font-black tracking-tight">
+            <h1 className="mt-6 text-2xl font-semibold tracking-tight">
               Tecnossync
               <span className="block text-sm font-medium text-indigo-300">Plataforma de Voz IA</span>
             </h1>
@@ -53,7 +51,7 @@ export default async function LoginPage({
         {/* Panel de login */}
         <div className="flex flex-col justify-center p-8 sm:p-10">
           <div className="mb-6 md:hidden">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-black text-white">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-semibold text-white">
               V
             </span>
           </div>

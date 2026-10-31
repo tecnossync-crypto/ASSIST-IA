@@ -8,6 +8,7 @@ import { LlamadasExternasWidget } from "@/components/LlamadasExternasWidget";
 import { MobileNavProvider } from "@/components/MobileNavContext";
 import { MobileMenuButton } from "@/components/MobileMenuButton";
 import { BannerEntorno } from "@/components/BannerEntorno";
+import { ContenidoPrincipal } from "@/components/ContenidoPrincipal";
 import { obtenerSesion } from "@/lib/session";
 import { BotonTelefonoEscritorio } from "@/components/BotonTelefonoEscritorio";
 import { headers } from "next/headers";
@@ -46,7 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                 <ThemeToggle />
               </div>
             </div>
-            <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-5 sm:px-6 sm:py-8 print:max-w-none print:p-0">{children}</main>
+            <ContenidoPrincipal>{children}</ContenidoPrincipal>
           </div>
           {!esEscritorioPrincipal && <PanelTelefono usuarioId={sesion?.usuarioId} nombre={sesion?.nombre} />}
           <LlamadasExternasWidget />

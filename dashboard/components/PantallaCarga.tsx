@@ -11,13 +11,13 @@ export function PantallaCarga() {
         <div className="relative flex h-16 w-16 items-center justify-center">
           {/* Anillo girando alrededor del logo */}
           <span className="absolute inset-0 animate-spin rounded-2xl border-2 border-transparent border-t-indigo-400 border-r-violet-400" />
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-lg font-black text-white shadow-lg shadow-indigo-500/40">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-lg font-semibold text-white shadow-lg shadow-indigo-500/40">
             V
           </span>
         </div>
 
         <div className="text-center">
-          <p className="ts-brand-title text-lg font-black tracking-tight">Tecnossync</p>
+          <p className="ts-brand-title text-lg font-semibold tracking-tight">Tecnossync</p>
           <p className="text-xs font-medium tracking-wide text-slate-400">Voz IA</p>
         </div>
 

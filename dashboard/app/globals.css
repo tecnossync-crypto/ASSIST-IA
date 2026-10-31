@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* Identidad Tecnossync: gradiente indigo → violeta → cian, chrome oscuro
-   slate-900/indigo-950, contenido en tarjetas claras. Misma línea que el
+/* Identidad Tecnossync: azul corporativo (la escala indigo/violeta de Tailwind se redefine abajo, así todos los
+   componentes toman la paleta sin tocarlos), chrome azul marino y contenido en tarjetas claras. Misma línea que el
    resto de la plataforma (omnichannel).
 
    Modo oscuro: en vez de repartir clases `dark:` por los ~50 archivos que
@@ -14,40 +14,40 @@
    en los dos modos. Los colores de marca/estado (indigo, emerald, amber,
    red) tampoco se tocan — se quedan igual en ambos modos. */
 :root {
-  --background: #f8fafc; /* slate-50 */
-  --foreground: #0f172a; /* slate-900 */
-  --color-surface: #ffffff; /* antes bg-white */
-  --color-surface-2: #f8fafc; /* antes bg-slate-50/100 (paneles sutiles, cabeceras de tabla) */
-  --color-edge: #e2e8f0; /* antes border/divide-slate-200/300 */
-  --color-ink: #1e293b; /* antes text-slate-800/900 */
-  --color-ink-2: #475569; /* antes text-slate-600/700 */
-  --color-muted: #64748b; /* antes text-slate-400/500 */
+  --background: #f3f5f9; /* gris azulado muy claro */
+  --foreground: #0f1b2d;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f9fc; /* paneles sutiles, cabeceras de tabla */
+  --color-edge: #dde3ec;
+  --color-ink: #0f1b2d;
+  --color-ink-2: #44546a;
+  --color-muted: #66768d;
 }
 
 /* Sin elección explícita, sigue el tema del sistema operativo. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --background: #0b1220;
-    --foreground: #e2e8f0;
-    --color-surface: #111c30;
-    --color-surface-2: #0f172a;
-    --color-edge: #263449;
-    --color-ink: #f1f5f9;
-    --color-ink-2: #cbd5e1;
-    --color-muted: #94a3b8;
+    --background: #080e1a;
+    --foreground: #eef2f8;
+    --color-surface: #0f1829;
+    --color-surface-2: #0b1322;
+    --color-edge: #1f2d44;
+    --color-ink: #eef2f8;
+    --color-ink-2: #c3cedd;
+    --color-muted: #8b9bb3;
   }
 }
 
 /* Elección explícita del usuario (botón de tema) — gana en los dos sentidos. */
 :root[data-theme="dark"] {
-  --background: #0b1220;
-  --foreground: #e2e8f0;
-  --color-surface: #111c30;
-  --color-surface-2: #0f172a;
-  --color-edge: #263449;
-  --color-ink: #f1f5f9;
-  --color-ink-2: #cbd5e1;
-  --color-muted: #94a3b8;
+  --background: #080e1a;
+  --foreground: #eef2f8;
+  --color-surface: #0f1829;
+  --color-surface-2: #0b1322;
+  --color-edge: #1f2d44;
+  --color-ink: #eef2f8;
+  --color-ink-2: #c3cedd;
+  --color-muted: #8b9bb3;
 }
 
 @theme inline {
@@ -59,9 +59,56 @@
   --color-ink: var(--color-ink);
   --color-ink-2: var(--color-ink-2);
   --color-muted: var(--color-muted);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
+
+/* Identidad visual: azul corporativo sobrio. Se redefinen las escalas "indigo" y "violet" de Tailwind (las que ya usan
+   todos los componentes) con una escala azul de baja saturación, más radios y sombras discretos. */
+@theme {
+  --color-indigo-50: #f1f5fb;
+  --color-indigo-100: #e1eaf7;
+  --color-indigo-200: #c4d6ef;
+  --color-indigo-300: #9bb9e2;
+  --color-indigo-400: #6b94d0;
+  --color-indigo-500: #4577c4;
+  --color-indigo-600: #2f5eab;
+  --color-indigo-700: #274c8a;
+  --color-indigo-800: #223f70;
+  --color-indigo-900: #1e345a;
+  --color-indigo-950: #101c33;
+
+  /* "violet" (el otro extremo de los degradados) queda como el mismo azul, un paso más oscuro: degradados tonales. */
+  --color-violet-50: #f1f5fb;
+  --color-violet-100: #e1eaf7;
+  --color-violet-200: #c4d6ef;
+  --color-violet-300: #9bb9e2;
+  --color-violet-400: #6b94d0;
+  --color-violet-500: #2f5eab;
+  --color-violet-600: #274c8a;
+  --color-violet-700: #223f70;
+  --color-violet-800: #1e345a;
+  --color-violet-900: #101c33;
+  --color-violet-950: #0b1426;
+
+  /* Azul marino para el chrome oscuro (menú, paneles de código). */
+  --color-slate-900: #0e1a2e;
+  --color-slate-950: #080f1c;
+
+  --radius-sm: 0.1875rem;
+  --radius-md: 0.3125rem;
+  --radius-lg: 0.4375rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.875rem;
+  --radius-3xl: 1.125rem;
+
+  --shadow-xs: 0 1px 1px rgb(16 24 40 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 1px rgb(16 24 40 / 0.03);
+  --shadow-md: 0 4px 10px -2px rgb(16 24 40 / 0.08), 0 2px 4px -2px rgb(16 24 40 / 0.05);
+  --shadow-lg: 0 12px 24px -6px rgb(16 24 40 / 0.14), 0 4px 8px -4px rgb(16 24 40 / 0.06);
+  --shadow-xl: 0 20px 36px -10px rgb(16 24 40 / 0.18), 0 8px 12px -6px rgb(16 24 40 / 0.07);
+}
+
 
 /* Teléfono flotante de la app de escritorio: la ventana es transparente (burbuja redonda, panel con
    esquinas redondeadas), así que ni la página ni el contenedor pueden pintar fondo propio. */
@@ -78,7 +125,12 @@ html[data-gl-telefono] [data-gl-fondo] {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Impresión / "Guardar como PDF" (Reportes): sin paneles flotantes, sin recortar por el alto de la pantalla y
@@ -95,13 +147,13 @@ body {
   :root:not([data-theme="light"]),
   :root[data-theme="dark"] {
     --background: #ffffff;
-    --foreground: #0f172a;
+    --foreground: #0f1b2d;
     --color-surface: #ffffff;
-    --color-surface-2: #f8fafc;
-    --color-edge: #e2e8f0;
-    --color-ink: #1e293b;
-    --color-ink-2: #475569;
-    --color-muted: #64748b;
+    --color-surface-2: #f7f9fc;
+    --color-edge: #dde3ec;
+    --color-ink: #0f1b2d;
+    --color-ink-2: #44546a;
+    --color-muted: #66768d;
   }
   html,
   body {
@@ -128,16 +180,55 @@ body {
   }
 }
 
+/* Títulos y botón de marca: planos (sin degradados) para un aspecto más formal. */
 .ts-brand-title {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #0891b2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
 }
 
 .ts-brand-button {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: var(--color-indigo-600);
+  border: 1px solid var(--color-indigo-700);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 1px 2px rgb(16 24 40 / 0.12);
+  transition: background-color 0.15s ease;
 }
 .ts-brand-button:hover {
-  background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+  background: var(--color-indigo-700);
+}
+
+/* Sin sombras de color (resplandores): una sombra neutra y discreta. */
+[class*="shadow-indigo-"],
+[class*="shadow-emerald-"],
+[class*="shadow-red-"],
+[class*="shadow-slate-"] {
+  --tw-shadow-color: rgb(16 24 40 / 0.14) !important;
+}
+
+/* Tipografía de títulos y cifras. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.012em;
+}
+table {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Foco visible y consistente para teclado (los campos de texto ya traen su propio anillo). */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--color-indigo-500);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-indigo-200);
+  color: #0f1b2d;
+}
+
+/* Barras de desplazamiento finas y discretas. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-muted) 45%, transparent) transparent;
 }

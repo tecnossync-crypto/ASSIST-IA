@@ -121,7 +121,7 @@ export default async function SeguimientoPage({
         </div>
       </div>
 
-      <div className="grid gap-3 lg:h-[calc(100vh-11rem)] lg:min-h-[520px] lg:grid-cols-[230px_minmax(270px,340px)_minmax(0,1fr)]">
+      <div className="grid gap-3 lg:h-[calc(100vh-11rem)] lg:min-h-[520px] lg:grid-cols-[230px_minmax(300px,400px)_minmax(0,1fr)]">
         {/* ── Filtros (como el CRM) ── */}
         <aside className="flex flex-col gap-4 overflow-y-auto rounded-xl border border-edge bg-surface p-3">
           <div>

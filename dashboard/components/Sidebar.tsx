@@ -84,8 +84,8 @@ function iniciales(nombre: string): string {
 }
 
 const CLASE_ITEM_BASE = "relative flex items-center rounded-md transition-colors";
-const CLASE_ACTIVO = "bg-white/10 text-white";
-const CLASE_INACTIVO = "text-slate-400 hover:bg-white/5 hover:text-white";
+const CLASE_ACTIVO = "bg-white/[0.08] text-white shadow-[inset_2px_0_0_0_var(--color-indigo-300)]";
+const CLASE_INACTIVO = "text-slate-400 hover:bg-white/[0.05] hover:text-slate-100";
 
 export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string; permisos?: Permisos } | null }) {
   const pathname = usePathname();
@@ -168,7 +168,7 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string; per
 
       <aside
         className={
-          "fixed inset-y-0 left-0 z-50 flex h-full min-h-0 w-64 flex-shrink-0 flex-col overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950 transition-transform duration-200 ease-out md:static md:z-auto md:w-60 md:translate-x-0 " +
+          "fixed inset-y-0 left-0 z-50 flex h-full min-h-0 w-64 flex-shrink-0 flex-col overflow-hidden border-r border-white/5 bg-gradient-to-b from-slate-900 to-indigo-950 transition-transform duration-200 ease-out md:static md:z-auto md:w-60 md:translate-x-0 " +
           (abierto ? "translate-x-0" : "-translate-x-full")
         }
       >
@@ -177,7 +177,7 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string; per
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-black text-white shadow shadow-indigo-500/30">
               V
             </span>
-            <span className="text-base font-black tracking-tight text-white">
+            <span className="text-[15px] font-semibold tracking-tight text-white">
               Tecnossync
               <span className="block text-xs font-medium text-slate-400">Voz IA</span>
             </span>
