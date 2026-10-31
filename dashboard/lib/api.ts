@@ -1691,6 +1691,7 @@ export interface ClienteSeguimiento {
   seguimiento_fecha: string | null;
   seguimiento_nota: string | null;
   seguimiento_estado: "pendiente" | "hecho" | null;
+  seguimiento_origen: "ia" | "vendedor" | null;
   ultima_llamada_en: string;
   ultima_direccion: string;
   ultima_estado: string;

@@ -153,6 +153,8 @@ export class ConversationSession {
       resumenSolicitud: resumen?.solicitud,
       resumenResultado: resumen?.resultado,
       accionPendiente: resumen?.accionPendiente,
+      seguimientoFecha: resumen?.seguimientoFecha || undefined,
+      seguimientoZona: resumen?.seguimientoZona,
       satisfaccion: resumen?.satisfaccion ?? undefined,
     }).catch((err) => {
       console.error(`[${this.callSid}] error guardando transcripción:`, err);

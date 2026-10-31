@@ -241,11 +241,38 @@ export async function correrTurno(opts: {
   };
 }
 
+/** Zona horaria en la que se interpretan frases como "mañana a las 3" (la de la empresa; por defecto República Dominicana). */
+function zonaSeguimiento(): string {
+  return process.env.SEGUIMIENTO_TZ ?? process.env.REPORTES_TZ ?? "America/Santo_Domingo";
+}
+
+/** "2026-10-30T14:05 (viernes)" en la zona dada. */
+function horaLocal(fecha: Date, zona: string): string {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: zona,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+      .formatToParts(fecha)
+      .map((x) => [x.type, x.value])
+  );
+  const dia = new Intl.DateTimeFormat("es", { timeZone: zona, weekday: "long" }).format(fecha);
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute} (${dia})`;
+}
+
 export interface ResumenLlamada {
   motivo: string;
   solicitud: string;
   resultado: string;
   accionPendiente: string;
+  /** Hora local (YYYY-MM-DDTHH:MM, en `seguimientoZona`) a la que el cliente pidió que lo vuelvan a llamar; vacío si no pidió nada. */
+  seguimientoFecha: string;
+  seguimientoZona: string;
   satisfaccion: "positiva" | "neutral" | "negativa" | null;
 }
 
@@ -258,12 +285,14 @@ export async function generarResumen(
   turnos: { hablante: string; texto: string }[],
   nombreEmpresa: string
 ): Promise<ResumenLlamada | null> {
+  const zona = zonaSeguimiento();
+  const ahoraLocal = horaLocal(new Date(), zona);
   const transcripcionPlano = turnos.map((t) => `${t.hablante}: ${t.texto}`).join("\n");
 
   try {
     const respuesta = await openai.chat.completions.create({
       model: MODEL,
-      max_tokens: 400,
+      max_tokens: 500,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -271,7 +300,16 @@ export async function generarResumen(
           content:
             `Resumes llamadas telefónicas de atención al cliente de "${nombreEmpresa}". Responde ÚNICAMENTE con un ` +
             'objeto JSON con las claves "motivo", "solicitud", "resultado", "accionPendiente" (string cada una, ' +
-            'en español, una frase corta) y "satisfaccion" ("positiva", "neutral" o "negativa").\n\n' +
+            'en español, una frase corta), "seguimientoFecha" (string, ver abajo) y "satisfaccion" ("positiva", ' +
+            '"neutral" o "negativa").\n\n' +
+            `Para "seguimientoFecha": la fecha y hora actual es ${ahoraLocal} (zona ${zona}). Si el CLIENTE pidió o ` +
+            'aceptó que lo vuelvan a llamar o contactar más adelante (ej. "llámame más tarde", "mañana en la tarde", ' +
+            '"la próxima semana", "después del almuerzo", "el lunes a las 3"), calcula CUÁNDO y responde esa fecha y ' +
+            'hora local con formato exacto YYYY-MM-DDTHH:MM (sin zona ni segundos). Reglas: "más tarde" o "en un rato" ' +
+            '= dentro de 2 horas; "mañana" sin hora = mañana 10:00; "en la tarde" = 15:00; "en la mañana" = ' +
+            '10:00; "la próxima semana" = el lunes siguiente 10:00; "después del almuerzo" = 14:00. Nunca ' +
+            'propongas una hora fuera de 08:00-18:00 ni anterior a la actual. Si el cliente NO pidió que lo ' +
+            'contacten de nuevo (o ya quedó resuelto, o rechazó), usa "" — nunca inventes un seguimiento.\n\n' +
             "REGLA ESTRICTA: básate solo en lo que literalmente dice la transcripción. Si la llamada es muy corta, " +
             "ambigua, o no queda claro el motivo real, usa \"\" (string vacío) en ese campo — NUNCA inventes un " +
             "tema, industria o necesidad que no esté explícitamente en el texto. Una sola palabra ambigua del " +
@@ -295,6 +333,8 @@ export async function generarResumen(
       solicitud: json.solicitud ?? "",
       resultado: json.resultado ?? "",
       accionPendiente: json.accionPendiente ?? "",
+      seguimientoFecha: typeof json.seguimientoFecha === "string" ? json.seguimientoFecha.trim() : "",
+      seguimientoZona: zona,
       satisfaccion: satisfaccionesValidas.includes(json.satisfaccion) ? json.satisfaccion : null,
     };
   } catch (err) {

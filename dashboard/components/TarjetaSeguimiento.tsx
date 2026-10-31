@@ -124,6 +124,12 @@ export function TarjetaSeguimiento({ c, mostrarVendedor }: { c: ClienteSeguimien
         </p>
       )}
 
+      {pendiente && c.seguimiento_origen === "ia" && !editando && (
+        <p className="mt-2 text-xs text-indigo-700 dark:text-indigo-300">
+          La IA propuso esta fecha según lo que dijo el cliente en la llamada. Confírmala o cámbiala.
+        </p>
+      )}
+
       {c.seguimiento_nota && !editando && (
         <p className="mt-2 text-xs text-ink-2">
           <span className="font-medium">Tu nota:</span> {c.seguimiento_nota}

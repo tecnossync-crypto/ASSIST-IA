@@ -71,6 +71,8 @@ export async function guardarTranscripcion(
     resumenSolicitud?: string;
     resumenResultado?: string;
     accionPendiente?: string;
+    seguimientoFecha?: string;
+    seguimientoZona?: string;
     satisfaccion?: "positiva" | "neutral" | "negativa";
   }
 ) {

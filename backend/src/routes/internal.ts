@@ -4,6 +4,44 @@ import { requireInternalKey } from "../lib/internal-auth.js";
 import { upsertContacto } from "../lib/contactos.js";
 import { aplicarVariablesContacto } from "../lib/variables-prompt.js";
 import { sintetizarVoz } from "../lib/elevenlabs.js";
+import { normalizarNumero } from "../lib/telefono.js";
+import { asegurarContacto } from "../lib/contactos.js";
+
+/**
+ * Deja el seguimiento propuesto por la IA en el contacto de la llamada. No pisa un seguimiento que programó una persona
+ * (sí reemplaza una propuesta anterior de la IA) y descarta fechas inválidas, pasadas o a más de 90 días.
+ */
+async function proponerSeguimiento(
+  llamadaId: string,
+  empresaId: string,
+  fechaLocal: string,
+  zonaRaw: string | undefined,
+  accion: string | undefined
+): Promise<void> {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fechaLocal)) return;
+  let zona = zonaRaw || "America/Santo_Domingo";
+  try {
+    new Intl.DateTimeFormat("es", { timeZone: zona });
+  } catch {
+    zona = "America/Santo_Domingo";
+  }
+  const l = await pool.query<{ direccion: string; numero_origen: string; numero_destino: string }>(
+    "SELECT direccion, numero_origen, numero_destino FROM llamadas WHERE id = $1",
+    [llamadaId]
+  );
+  if (!l.rows[0]) return;
+  const numero = normalizarNumero(l.rows[0].direccion === "saliente" ? l.rows[0].numero_destino : l.rows[0].numero_origen);
+  await asegurarContacto(empresaId, numero);
+  await pool.query(
+    `UPDATE contactos SET seguimiento_estado = 'pendiente', seguimiento_origen = 'ia',
+            seguimiento_fecha = ($3::timestamp AT TIME ZONE $4), seguimiento_nota = $5, actualizado_en = now()
+     WHERE empresa_id = $1 AND numero = $2
+       AND (seguimiento_estado IS DISTINCT FROM 'pendiente' OR seguimiento_origen IS DISTINCT FROM 'vendedor')
+       AND ($3::timestamp AT TIME ZONE $4) > now()
+       AND ($3::timestamp AT TIME ZONE $4) < now() + interval '90 days'`,
+    [empresaId, numero, fechaLocal, zona, accion?.trim() ? `La IA propone: ${accion.trim().slice(0, 500)}` : null]
+  );
+}
 
 // El modelo a veces inventa un colaId ("gestores_cobros") en vez de usar el id
 // real; si eso llega a la consulta, Postgres tira un 500 por UUID inválido y
@@ -86,12 +124,15 @@ export async function internalRoutes(app: FastifyInstance) {
       resumenSolicitud?: string;
       resumenResultado?: string;
       accionPendiente?: string;
+      seguimientoFecha?: string;
+      seguimientoZona?: string;
       satisfaccion?: "positiva" | "neutral" | "negativa";
     };
   }>("/internal/llamadas/:callSid/transcripcion", async (req, reply) => {
     const { callSid } = req.params;
     const { textoCompleto, resumenMotivo, resumenSolicitud, resumenResultado, accionPendiente, satisfaccion } =
       req.body;
+    const { seguimientoFecha, seguimientoZona } = req.body;
 
     const llamada = await pool.query<{ id: string; empresa_id: string }>(
       "SELECT id, empresa_id FROM llamadas WHERE call_sid = $1",
@@ -120,6 +161,13 @@ export async function internalRoutes(app: FastifyInstance) {
         satisfaccion ?? null,
       ]
     );
+
+    // La IA dedujo que el cliente pidió que lo vuelvan a llamar: queda como seguimiento propuesto para su vendedor.
+    if (seguimientoFecha) {
+      await proponerSeguimiento(llamadaId, empresaId, seguimientoFecha, seguimientoZona, accionPendiente).catch((err) =>
+        app.log.error({ err, callSid }, "No se pudo registrar el seguimiento propuesto por la IA")
+      );
+    }
 
     reply.send({ ok: true });
   });

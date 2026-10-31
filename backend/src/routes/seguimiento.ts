@@ -46,7 +46,7 @@ export async function seguimientoRoutes(app: FastifyInstance) {
 
     const r = await pool.query(
       `SELECT c.id, c.numero, c.nombre, c.apellido, c.etiquetas, c.propietario_usuario_id, pu.nombre AS propietario_nombre,
-              c.seguimiento_fecha, c.seguimiento_nota, c.seguimiento_estado,
+              c.seguimiento_fecha, c.seguimiento_nota, c.seguimiento_estado, c.seguimiento_origen,
               ul.iniciada_en AS ultima_llamada_en, ul.direccion AS ultima_direccion, ul.estado AS ultima_estado,
               ul.total_llamadas,
               ur.iniciada_en AS resumen_en, ur.resumen_motivo, ur.resumen_solicitud, ur.resumen_resultado,
@@ -117,6 +117,7 @@ export async function seguimientoRoutes(app: FastifyInstance) {
     // "hecho" conserva la fecha y nota como historial; sin estado se borra el seguimiento.
     await pool.query(
       `UPDATE contactos SET seguimiento_estado = $2,
+              seguimiento_origen = CASE WHEN $2::text = 'pendiente' THEN 'vendedor' WHEN $2::text IS NULL THEN NULL ELSE seguimiento_origen END,
               seguimiento_fecha = CASE WHEN $2::text IS NULL THEN NULL ELSE COALESCE($3::timestamptz, seguimiento_fecha) END,
               seguimiento_nota = CASE WHEN $2::text IS NULL THEN NULL ELSE COALESCE($4, seguimiento_nota) END,
               actualizado_en = now()
