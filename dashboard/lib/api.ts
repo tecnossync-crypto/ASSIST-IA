@@ -900,6 +900,7 @@ export interface Agente {
   // informativo, para que una integración identifique a este usuario sin
   // depender del email. No lo usa nada de la plataforma internamente.
   id_externo: string | null;
+  ids_externos: { fuente: string; valor: string }[];
   rol: string;
   pin: string | null;
   disponible: boolean;
@@ -974,6 +975,18 @@ export async function actualizarIdExternoAgente(id: string, idExterno: string): 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Error actualizando el id externo: HTTP ${res.status}`);
+  }
+}
+
+export async function guardarIdsExternosAgente(id: string, ids: { fuente: string; valor: string }[]): Promise<void> {
+  const res = await fetch(new URL(`/api/agentes/${id}/ids-externos`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, ids }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error guardando los ids: HTTP ${res.status}`);
   }
 }
 

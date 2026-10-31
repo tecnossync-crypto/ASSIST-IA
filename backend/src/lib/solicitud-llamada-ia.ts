@@ -92,8 +92,10 @@ export async function procesarSolicitudLlamadaIA(args: {
   const futura = programadaPara !== null && programadaPara.getTime() - Date.now() > 60_000;
 
   // ── Operador que la pidió, departamento fijo, referencia.
+  // La plataforma que pide la llamada (su `origen`, ej. "zoho-salesiq" o "zoho-crm") decide en qué lista de ids se busca.
+  const fuente = cuerpo.fuente ?? cuerpo.origen;
   const operadorRecibido = cuerpo.operador ?? cuerpo.operador_id ?? cuerpo.operador_email ?? cuerpo.agente;
-  const operadorUsuarioId = await resolverOperadorExterno(empresaId, operadorRecibido);
+  const operadorUsuarioId = await resolverOperadorExterno(empresaId, operadorRecibido, fuente);
   const operadorExterno =
     typeof operadorRecibido === "string" && operadorRecibido.trim() ? operadorRecibido.trim().slice(0, 200) : null;
 
@@ -154,7 +156,7 @@ export async function procesarSolicitudLlamadaIA(args: {
 
   // ── El cliente queda asignado a su propietario (lo que mandó el CRM) y, si hay transferencia a un asesor, le suena a él.
   await asegurarContacto(empresaId, numero);
-  const propietario = await mapearPropietarioCliente(empresaId, numero, cuerpo, operadorUsuarioId);
+  const propietario = await mapearPropietarioCliente(empresaId, numero, cuerpo, operadorUsuarioId, fuente);
 
   // ── Reintento si cae en buzón de voz o no contestan (por defecto 1 vez, a los 20 min).
   const porDefecto = reintentosPorDefecto();

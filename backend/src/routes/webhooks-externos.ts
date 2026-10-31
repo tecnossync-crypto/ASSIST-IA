@@ -180,6 +180,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       operador?: string;
       operador_id?: string;
       operador_email?: string;
+      fuente?: string;
       agente?: string;
     };
     Headers: { "x-api-key"?: string; "x-prueba-interna"?: string };
@@ -255,7 +256,7 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
       // Si el CRM dice quién hizo clic, la llamada se conecta con ESE asesor (su panel contesta solo, igual que
       // al marcar desde el panel). Si no se identifica, o no está Activo y libre, se reparte como siempre.
       const operadorRecibido = req.body.operador ?? req.body.operador_id ?? req.body.operador_email ?? req.body.agente;
-      const operadorIdentificadoId = await resolverOperadorExterno(empresaId, operadorRecibido);
+      const operadorIdentificadoId = await resolverOperadorExterno(empresaId, operadorRecibido, req.body.fuente ?? req.body.origen);
       const asesorDirectoId = await asesorLibre(empresaId, operadorIdentificadoId);
       const informoOperador = typeof operadorRecibido === "string" && operadorRecibido.trim() !== "";
 

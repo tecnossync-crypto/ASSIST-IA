@@ -38,7 +38,8 @@ export async function mapearPropietarioCliente(
   empresaId: string,
   numeroCrudo: string,
   cuerpo: Record<string, unknown>,
-  operadorUsuarioId: string | null
+  operadorUsuarioId: string | null,
+  fuente?: unknown
 ): Promise<ResultadoPropietario> {
   let recibido: string | null = null;
   let usuarioId: string | null = null;
@@ -46,7 +47,7 @@ export async function mapearPropietarioCliente(
     const v = cuerpo[campo];
     if (typeof v === "string" && v.trim()) {
       recibido = v.trim().slice(0, 200);
-      usuarioId = await resolverOperadorExterno(empresaId, recibido);
+      usuarioId = await resolverOperadorExterno(empresaId, recibido, fuente);
       break;
     }
   }

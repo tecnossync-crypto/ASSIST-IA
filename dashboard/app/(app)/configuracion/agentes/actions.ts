@@ -7,6 +7,7 @@ import {
   eliminarAgente,
   actualizarPasswordAgente,
   actualizarIdExternoAgente,
+  guardarIdsExternosAgente,
   actualizarColaAgente,
   actualizarEnrutamiento,
   crearCola,
@@ -128,6 +129,22 @@ export async function cambiarIdExternoAgenteAction(
   revalidatePath("/configuracion/agentes");
   revalidatePath("/configuracion/enrutamiento");
   await auditar("actualizar", "agente_id_externo", { id, idExterno });
+  return { ok: true };
+}
+
+export async function guardarIdsExternosAction(
+  id: string,
+  ids: { fuente: string; valor: string }[],
+  idGeneral: string
+): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    await actualizarIdExternoAgente(id, idGeneral);
+    await guardarIdsExternosAgente(id, ids);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Error guardando los ids." };
+  }
+  revalidatePath("/configuracion/agentes");
+  await auditar("actualizar", "agente_ids_externos", { id, ids, idGeneral });
   return { ok: true };
 }
 

@@ -40,7 +40,9 @@ export async function agentesRoutes(app: FastifyInstance) {
     const result = await pool.query(
       `SELECT u.id, u.nombre, u.email, u.telefono, u.rol, u.pin, u.disponible, u.estado_presencia, u.ultima_conexion,
               u.cola_id, c.nombre AS cola_nombre, (u.password_hash IS NOT NULL) AS tiene_acceso_dashboard,
-              (u.avatar_key IS NOT NULL) AS tiene_avatar, u.totp_habilitado, u.id_externo
+              (u.avatar_key IS NOT NULL) AS tiene_avatar, u.totp_habilitado, u.id_externo,
+              COALESCE((SELECT json_agg(json_build_object('fuente', i.fuente, 'valor', i.valor) ORDER BY i.fuente)
+                        FROM usuarios_ids_externos i WHERE i.usuario_id = u.id), '[]'::json) AS ids_externos
        FROM usuarios u
        LEFT JOIN colas c ON c.id = u.cola_id
        WHERE u.empresa_id = $1 ORDER BY u.creado_en`,
@@ -232,6 +234,53 @@ export async function agentesRoutes(app: FastifyInstance) {
     } catch (err) {
       reply.code(409).send({ error: "Ya existe otro usuario con ese email o PIN en esta empresa", detalle: String(err) });
     }
+  });
+
+  // Ids del usuario en cada plataforma externa (SalesIQ, el CRM...): reemplaza la lista completa.
+  app.put<{
+    Params: { id: string };
+    Body: { empresaId?: string; ids?: { fuente?: string; valor?: string }[] };
+  }>("/api/agentes/:id/ids-externos", async (req, reply) => {
+    const { id } = req.params;
+    const { empresaId } = req.body ?? {};
+    if (!empresaId) return reply.code(400).send({ error: "empresaId es requerido" });
+    if (!Array.isArray(req.body.ids)) return reply.code(400).send({ error: "ids debe ser una lista" });
+
+    const limpios: { fuente: string; valor: string }[] = [];
+    for (const i of req.body.ids) {
+      const fuente = typeof i?.fuente === "string" ? i.fuente.trim().toLowerCase().slice(0, 40) : "";
+      const valor = typeof i?.valor === "string" ? i.valor.trim().slice(0, 200) : "";
+      if (!fuente && !valor) continue;
+      if (!fuente || !valor) return reply.code(400).send({ error: "Cada id necesita la plataforma y el valor." });
+      if (limpios.some((x) => x.fuente === fuente && x.valor.toLowerCase() === valor.toLowerCase())) continue;
+      limpios.push({ fuente, valor });
+    }
+    if (limpios.length > 10) return reply.code(400).send({ error: "Máximo 10 ids por usuario." });
+
+    const existe = await pool.query("SELECT 1 FROM usuarios WHERE id = $1 AND empresa_id = $2", [id, empresaId]);
+    if (existe.rows.length === 0) return reply.code(404).send({ error: "no encontrado" });
+
+    const cliente = await pool.connect();
+    try {
+      await cliente.query("BEGIN");
+      await cliente.query("DELETE FROM usuarios_ids_externos WHERE usuario_id = $1", [id]);
+      for (const i of limpios) {
+        await cliente.query(
+          "INSERT INTO usuarios_ids_externos (empresa_id, usuario_id, fuente, valor) VALUES ($1, $2, $3, $4)",
+          [empresaId, id, i.fuente, i.valor]
+        );
+      }
+      await cliente.query("COMMIT");
+    } catch (err) {
+      await cliente.query("ROLLBACK").catch(() => {});
+      if ((err as { code?: string }).code === "23505") {
+        return reply.code(409).send({ error: "Ese id ya está asignado a otro usuario en esa plataforma." });
+      }
+      throw err;
+    } finally {
+      cliente.release();
+    }
+    reply.send({ ok: true });
   });
 
   app.delete<{ Params: { id: string } }>("/api/agentes/:id", async (req, reply) => {
