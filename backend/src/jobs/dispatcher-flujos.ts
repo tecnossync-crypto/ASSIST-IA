@@ -1,5 +1,5 @@
 import { pool } from "../db/pool.js";
-import { iniciarLlamadaIA } from "../lib/llamadas-ia.js";
+import { despacharColaIA } from "../lib/cola-salida-ia.js";
 import { ejecutarAccionPostLlamada } from "../lib/flujos-trabajo.js";
 
 // Cuántas llamadas programadas se originan por tick — mismo espíritu que el
@@ -14,39 +14,8 @@ const LOTE_POR_TICK = Number(process.env.FLUJOS_LOTE_POR_TICK ?? 5);
  * proceso del backend, igual que el despachador de campañas.
  */
 export async function procesarTickLlamadasProgramadas(): Promise<void> {
-  const pendientes = await pool.query<{
-    id: string;
-    empresa_id: string;
-    numero: string;
-    llamada_webhook_id: string | null;
-  }>(
-    `SELECT id, empresa_id, numero, llamada_webhook_id FROM llamadas_programadas
-     WHERE estado = 'pendiente' AND fecha_programada <= now()
-     ORDER BY fecha_programada
-     LIMIT $1`,
-    [LOTE_POR_TICK]
-  );
-
-  for (const fila of pendientes.rows) {
-    try {
-      const { callSid } = await iniciarLlamadaIA({
-        empresaId: fila.empresa_id,
-        numero: fila.numero,
-        origen: fila.llamada_webhook_id ? "api_programada" : "flujo_programado",
-        llamadaWebhookId: fila.llamada_webhook_id ?? undefined,
-      });
-      await pool.query(`UPDATE llamadas_programadas SET estado = 'completada', call_sid = $2 WHERE id = $1`, [
-        fila.id,
-        callSid,
-      ]);
-    } catch (err) {
-      console.error(`[llamadas_programadas ${fila.id}] error originando llamada:`, err);
-      await pool.query(`UPDATE llamadas_programadas SET estado = 'fallida', error = $2 WHERE id = $1`, [
-        fila.id,
-        String(err),
-      ]);
-    }
-  }
+  // La cola de salida decide cuántas salen (tope de simultáneas, horario, orden): ver lib/cola-salida-ia.ts.
+  await despacharColaIA();
 }
 
 /**

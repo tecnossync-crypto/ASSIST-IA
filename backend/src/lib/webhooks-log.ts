@@ -14,11 +14,11 @@ export async function registrarWebhookRecibido(opts: {
   error?: string;
   esPrueba?: boolean;
   callSid?: string;
-}): Promise<void> {
+}): Promise<string | null> {
   try {
-    await pool.query(
+    const r = await pool.query<{ id: string }>(
       `INSERT INTO webhooks_recibidos (empresa_id, endpoint, body, ok, error, es_prueba, call_sid)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
       [
         opts.empresaId,
         opts.endpoint,
@@ -29,7 +29,9 @@ export async function registrarWebhookRecibido(opts: {
         opts.callSid ?? null,
       ]
     );
+    return r.rows[0]?.id ?? null;
   } catch (err) {
     console.error("No se pudo registrar el webhook recibido (no bloquea la request real)", err);
+    return null;
   }
 }

@@ -1,5 +1,5 @@
 import { pool } from "../db/pool.js";
-import { iniciarLlamadaIA } from "./llamadas-ia.js";
+import { despacharColaIA, encolarLlamadaIA } from "./cola-salida-ia.js";
 import { normalizarNumero } from "./telefono.js";
 
 export type Disparador = "llamada_completada" | "llamada_no_contesta" | "llamada_transferida";
@@ -136,7 +136,9 @@ export async function ejecutarFlujosPorEtiquetasNuevas(opts: {
           [empresaId, flujo.id, contactoId, numero, String(espera)]
         );
       } else {
-        await iniciarLlamadaIA({ empresaId, numero, origen: `flujo:${flujo.id}` });
+        // Sin espera: entra a la cola de salida y sale ya si hay línea libre (respeta el tope de simultáneas y el horario).
+        await encolarLlamadaIA({ empresaId, numero, flujoId: flujo.id, contactoId });
+        await despacharColaIA();
       }
     } catch (err) {
       console.error(`[flujo ${flujo.id}] error ejecutando llamar_contacto:`, err);

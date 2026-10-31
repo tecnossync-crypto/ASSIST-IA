@@ -10,6 +10,8 @@ import {
   eliminarReglaApiLlamadas,
   probarReglasApiLlamadas,
   type ResultadoPruebaRegla,
+  guardarHorarioColaIA,
+  vaciarColaIA,
 } from "@/lib/api";
 import { auditar } from "@/lib/session";
 
@@ -177,4 +179,26 @@ export async function eliminarReglaAction(id: string) {
   await eliminarReglaApiLlamadas(id);
   revalidatePath("/configuracion/integraciones");
   await auditar("eliminar", "regla_api_llamadas", { id });
+}
+
+export async function guardarHorarioColaAction(data: {
+  desde: string | null;
+  hasta: string | null;
+  dias: number[] | null;
+  zona: string | null;
+}): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    await guardarHorarioColaIA(data);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo guardar el horario." };
+  }
+  revalidatePath("/configuracion/integraciones");
+  await auditar("actualizar", "horario_llamadas_ia", data);
+  return { ok: true };
+}
+
+export async function vaciarColaAction(): Promise<void> {
+  const n = await vaciarColaIA();
+  revalidatePath("/configuracion/integraciones");
+  await auditar("vaciar", "cola_llamadas_ia", { canceladas: n });
 }

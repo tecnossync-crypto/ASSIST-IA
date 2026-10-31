@@ -1,16 +1,14 @@
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa, resolverDestinoSaliente } from "../lib/twilio-empresa.js";
 import { registrarFallbackCentral } from "../lib/fallback-central.js";
+import { limiteSimultaneas, llamadasIAEnAire, SQL_EN_HORARIO } from "../lib/cola-salida-ia.js";
 
 // Cuántos contactos se marcan "listos para llamar" por cada tick. Es el
 // control de ritmo: con TICK_MS=20s y LOTE=3, salen ~9 llamadas/minuto por
 // todo el sistema — ajustable según lo que tolere la cuenta de Twilio.
 const LOTE_POR_TICK = Number(process.env.CAMPANAS_LOTE_POR_TICK ?? 3);
 
-// Tope de llamadas de campaña en curso AL MISMO TIEMPO (todas las campañas juntas). Sin esto, el ritmo de arriba
-// con llamadas de varios minutos satura las líneas (la central / el troncal tiene un número limitado de canales)
-// y las llamadas empiezan a salir ocupadas. Subirlo solo si la central y Twilio aguantan más.
-const MAX_SIMULTANEAS = Number(process.env.CAMPANAS_MAX_SIMULTANEAS ?? 10);
+// El tope de llamadas simultáneas es compartido con la API y los flujos: ver lib/cola-salida-ia.ts (LLAMADAS_IA_MAX_SIMULTANEAS).
 
 // Un contacto "llamando" más de este tiempo se da por perdido (el callback de Twilio nunca llegó, o el servidor se
 // reinició a mitad): se reprograma o se marca fallido en vez de quedar atascado y ocupar un lugar para siempre.
@@ -32,9 +30,8 @@ export async function procesarTickCampanas(publicBaseUrl: string) {
   await recuperarContactosAtascados();
   await completarCampanasTerminadas();
 
-  // Cuántas llamadas hay en el aire ahora: solo se origina lo que quepa bajo el tope.
-  const enAire = await pool.query<{ n: string }>(`SELECT COUNT(*) AS n FROM campana_contactos WHERE estado = 'llamando'`);
-  const cupo = MAX_SIMULTANEAS - Number(enAire.rows[0].n);
+  // Cuántas llamadas de IA hay en el aire ahora (campañas + API + flujos): solo se origina lo que quepa bajo el tope.
+  const cupo = limiteSimultaneas() - (await llamadasIAEnAire());
   if (cupo <= 0) return;
 
   const pendientes = await pool.query<{
@@ -46,10 +43,12 @@ export async function procesarTickCampanas(publicBaseUrl: string) {
     `SELECT cc.id, cc.campana_id, cc.empresa_id, cc.numero
      FROM campana_contactos cc
      JOIN campanas c ON c.id = cc.campana_id
+     JOIN empresas e ON e.id = cc.empresa_id
      WHERE c.estado = 'en_curso'
        AND cc.estado = 'pendiente'
        AND cc.es_prueba = false
        AND cc.proximo_intento_en <= now()
+       AND ${SQL_EN_HORARIO}
      ORDER BY cc.proximo_intento_en
      LIMIT $1`,
     [Math.min(LOTE_POR_TICK, cupo)]

@@ -8,7 +8,7 @@ import { registrarWebhookRecibido } from "../lib/webhooks-log.js";
 import { evaluarReglaApiLlamadas, proximaOcurrencia } from "../lib/reglas-api-llamadas.js";
 import { resolverOperadorExterno } from "../lib/operador-origen.js";
 import { asesorLibre } from "../lib/agentes.js";
-import { resolverDepartamento } from "../lib/departamentos.js";
+import { procesarSolicitudLlamadaIA } from "../lib/solicitud-llamada-ia.js";
 
 interface CampoPersonalizado {
   nombre: string;
@@ -46,251 +46,121 @@ export async function webhooksExternosRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post<{
-    Body: {
-      numero: string;
-      prompt?: string;
-      origen?: string;
-      fecha_programada?: string;
-      retraso_minutos?: number | string;
-    };
-    Headers: { "x-api-key"?: string; "x-prueba-interna"?: string };
-  }>(
+  // Límite por IP: además de frenar la fuerza bruta del API key, frena el daño si una key se filtra. Es generoso
+  // (120/min por defecto) porque un CRM que dispara muchas solicitudes seguidas sale todo desde la misma IP; para
+  // envíos grandes está además el endpoint de lote. Cada llamada igual pasa por la cola con tope de simultáneas.
+  const LIMITE_POR_MINUTO = Number(process.env.API_LLAMADAS_POR_MINUTO ?? 120);
+
+  /** API key + JSON válido: lo común de los dos endpoints de llamadas con IA. Devuelve la empresa o responde el error. */
+  async function autenticar(
+    req: { headers: { "x-api-key"?: string; "x-prueba-interna"?: string }; body: unknown },
+    reply: { code: (n: number) => { send: (b: unknown) => unknown } },
+    endpoint: "llamadas"
+  ): Promise<{ empresaId: string; esPrueba: boolean } | null> {
+    const apiKey = req.headers["x-api-key"];
+    const esPrueba = req.headers["x-prueba-interna"] === "1";
+    if (!apiKey) {
+      reply.code(401).send({ error: "Falta el header x-api-key" });
+      return null;
+    }
+    const empresa = await empresaPorApiKey(apiKey);
+    if (!empresa) {
+      reply.code(401).send({ error: "API key inválido" });
+      return null;
+    }
+    if (esJsonInvalido(req.body)) {
+      await registrarWebhookRecibido({
+        empresaId: empresa.id,
+        endpoint,
+        body: { crudo: req.body.crudo },
+        ok: false,
+        error: "El body no es JSON válido",
+        esPrueba,
+      });
+      reply.code(400).send({ error: "El body no es JSON válido", crudo: req.body.crudo });
+      return null;
+    }
+    return { empresaId: empresa.id, esPrueba };
+  }
+
+  app.post<{ Body: Record<string, unknown>; Headers: { "x-api-key"?: string; "x-prueba-interna"?: string } }>(
     "/api/webhooks/llamadas",
-    // Límite por IP: además de evitar fuerza bruta del API key, frena el
-    // daño si una key se filtra (no se pueden disparar cientos de llamadas
-    // por minuto, cada una es un costo real en la cuenta de Twilio del cliente).
-    { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
+    { config: { rateLimit: { max: LIMITE_POR_MINUTO, timeWindow: "1 minute" } } },
     async (req, reply) => {
-      const apiKey = req.headers["x-api-key"];
-      const esPrueba = req.headers["x-prueba-interna"] === "1";
-      if (!apiKey) {
-        reply.code(401).send({ error: "Falta el header x-api-key" });
-        return;
-      }
+      const auth = await autenticar(req, reply, "llamadas");
+      if (!auth) return;
+      const r = await procesarSolicitudLlamadaIA({
+        empresaId: auth.empresaId,
+        cuerpo: (req.body ?? {}) as Record<string, unknown>,
+        esPrueba: auth.esPrueba,
+      });
+      reply.code(r.codigo).send(r.cuerpo);
+    }
+  );
 
-      const empresa = await empresaPorApiKey(apiKey);
-      if (!empresa) {
-        reply.code(401).send({ error: "API key inválido" });
-        return;
-      }
-      const empresaId = empresa.id;
-
-      if (esJsonInvalido(req.body)) {
-        await registrarWebhookRecibido({
-          empresaId,
-          endpoint: "llamadas",
-          body: { crudo: req.body.crudo },
-          ok: false,
-          error: "El body no es JSON válido",
-          esPrueba,
-        });
-        reply.code(400).send({ error: "El body no es JSON válido", crudo: req.body.crudo });
-        return;
-      }
-
-      const { numero, prompt, origen, fecha_programada: fechaProgramada, retraso_minutos: retrasoRaw } = req.body ?? {};
-      // Operador que disparó la etiqueta/solicitud en la plataforma externa: su id externo, email o
-      // nombre (se identifica en Configuración → Agentes). Se usa si el reparto es "Al operador que originó".
+  // Envío masivo: muchas llamadas en UNA solicitud (ej. el seguimiento semanal de las cotizaciones enviadas). Cada
+  // elemento de "llamadas" acepta los mismos campos que la solicitud suelta; lo que se ponga arriba (origen, prompt,
+  // departamento, operador, no_repetir_horas) vale para todos salvo que el elemento traiga el suyo. Las llamadas
+  // entran a la cola y salen a ritmo controlado (tope de simultáneas, horario permitido); `espaciado_segundos`
+  // reparte las salidas en el tiempo (ej. 30 = una cada 30 s). Máximo 500 por solicitud.
+  app.post<{ Body: Record<string, unknown>; Headers: { "x-api-key"?: string; "x-prueba-interna"?: string } }>(
+    "/api/webhooks/llamadas/lote",
+    { bodyLimit: 5 * 1024 * 1024, config: { rateLimit: { max: 12, timeWindow: "1 minute" } } },
+    async (req, reply) => {
+      const auth = await autenticar(req, reply, "llamadas");
+      if (!auth) return;
       const cuerpo = (req.body ?? {}) as Record<string, unknown>;
-      const operadorRecibido = cuerpo.operador ?? cuerpo.operador_id ?? cuerpo.operador_email ?? cuerpo.agente;
-      if (!numero || typeof numero !== "string" || !/^\+?[\d\s()-]{7,}$/.test(numero)) {
-        const error = "numero es requerido y debe ser un teléfono válido (ej. +18095551234)";
-        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: false, error, esPrueba });
-        reply.code(400).send({ error });
+      const items = cuerpo.llamadas;
+      if (!Array.isArray(items) || items.length === 0) {
+        reply.code(400).send({ error: 'El cuerpo debe traer "llamadas": una lista con al menos una llamada (cada una con su "numero").' });
+        return;
+      }
+      if (items.length > 500) {
+        reply.code(400).send({ error: `Máximo 500 llamadas por solicitud (mandaste ${items.length}). Divídelas en varios lotes.` });
         return;
       }
 
-      const publicBaseUrl = process.env.PUBLIC_BASE_URL;
-      if (!publicBaseUrl) {
-        reply.code(500).send({ error: "PUBLIC_BASE_URL no está configurado" });
-        return;
-      }
+      const { llamadas: _lista, espaciado_segundos: espaciadoRaw, ...porDefecto } = cuerpo;
+      const espaciado = Math.max(0, Math.min(Number(espaciadoRaw) || 0, 3600));
+      const inicio = Date.now();
 
-      // Hora opcional en la que debe dispararse la llamada. Dos formas:
-      // - fecha_programada: fecha y hora ISO 8601 CON zona horaria
-      //   (ej. "2026-10-10T15:00:00-04:00"); sin zona sería ambiguo y la
-      //   llamada podría salir horas antes o después de lo que se quería.
-      // - retraso_minutos: llamar dentro de N minutos.
-      // Si vienen las dos, manda fecha_programada. Sin ninguna: llama ya.
-      let programadaPara: Date | null = null;
-      const errorHora = (() => {
-        if (fechaProgramada !== undefined && fechaProgramada !== null && fechaProgramada !== "") {
-          if (typeof fechaProgramada !== "string" || !/(Z|[+-]\d{2}:?\d{2})$/i.test(fechaProgramada.trim())) {
-            return "fecha_programada debe incluir la zona horaria (ej. 2026-10-10T15:00:00-04:00 o terminar en Z)";
-          }
-          const d = new Date(fechaProgramada.trim());
-          if (Number.isNaN(d.getTime())) return "fecha_programada no es una fecha válida (formato ISO 8601)";
-          if (d.getTime() - Date.now() > 90 * 24 * 60 * 60 * 1000) return "fecha_programada no puede ser a más de 90 días";
-          programadaPara = d;
-        } else if (retrasoRaw !== undefined && retrasoRaw !== null && retrasoRaw !== "") {
-          const n = Number(retrasoRaw);
-          if (!Number.isFinite(n) || n < 0) return "retraso_minutos debe ser un número de minutos (0 o más)";
-          if (n > 90 * 24 * 60) return "retraso_minutos no puede ser a más de 90 días";
-          programadaPara = new Date(Date.now() + Math.floor(n) * 60_000);
+      const detalle: Record<string, unknown>[] = [];
+      let aceptadas = 0;
+      let duplicadas = 0;
+      let errores = 0;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (typeof item !== "object" || item === null || Array.isArray(item)) {
+          errores++;
+          detalle.push({ indice: i, ok: false, error: "Cada llamada debe ser un objeto con su numero" });
+          continue;
         }
-        return null;
-      })();
-      if (errorHora) {
-        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: false, error: errorHora, esPrueba });
-        reply.code(400).send({ error: errorHora });
-        return;
-      }
-      // Si la hora ya pasó (o es dentro de menos de un minuto) se llama de una vez.
-      let llamarDespues = programadaPara !== null && programadaPara.getTime() - Date.now() > 60_000;
-
-      const twilioEmpresa = await clienteTwilioEmpresa(empresaId);
-      if (!twilioEmpresa) {
-        const error = "La empresa no tiene credenciales Twilio configuradas";
-        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: false, error, esPrueba });
-        reply.code(400).send({ error });
-        return;
-      }
-
-      // Si alguna regla de Configuración → Integraciones matchea (según los
-      // campos que mandó esta plataforma externa), su guion manda por
-      // encima del "prompt" crudo que haya mandado la plataforma — así la
-      // empresa controla el guion real en vez de confiar en texto libre
-      // que a veces es solo una nota de contexto, no un prompt de verdad.
-      const reglaAplicada = await evaluarReglaApiLlamadas(empresaId, req.body as Record<string, unknown>);
-      // Un prompt vacío, de solo espacios o que no sea texto cuenta como "no
-      // mandó prompt": cae al prompt genérico de la empresa.
-      const promptCliente = typeof prompt === "string" && prompt.trim() ? prompt.trim().slice(0, 8000) : undefined;
-      const promptFinal = reglaAplicada?.promptPersonalizado ?? promptCliente;
-
-      // Si la plataforma no pidió una hora en el POST, la regla que aplicó
-      // puede traer la suya (Reglas del API → "Cuándo se hace la llamada"):
-      // una fecha fija todavía futura, o una espera en minutos.
-      if (!programadaPara && reglaAplicada) {
-        const fija = reglaAplicada.fechaProgramada;
-        const espera = reglaAplicada.retrasoMinutos;
-        if (reglaAplicada.horaDelDia && reglaAplicada.zonaHoraria) {
-          // "A las 12:00": sale la próxima vez que sea esa hora (hoy si aún no
-          // llega, mañana si ya pasó) — lo del día anterior sale a esa hora.
-          programadaPara = await proximaOcurrencia(reglaAplicada.horaDelDia, reglaAplicada.zonaHoraria);
-        } else if (fija && fija.getTime() - Date.now() > 60_000) {
-          programadaPara = fija;
-        } else if (espera && espera > 0) {
-          programadaPara = new Date(Date.now() + espera * 60_000);
+        const r = await procesarSolicitudLlamadaIA({
+          empresaId: auth.empresaId,
+          cuerpo: { ...porDefecto, ...(item as Record<string, unknown>) },
+          esPrueba: auth.esPrueba,
+          noAntesDe: espaciado > 0 ? new Date(inicio + i * espaciado * 1000) : null,
+        });
+        const numero = (item as Record<string, unknown>).numero;
+        if (r.codigo >= 400) {
+          errores++;
+          detalle.push({ indice: i, numero, ok: false, error: r.cuerpo.error });
+        } else if (r.cuerpo.duplicada) {
+          duplicadas++;
+          detalle.push({ indice: i, numero, ok: true, duplicada: true, motivo: r.cuerpo.motivo });
+        } else {
+          aceptadas++;
+          detalle.push({
+            indice: i,
+            numero,
+            ok: true,
+            ...(r.cuerpo.callSid ? { estado: "llamando", callSid: r.cuerpo.callSid } : r.cuerpo.programada ? { estado: "programada" } : { estado: "en_cola", posicion_en_cola: r.cuerpo.posicion_en_cola }),
+            ...(r.cuerpo.regla_aplicada ? { regla_aplicada: r.cuerpo.regla_aplicada } : {}),
+            ...(r.cuerpo.aviso && !r.cuerpo.en_cola ? { aviso: r.cuerpo.aviso } : {}),
+          });
         }
-        llamarDespues = programadaPara !== null && programadaPara.getTime() - Date.now() > 60_000;
       }
-
-      const operadorUsuarioId = await resolverOperadorExterno(empresaId, operadorRecibido);
-      const operadorExterno =
-        typeof operadorRecibido === "string" && operadorRecibido.trim() ? operadorRecibido.trim().slice(0, 200) : null;
-
-      // Departamento explícito (nombre o id): toda la llamada queda en él. Sin esto la IA elige sola, por el NOMBRE de
-      // los departamentos y el contexto de la llamada (por eso una llamada de pagos podía terminar en "Cobros").
-      const departamentoRecibido = cuerpo.departamento ?? cuerpo.colaId ?? cuerpo.cola_id ?? cuerpo.cola;
-      const departamento = await resolverDepartamento(empresaId, departamentoRecibido);
-      const departamentoTexto =
-        typeof departamentoRecibido === "string" && departamentoRecibido.trim() ? departamentoRecibido.trim().slice(0, 200) : null;
-      const infoDepartamento = departamentoTexto
-        ? {
-            departamento_encontrado: Boolean(departamento),
-            ...(departamento
-              ? { departamento_asignado: departamento.nombre }
-              : { aviso: `El departamento "${departamentoTexto}" no coincide con ninguno de Configuración → Enrutamiento; la IA elegirá sola.` }),
-          }
-        : {};
-
-      const solicitud = await pool.query<{ id: string }>(
-        `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para,
-                                       operador_usuario_id, operador_externo, cola_id, departamento_recibido)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-        [
-          empresaId,
-          numero,
-          promptFinal ?? null,
-          origen ?? null,
-          reglaAplicada?.reglaId ?? null,
-          llamarDespues ? programadaPara : null,
-          operadorUsuarioId,
-          operadorExterno,
-          departamento?.id ?? null,
-          departamentoTexto,
-        ]
-      );
-      const llamadaWebhookId = solicitud.rows[0].id;
-
-      await asegurarContacto(empresaId, numero);
-
-      // Con hora futura: no se llama ahora, queda en la cola de llamadas
-      // programadas (la despacha jobs/dispatcher-flujos.ts, con este prompt).
-      if (llamarDespues && programadaPara) {
-        await pool.query(
-          `INSERT INTO llamadas_programadas (empresa_id, numero, fecha_programada, llamada_webhook_id)
-           VALUES ($1, $2, $3, $4)`,
-          [empresaId, numero, programadaPara, llamadaWebhookId]
-        );
-        app.log.info({ numero, origen, programadaPara }, "Llamada vía webhook externo programada");
-        await registrarWebhookRecibido({ empresaId, endpoint: "llamadas", body: req.body, ok: true, esPrueba });
-        reply.send({
-          ok: true,
-          programada: true,
-          fecha_programada: programadaPara.toISOString(),
-          id: llamadaWebhookId,
-          regla_aplicada: reglaAplicada?.nombre ?? null,
-          ...infoDepartamento,
-          ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
-        });
-        return;
-      }
-
-      try {
-        const { to, sendDigits, urlExtra, porCentralPropia } = resolverDestinoSaliente(
-          numero,
-          twilioEmpresa.centralPropia
-        );
-        const call = await twilioEmpresa.client.calls.create({
-          to,
-          from: twilioEmpresa.fromNumber,
-          url: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&webhookLlamadaId=${llamadaWebhookId}${urlExtra}`,
-          method: "POST",
-          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
-          statusCallbackMethod: "POST",
-          statusCallbackEvent: ["completed"],
-          timeout: twilioEmpresa.timeoutTimbrado,
-          sendDigits,
-        });
-
-        registrarFallbackCentral(call.sid, porCentralPropia, {
-          empresaId,
-          numero,
-          voiceUrl: `${publicBaseUrl}/webhooks/twilio/voice-outbound?empresaId=${empresaId}&webhookLlamadaId=${llamadaWebhookId}`,
-          statusCallback: `${publicBaseUrl}/webhooks/twilio/call-status`,
-        });
-
-        app.log.info({ callSid: call.sid, numero, origen }, "Llamada originada vía webhook externo");
-        await registrarWebhookRecibido({
-          empresaId,
-          endpoint: "llamadas",
-          body: req.body,
-          ok: true,
-          esPrueba,
-          callSid: call.sid,
-        });
-        reply.send({
-          ok: true,
-          callSid: call.sid,
-          id: llamadaWebhookId,
-          regla_aplicada: reglaAplicada?.nombre ?? null,
-          ...infoDepartamento,
-          ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
-        });
-      } catch (err) {
-        app.log.error({ err, numero }, "Error originando llamada vía webhook externo");
-        await registrarWebhookRecibido({
-          empresaId,
-          endpoint: "llamadas",
-          body: req.body,
-          ok: false,
-          error: String(err),
-          esPrueba,
-        });
-        reply.code(502).send({ error: "No se pudo originar la llamada", detalle: String(err) });
-      }
+      reply.send({ ok: errores === 0, total: items.length, aceptadas, duplicadas, errores, detalle });
     }
   );
 

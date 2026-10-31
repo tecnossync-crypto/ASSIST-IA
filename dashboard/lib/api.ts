@@ -1628,3 +1628,52 @@ export async function obtenerReporteIA(params: {
   const res = await fetch(url, { cache: "no-store" });
   return leerJson<ReporteIA>(res, "Error obteniendo el reporte");
 }
+
+// ── Cola de salida de llamadas de IA (envío masivo)
+
+export interface EstadoColaIA {
+  limite: number;
+  en_aire: number;
+  pendientes: number;
+  pendientes_fuera_de_horario: number;
+  proxima: string | null;
+  enviadas_hoy: number;
+  fallidas_hoy: number;
+  horario: { desde: string | null; hasta: string | null; dias: number[] | null; zona: string };
+  en_horario: boolean;
+}
+
+export async function obtenerColaIA(): Promise<EstadoColaIA> {
+  const url = new URL("/api/llamadas-ia/cola", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error leyendo la cola: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function guardarHorarioColaIA(data: {
+  desde: string | null;
+  hasta: string | null;
+  dias: number[] | null;
+  zona: string | null;
+}): Promise<void> {
+  const res = await fetch(new URL("/api/llamadas-ia/horario", BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, ...data }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error guardando el horario: HTTP ${res.status}`);
+  }
+}
+
+export async function vaciarColaIA(): Promise<number> {
+  const res = await fetch(new URL("/api/llamadas-ia/cola/vaciar", BACKEND_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID }),
+  });
+  if (!res.ok) throw new Error(`Error vaciando la cola: HTTP ${res.status}`);
+  return (await res.json()).canceladas;
+}

@@ -12,6 +12,7 @@ import {
 } from "../lib/twiml.js";
 import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
 import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
+import { despacharColaIA, marcarTerminadaEnCola } from "../lib/cola-salida-ia.js";
 import { reprogramarOFallar } from "../jobs/dispatcher-campanas.js";
 import { asegurarContacto } from "../lib/contactos.js";
 import { ejecutarFlujosTrabajo } from "../lib/flujos-trabajo.js";
@@ -644,6 +645,13 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         }
       } else {
         descartarFallbackCentral(callSid);
+      }
+
+      // La llamada de la cola de salida (API / flujos) terminó: libera su lugar y, si hay llamadas esperando, sale la siguiente.
+      if (["completed", "busy", "no-answer", "failed", "canceled"].includes(status)) {
+        marcarTerminadaEnCola(callSid)
+          .then(() => despacharColaIA())
+          .catch((err) => app.log.error({ err, callSid }, "Error liberando la cola de salida"));
       }
 
       // Una llamada que terminó ya no espera en la cola (el cliente colgó, etc.).

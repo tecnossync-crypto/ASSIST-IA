@@ -14,8 +14,10 @@ import {
   Wrench,
   Activity,
   UserCog,
+  Layers,
 } from "lucide-react";
-import { obtenerEmpresa, listarWebhooksRecientes, listarReglasApiLlamadas } from "@/lib/api";
+import { obtenerEmpresa, listarWebhooksRecientes, listarReglasApiLlamadas, obtenerColaIA } from "@/lib/api";
+import { ColaEnvioMasivo } from "@/components/ColaEnvioMasivo";
 import { formatFechaHora } from "@/lib/format";
 import { ConfiguracionHeader } from "@/components/ConfiguracionHeader";
 import { ApiKeyManager } from "@/components/ApiKeyManager";
@@ -42,6 +44,7 @@ const PROXIMAMENTE = [
 
 const PESTANAS: PestanaConfig[] = [
   { id: "llamadas", etiqueta: "Llamadas con IA", Icon: Bot },
+  { id: "masivo", etiqueta: "Envío masivo", Icon: Layers },
   { id: "conexion", etiqueta: "Conexión y pruebas", Icon: KeyRound },
   { id: "otras", etiqueta: "Otras APIs", Icon: Wrench },
   { id: "actividad", etiqueta: "Actividad", Icon: Activity },
@@ -65,10 +68,11 @@ export default async function IntegracionesPage({
   const { seccion } = await searchParams;
   const activa = PESTANAS.some((p) => p.id === seccion) ? (seccion as string) : "llamadas";
 
-  const [empresa, { solicitudes }, reglas] = await Promise.all([
+  const [empresa, { solicitudes }, reglas, cola] = await Promise.all([
     obtenerEmpresa(),
     listarWebhooksRecientes({ limite: 10 }).catch(() => ({ solicitudes: [], total: 0 })),
     listarReglasApiLlamadas().catch(() => []),
+    activa === "masivo" ? obtenerColaIA().catch(() => null) : Promise.resolve(null),
   ]);
   const backendPublicUrl = process.env.NEXT_PUBLIC_BACKEND_PUBLIC_URL || "https://TU-DOMINIO-BACKEND";
 
@@ -149,6 +153,13 @@ export default async function IntegracionesPage({
                 para que compruebes que lo reconoció.
               </li>
               <li>
+                <span className="font-mono text-ink-2">referencia</span> — opcional. El id del registro en tu CRM (ej.
+                la cotización): si repites la misma referencia dentro de{" "}
+                <span className="font-mono">no_repetir_horas</span> (24 por defecto) no se vuelve a llamar. Si hay muchas
+                llamadas a la vez, quedan en cola (<span className="font-mono">en_cola: true</span>) y salen solas; mira
+                la pestaña Envío masivo.
+              </li>
+              <li>
                 <span className="font-mono text-ink-2">origen</span> — opcional, libre, solo para identificar de dónde
                 vino la solicitud (también lo pueden usar las reglas de abajo para decidir el guion).
               </li>
@@ -161,6 +172,67 @@ export default async function IntegracionesPage({
             descripcion="Algunas plataformas (ej. Zoho SalesIQ) mandan como “prompt” una nota corta de contexto, no un guion de verdad, y esa nota terminaba reemplazando TODO el prompt del bot. Con una regla, tú controlas el guion real; el campo que llegó en el POST (ej. origen) solo decide CUÁL regla aplica. Cada regla también decide cuándo se hace la llamada. Se evalúan en orden: gana la primera que coincide, y si ninguna coincide se usa el comportamiento normal de arriba. Puedes editar el prompt de cada regla y activarla o desactivarla con su interruptor."
           >
             <ReglasApiLlamadas reglas={reglas} />
+          </SeccionConfig>
+        </div>
+      )}
+
+      {activa === "masivo" && (
+        <div className="flex flex-col gap-5">
+          <SeccionConfig
+            Icon={Layers}
+            titulo="Estado de la cola de salida"
+            descripcion="Todas las llamadas de IA que salen solas (API, flujos y campañas) comparten un tope de llamadas simultáneas. Lo que no cabe espera en cola y sale en orden cuando se libera una línea, así un lote grande del CRM no satura la central."
+          >
+            {cola ? (
+              <ColaEnvioMasivo estado={cola} />
+            ) : (
+              <p className="text-sm text-muted">No se pudo leer el estado de la cola.</p>
+            )}
+          </SeccionConfig>
+
+          <SeccionConfig
+            Icon={Webhook}
+            titulo="Enviar un lote desde el CRM"
+            descripcion="Un solo POST con hasta 500 llamadas. Cada una se valida por separado y la respuesta dice cuáles se aceptaron, cuáles eran duplicadas y cuáles fallaron."
+          >
+            <Codigo>{`curl -X POST ${backendPublicUrl}/api/webhooks/llamadas/lote \\
+  -H "content-type: application/json" \\
+  -H "x-api-key: TU_API_KEY" \\
+  -d '{
+    "origen": "zoho-crm",
+    "departamento": "Ventas",
+    "prompt": "Da seguimiento a la cotización enviada",
+    "no_repetir_horas": 168,
+    "espaciado_segundos": 20,
+    "llamadas": [
+      { "numero": "+18095551234", "referencia": "COT-1001" },
+      { "numero": "+18095555678", "referencia": "COT-1002", "operador": "maria@tuempresa.com" }
+    ]
+  }'`}</Codigo>
+            <ul className="mt-3 space-y-1.5 text-xs text-muted">
+              <li>
+                <span className="font-mono text-ink-2">llamadas</span> — la lista (máx. 500). Cada elemento acepta los
+                mismos campos que el POST individual; los de arriba (origen, prompt, departamento, operador) son valores
+                por defecto que el elemento puede sobrescribir.
+              </li>
+              <li>
+                <span className="font-mono text-ink-2">referencia</span> — el id del registro en tu CRM (ej. la
+                cotización). Evita llamar dos veces por lo mismo: si ya hay una llamada con esa referencia dentro de la
+                ventana, responde <span className="font-mono">duplicada: true</span> y no llama de nuevo.
+              </li>
+              <li>
+                <span className="font-mono text-ink-2">no_repetir_horas</span> — la ventana anti-duplicados (por
+                defecto 24). Para seguimiento semanal usa 168; para diario, 24.
+              </li>
+              <li>
+                <span className="font-mono text-ink-2">espaciado_segundos</span> — separa las salidas: la llamada
+                número N sale N × espaciado segundos después (0–3600). Útil para repartir un lote grande.
+              </li>
+              <li>
+                Para seguimientos recurrentes (cada semana, cada día), programa el envío desde el CRM (un workflow o
+                función programada de Zoho) y manda el lote cuando toque; la plataforma se encarga del ritmo.
+              </li>
+            </ul>
           </SeccionConfig>
         </div>
       )}
