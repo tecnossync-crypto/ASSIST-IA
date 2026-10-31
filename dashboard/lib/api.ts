@@ -1692,6 +1692,7 @@ export interface ClienteSeguimiento {
   seguimiento_nota: string | null;
   seguimiento_estado: "pendiente" | "hecho" | null;
   seguimiento_origen: "ia" | "vendedor" | null;
+  propietario_externo: string | null;
   ultima_llamada_en: string;
   ultima_direccion: string;
   ultima_estado: string;
@@ -1733,4 +1734,47 @@ export async function guardarSeguimiento(
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Error guardando el seguimiento: HTTP ${res.status}`);
   }
+}
+
+export interface LlamadaConversacion {
+  id: string;
+  iniciada_en: string;
+  direccion: "entrante" | "saliente";
+  estado: string;
+  duracion_segundos: number | null;
+  transferida: boolean;
+  resultado_automatico: string | null;
+  texto_completo: unknown;
+  resumen_motivo: string | null;
+  resumen_solicitud: string | null;
+  resumen_resultado: string | null;
+  accion_pendiente: string | null;
+  satisfaccion: string | null;
+}
+
+export interface ConversacionCliente {
+  contacto: {
+    id: string;
+    numero: string;
+    nombre: string | null;
+    apellido: string | null;
+    etiquetas: string[];
+    propietario_usuario_id: string | null;
+    propietario_nombre: string | null;
+    propietario_externo: string | null;
+    seguimiento_fecha: string | null;
+    seguimiento_nota: string | null;
+    seguimiento_estado: "pendiente" | "hecho" | null;
+    seguimiento_origen: "ia" | "vendedor" | null;
+  };
+  llamadas: LlamadaConversacion[];
+}
+
+export async function obtenerConversacion(contactoId: string, visiblePara?: string): Promise<ConversacionCliente> {
+  const url = new URL(`/api/seguimiento/${contactoId}/conversacion`, BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  if (visiblePara) url.searchParams.set("visiblePara", visiblePara);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error obteniendo la conversación: HTTP ${res.status}`);
+  return res.json();
 }

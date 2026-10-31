@@ -6,6 +6,7 @@ import { evaluarReglaApiLlamadas, proximaOcurrencia } from "./reglas-api-llamada
 import { resolverOperadorExterno } from "./operador-origen.js";
 import { resolverDepartamento } from "./departamentos.js";
 import { despacharColaIA, encolarLlamadaIA } from "./cola-salida-ia.js";
+import { mapearPropietarioCliente } from "./propietario-cliente.js";
 
 export interface ResultadoSolicitud {
   codigo: number;
@@ -171,6 +172,7 @@ export async function procesarSolicitudLlamadaIA(args: {
   );
   const llamadaWebhookId = solicitud.rows[0].id;
   await asegurarContacto(empresaId, numero);
+  const propietario = await mapearPropietarioCliente(empresaId, numero, cuerpo, operadorUsuarioId);
 
   const recibidoId = await registrar(true);
   if (recibidoId) await pool.query("UPDATE llamadas_webhook SET recibido_id = $2 WHERE id = $1", [llamadaWebhookId, recibidoId]);
@@ -182,6 +184,7 @@ export async function procesarSolicitudLlamadaIA(args: {
     ...infoDepartamento,
     ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
     ...(referencia ? { referencia } : {}),
+    ...(propietario.recibido ? { propietario_identificado: Boolean(propietario.usuarioId) } : {}),
   };
 
   if (futura && programadaPara) {

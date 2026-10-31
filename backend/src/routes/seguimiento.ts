@@ -13,7 +13,7 @@ const SQL_VISIBLE_PARA = (n: number) => `(c.propietario_usuario_id = $${n} OR EX
            WHERE lv.empresa_id = c.empresa_id AND lv.agente_usuario_id = $${n}
              AND (lv.numero_origen = c.numero OR lv.numero_destino = c.numero)))`;
 
-const FILTROS = ["todos", "pendientes", "vencidos", "por_programar"] as const;
+const FILTROS = ["todos", "pendientes", "vencidos", "por_programar", "hechos"] as const;
 
 export async function seguimientoRoutes(app: FastifyInstance) {
   app.get<{
@@ -38,6 +38,7 @@ export async function seguimientoRoutes(app: FastifyInstance) {
       const i = valores.length;
       condiciones.push(`(c.numero ILIKE $${i} OR c.nombre ILIKE $${i} OR c.apellido ILIKE $${i})`);
     }
+    if (filtro === "hechos") condiciones.push("c.seguimiento_estado = 'hecho'");
     if (filtro === "pendientes") condiciones.push("c.seguimiento_estado = 'pendiente'");
     if (filtro === "vencidos") condiciones.push("c.seguimiento_estado = 'pendiente' AND c.seguimiento_fecha <= now()");
     if (filtro === "por_programar") {
@@ -46,7 +47,7 @@ export async function seguimientoRoutes(app: FastifyInstance) {
 
     const r = await pool.query(
       `SELECT c.id, c.numero, c.nombre, c.apellido, c.etiquetas, c.propietario_usuario_id, pu.nombre AS propietario_nombre,
-              c.seguimiento_fecha, c.seguimiento_nota, c.seguimiento_estado, c.seguimiento_origen,
+              c.seguimiento_fecha, c.seguimiento_nota, c.seguimiento_estado, c.seguimiento_origen, c.propietario_externo,
               ul.iniciada_en AS ultima_llamada_en, ul.direccion AS ultima_direccion, ul.estado AS ultima_estado,
               ul.total_llamadas,
               ur.iniciada_en AS resumen_en, ur.resumen_motivo, ur.resumen_solicitud, ur.resumen_resultado,
@@ -78,6 +79,46 @@ export async function seguimientoRoutes(app: FastifyInstance) {
     );
     return { clientes: r.rows };
   });
+
+  // La conversación con un cliente, como un chat: sus últimas llamadas con lo que dijo cada quien y el resumen.
+  app.get<{ Params: { id: string }; Querystring: { empresaId?: string; visiblePara?: string } }>(
+    "/api/seguimiento/:id/conversacion",
+    async (req, reply) => {
+      const { id } = req.params;
+      const { empresaId, visiblePara } = req.query;
+      if (!empresaId) return reply.code(400).send({ error: "empresaId es requerido" });
+
+      const valores: unknown[] = [id, empresaId];
+      let visible = "";
+      if (visiblePara) {
+        valores.push(visiblePara);
+        visible = ` AND ${SQL_VISIBLE_PARA(3)}`;
+      }
+      const c = await pool.query(
+        `SELECT c.id, c.numero, c.nombre, c.apellido, c.etiquetas, c.propietario_usuario_id, pu.nombre AS propietario_nombre,
+                c.propietario_externo, c.seguimiento_fecha, c.seguimiento_nota, c.seguimiento_estado, c.seguimiento_origen
+         FROM contactos c LEFT JOIN usuarios pu ON pu.id = c.propietario_usuario_id
+         WHERE c.id = $1 AND c.empresa_id = $2${visible}`,
+        valores
+      );
+      if (c.rows.length === 0) return reply.code(404).send({ error: "no encontrado" });
+      const contacto = c.rows[0];
+
+      const llamadas = await pool.query(
+        `SELECT l.id, l.iniciada_en, l.direccion, l.estado, l.duracion_segundos, l.transferida, l.resultado_automatico,
+                t.texto_completo, t.resumen_motivo, t.resumen_solicitud, t.resumen_resultado, t.accion_pendiente, t.satisfaccion
+         FROM llamadas l
+         LEFT JOIN LATERAL (
+           SELECT * FROM transcripciones WHERE llamada_id = l.id ORDER BY creado_en DESC LIMIT 1
+         ) t ON true
+         WHERE l.empresa_id = $1 AND (l.contacto_id = $2 OR l.numero_origen = $3 OR l.numero_destino = $3)
+         ORDER BY l.iniciada_en DESC LIMIT 6`,
+        [empresaId, id, contacto.numero]
+      );
+      // Del más viejo al más nuevo, como se lee un chat.
+      return { contacto, llamadas: llamadas.rows.reverse() };
+    }
+  );
 
   // Programa, edita o marca como hecho el seguimiento de un cliente.
   app.put<{
