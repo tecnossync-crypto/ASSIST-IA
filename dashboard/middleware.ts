@@ -20,7 +20,7 @@ const REGLAS: { prefijos: string[]; permitido: (p: Permisos) => boolean }[] = [
   { prefijos: ["/campanas", "/api/campanas"], permitido: (p) => p.campanas },
   { prefijos: ["/api/contactos/por-etiqueta"], permitido: (p) => p.campanas || p.contactos !== "ninguno" },
   { prefijos: ["/api/contactos/importar"], permitido: (p) => p.contactos === "todos" && p.contactos_editar },
-  { prefijos: ["/contactos", "/api/contactos"], permitido: (p) => p.contactos !== "ninguno" },
+  { prefijos: ["/contactos", "/api/contactos", "/seguimiento", "/api/seguimiento"], permitido: (p) => p.contactos !== "ninguno" },
 ];
 // A dónde mandar a quien cae en una ruta que no le toca. /llamadas nunca se bloquea (si no tiene acceso a
 // llamadas, la propia página lo explica), así que no puede haber un bucle de redirecciones.

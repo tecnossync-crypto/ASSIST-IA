@@ -1677,3 +1677,59 @@ export async function vaciarColaIA(): Promise<number> {
   if (!res.ok) throw new Error(`Error vaciando la cola: HTTP ${res.status}`);
   return (await res.json()).canceladas;
 }
+
+// ── Seguimiento de clientes por vendedor
+
+export interface ClienteSeguimiento {
+  id: string;
+  numero: string;
+  nombre: string | null;
+  apellido: string | null;
+  etiquetas: string[];
+  propietario_usuario_id: string | null;
+  propietario_nombre: string | null;
+  seguimiento_fecha: string | null;
+  seguimiento_nota: string | null;
+  seguimiento_estado: "pendiente" | "hecho" | null;
+  ultima_llamada_en: string;
+  ultima_direccion: string;
+  ultima_estado: string;
+  total_llamadas: string | number;
+  resumen_en: string | null;
+  resumen_motivo: string | null;
+  resumen_solicitud: string | null;
+  resumen_resultado: string | null;
+  accion_pendiente: string | null;
+  satisfaccion: string | null;
+  llamada_id: string | null;
+}
+
+export async function listarSeguimiento(params: {
+  filtro?: string;
+  q?: string;
+  visiblePara?: string;
+  propietarioId?: string;
+}): Promise<ClienteSeguimiento[]> {
+  const url = new URL("/api/seguimiento", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  for (const [k, v] of Object.entries(params)) if (v) url.searchParams.set(k, v);
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error listando el seguimiento: HTTP ${res.status}`);
+  return (await res.json()).clientes;
+}
+
+export async function guardarSeguimiento(
+  contactoId: string,
+  datos: { estado: "pendiente" | "hecho" | null; fecha?: string | null; nota?: string | null },
+  visiblePara?: string
+): Promise<void> {
+  const res = await fetch(new URL(`/api/contactos/${contactoId}/seguimiento`, BACKEND_URL), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ empresaId: EMPRESA_ID, visiblePara, ...datos }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error guardando el seguimiento: HTTP ${res.status}`);
+  }
+}

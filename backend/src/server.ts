@@ -39,6 +39,7 @@ import { grabacionesRoutes } from "./routes/grabaciones.js";
 import { webhooksExternosRoutes } from "./routes/webhooks-externos.js";
 import { reglasApiRoutes } from "./routes/reglas-api.js";
 import { colaLlamadasIARoutes } from "./routes/cola-llamadas-ia.js";
+import { seguimientoRoutes } from "./routes/seguimiento.js";
 import { almacenamientoRoutes } from "./routes/almacenamiento.js";
 import { integracionesNubeRoutes } from "./routes/integraciones-nube.js";
 import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
@@ -115,6 +116,7 @@ await app.register(grabacionesRoutes);
 await app.register(webhooksExternosRoutes);
 await app.register(reglasApiRoutes);
 await app.register(colaLlamadasIARoutes);
+await app.register(seguimientoRoutes);
 await app.register(almacenamientoRoutes);
 await app.register(integracionesNubeRoutes);
 

@@ -23,6 +23,7 @@ import {
   HardDrive,
   History,
   BarChart3,
+  CalendarClock,
 } from "lucide-react";
 import { cerrarSesionAction } from "@/app/logout/actions";
 import { useMobileNav } from "./MobileNavContext";
@@ -35,6 +36,7 @@ const ITEMS = [
   { href: "/reportes", label: "Reportes", Icon: BarChart3 },
   { href: "/campanas", label: "Campañas", Icon: Megaphone },
   { href: "/contactos", label: "Contactos", Icon: Users },
+  { href: "/seguimiento", label: "Seguimiento", Icon: CalendarClock },
 ];
 
 // Solo admin. "Registros API" vive acá (aunque su ruta es /api-logs) para
@@ -102,6 +104,7 @@ export function Sidebar({ sesion }: { sesion: { nombre: string; rol: string; per
     "/reportes": permisos.resumen,
     "/campanas": permisos.campanas,
     "/contactos": permisos.contactos !== "ninguno",
+    "/seguimiento": permisos.contactos !== "ninguno",
     "/supervision": permisos.supervision,
   };
   const items = (veSupervision ? [...ITEMS.slice(0, 2), ...ITEMS_SUPERVISION, ...ITEMS.slice(2)] : ITEMS).filter(
