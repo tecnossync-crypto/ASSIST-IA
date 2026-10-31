@@ -45,6 +45,7 @@ import { integracionesNubeRoutes } from "./routes/integraciones-nube.js";
 import { procesarTickCampanas } from "./jobs/dispatcher-campanas.js";
 import { procesarTickLlamadasProgramadas, procesarTickFlujosPendientes } from "./jobs/dispatcher-flujos.js";
 import { limpiarGrabacionesVencidas } from "./jobs/limpiar-grabaciones.js";
+import { limpiarLlamadasHuerfanas } from "./lib/limpieza-llamadas.js";
 
 // Red de seguridad a nivel de proceso: sin esto, CUALQUIER excepción no
 // capturada en CUALQUIER parte del código (incluidas librerías de
@@ -170,6 +171,12 @@ if (publicBaseUrl) {
 } else {
   app.log.warn("PUBLIC_BASE_URL no configurado: despachador de campañas deshabilitado");
 }
+
+// Red de seguridad: cada minuto cierra en Twilio las llamadas que quedaron abiertas (asesor colgó y el cliente sigue,
+// o al revés) — ver lib/limpieza-llamadas.ts.
+setInterval(() => {
+  limpiarLlamadasHuerfanas().catch((err) => app.log.error(err, "Error en la limpieza de llamadas abiertas"));
+}, Number(process.env.LIMPIEZA_LLAMADAS_TICK_MS ?? 60_000));
 
 // Limpieza de grabaciones vencidas (retención configurable por empresa,
 // 30 días por defecto): corre una vez por hora, no hace falta más seguido.
