@@ -184,7 +184,7 @@ async function hablar(ws: WebSocket, session: ConversationSession, texto: string
   if (session.usaVozClonada()) {
     try {
       const audio = await sintetizarVozElevenLabs(session.empresaId, texto);
-      enviar(ws, { type: "play", source: audioTemporalUrl(audio), interruptible: true });
+      enviar(ws, { type: "play", source: audioTemporalUrl(audio), interruptible: false });
       return;
     } catch (err) {
       console.error(`[${session.callSid}] Error sintetizando con ElevenLabs, uso voz por defecto:`, err);

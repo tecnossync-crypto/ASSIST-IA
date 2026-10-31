@@ -99,10 +99,21 @@ export function twimlConnectVoiceAgent(opts: {
   // sensibilidad baja (exige voz más clara y más larga) y sin cortarse por
   // simples asentimientos tipo "ajá"/"ok" (ignoreBackchannel). Se puede
   // ajustar sin tocar código con INTERRUPT_SENSITIVITY=low|medium|high.
+  //
+  // Ahora el bot NO se deja interrumpir por defecto (interruptible="none"): termina
+  // completa la frase que está diciendo y DESPUÉS responde a lo que dijo el cliente
+  // (lo que el cliente diga mientras tanto igual se transcribe y se contesta al final).
+  // Para volver a permitir interrupciones: BOT_INTERRUMPIBLE=speech (solo voz) o any.
+  const modoInterrupcion = ["none", "speech", "any"].includes(process.env.BOT_INTERRUMPIBLE ?? "")
+    ? (process.env.BOT_INTERRUMPIBLE as string)
+    : "none";
   const sensibilidad = ["low", "medium", "high"].includes(process.env.INTERRUPT_SENSITIVITY ?? "")
     ? process.env.INTERRUPT_SENSITIVITY
     : "low";
-  const interrupcionAttr = ` interruptible="speech" interruptSensitivity="${sensibilidad}" ignoreBackchannel="true"`;
+  const interrupcionAttr =
+    modoInterrupcion === "none"
+      ? ` interruptible="none"`
+      : ` interruptible="${modoInterrupcion}" interruptSensitivity="${sensibilidad}" ignoreBackchannel="true"`;
 
   // Si la llamada viene de una campaña, el voice-server la usa para pedir
   // el guion combinado (empresa + guion_override de la campaña). Si viene
