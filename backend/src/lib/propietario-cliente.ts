@@ -3,13 +3,28 @@ import { resolverOperadorExterno } from "./operador-origen.js";
 import { normalizarNumero } from "./telefono.js";
 
 /** Campos con los que un CRM puede mandar el dueño del cliente (ej. "Propietario de Contacto" en Zoho). */
-const CAMPOS_PROPIETARIO = ["propietario", "propietario_contacto", "propietario_cliente", "contact_owner", "owner", "propietario_id"];
+const CAMPOS_PROPIETARIO = [
+  "propietario_email",
+  "propietario_correo",
+  "correo_propietario",
+  "email_propietario",
+  "owner_email",
+  "contact_owner_email",
+  "propietario",
+  "propietario_contacto",
+  "propietario_cliente",
+  "contact_owner",
+  "owner",
+  "propietario_id",
+];
 
 export interface ResultadoPropietario {
   /** Lo que mandó el CRM, si mandó algo. */
   recibido: string | null;
-  /** Usuario de la plataforma al que se asignó el cliente (null si no se reconoció o no se mandó). */
+  /** Usuario de la plataforma que se reconoció a partir de lo que mandó el CRM (null si no se reconoció o no se mandó). */
   usuarioId: string | null;
+  /** Propietario que tiene el cliente al terminar (el recién asignado o el que ya tenía); null si no tiene. */
+  propietarioId: string | null;
 }
 
 /**
@@ -52,5 +67,9 @@ export async function mapearPropietarioCliente(
     );
     usuarioId = operadorUsuarioId;
   }
-  return { recibido, usuarioId };
+  const actual = await pool.query<{ propietario_usuario_id: string | null }>(
+    "SELECT propietario_usuario_id FROM contactos WHERE empresa_id = $1 AND numero = $2",
+    [empresaId, numero]
+  );
+  return { recibido, usuarioId, propietarioId: actual.rows[0]?.propietario_usuario_id ?? null };
 }

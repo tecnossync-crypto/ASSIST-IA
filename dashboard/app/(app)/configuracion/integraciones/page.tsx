@@ -160,6 +160,21 @@ export default async function IntegracionesPage({
                 la pestaña Envío masivo.
               </li>
               <li>
+                <span className="font-mono text-ink-2">propietario_email</span> — opcional pero recomendado: el correo
+                del dueño del cliente en tu CRM. Se busca entre los usuarios (por su email, su id externo o su nombre) y
+                el cliente queda <strong>asignado a esa persona</strong>: lo ve en Seguimiento y, si el cliente pide
+                hablar con un asesor, la llamada le suena a él. También se reconocen{" "}
+                <span className="font-mono">propietario</span> y <span className="font-mono">owner</span>. La respuesta
+                trae <span className="font-mono">propietario_identificado: true/false</span>.
+              </li>
+              <li>
+                <span className="font-mono text-ink-2">reintentos_buzon</span> /{" "}
+                <span className="font-mono text-ink-2">minutos_reintento</span> — opcionales. Si la llamada cae en buzón
+                de voz (la IA cuelga sola) o no la contestan, se vuelve a llamar. Por defecto 1 reintento a los 20
+                minutos; <span className="font-mono">reintentos_buzon: 0</span> lo desactiva (máx. 5 reintentos, de 1 a
+                1440 minutos). Respeta el horario permitido.
+              </li>
+              <li>
                 <span className="font-mono text-ink-2">origen</span> — opcional, libre, solo para identificar de dónde
                 vino la solicitud (también lo pueden usar las reglas de abajo para decidir el guion).
               </li>

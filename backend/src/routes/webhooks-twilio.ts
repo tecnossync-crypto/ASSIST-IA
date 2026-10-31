@@ -13,6 +13,7 @@ import {
 import { clienteTwilioEmpresa } from "../lib/twilio-empresa.js";
 import { procesarGrabacion } from "../jobs/procesar-grabacion.js";
 import { despacharColaIA, marcarTerminadaEnCola } from "../lib/cola-salida-ia.js";
+import { programarReintentoSiNoContesto } from "../lib/reintento-buzon.js";
 import { reprogramarOFallar } from "../jobs/dispatcher-campanas.js";
 import { asegurarContacto } from "../lib/contactos.js";
 import { ejecutarFlujosTrabajo } from "../lib/flujos-trabajo.js";
@@ -649,6 +650,10 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
 
       // La llamada de la cola de salida (API / flujos) terminó: libera su lugar y, si hay llamadas esperando, sale la siguiente.
       if (["completed", "busy", "no-answer", "failed", "canceled"].includes(status)) {
+        // Buzón de voz / no contestó en una llamada pedida por la API: se programa el reintento (ej. a los 20 min).
+        programarReintentoSiNoContesto(callSid, status).catch((err) =>
+          app.log.error({ err, callSid }, "Error programando el reintento por buzón")
+        );
         marcarTerminadaEnCola(callSid)
           .then(() => despacharColaIA())
           .catch((err) => app.log.error({ err, callSid }, "Error liberando la cola de salida"));

@@ -7,6 +7,7 @@ import { resolverOperadorExterno } from "./operador-origen.js";
 import { resolverDepartamento } from "./departamentos.js";
 import { despacharColaIA, encolarLlamadaIA } from "./cola-salida-ia.js";
 import { mapearPropietarioCliente } from "./propietario-cliente.js";
+import { reintentosPorDefecto } from "./reintento-buzon.js";
 
 export interface ResultadoSolicitud {
   codigo: number;
@@ -151,11 +152,29 @@ export async function procesarSolicitudLlamadaIA(args: {
     };
   }
 
+  // ── El cliente queda asignado a su propietario (lo que mandó el CRM) y, si hay transferencia a un asesor, le suena a él.
+  await asegurarContacto(empresaId, numero);
+  const propietario = await mapearPropietarioCliente(empresaId, numero, cuerpo, operadorUsuarioId);
+
+  // ── Reintento si cae en buzón de voz o no contestan (por defecto 1 vez, a los 20 min).
+  const porDefecto = reintentosPorDefecto();
+  const reintentosRaw = Number(cuerpo.reintentos_buzon);
+  const minutosRaw = Number(cuerpo.minutos_reintento);
+  const reintentos =
+    cuerpo.reintentos_buzon !== undefined && cuerpo.reintentos_buzon !== "" && Number.isFinite(reintentosRaw)
+      ? Math.max(0, Math.min(5, Math.floor(reintentosRaw)))
+      : porDefecto.reintentos;
+  const minutosReintento =
+    cuerpo.minutos_reintento !== undefined && cuerpo.minutos_reintento !== "" && Number.isFinite(minutosRaw)
+      ? Math.max(1, Math.min(1440, Math.floor(minutosRaw)))
+      : porDefecto.minutos;
+
   // ── Se registra la solicitud y se encola.
   const solicitud = await pool.query<{ id: string }>(
     `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para,
-                                   operador_usuario_id, operador_externo, cola_id, departamento_recibido, referencia)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+                                   operador_usuario_id, operador_externo, cola_id, departamento_recibido, referencia,
+                                   reintentos_restantes, minutos_reintento)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
     [
       empresaId,
       numero,
@@ -163,16 +182,16 @@ export async function procesarSolicitudLlamadaIA(args: {
       typeof cuerpo.origen === "string" ? cuerpo.origen.slice(0, 200) : null,
       reglaAplicada?.reglaId ?? null,
       futura ? programadaPara : null,
-      operadorUsuarioId,
+      operadorUsuarioId ?? propietario.propietarioId,
       operadorExterno,
       departamento?.id ?? null,
       departamentoTexto,
       referencia,
+      reintentos,
+      minutosReintento,
     ]
   );
   const llamadaWebhookId = solicitud.rows[0].id;
-  await asegurarContacto(empresaId, numero);
-  const propietario = await mapearPropietarioCliente(empresaId, numero, cuerpo, operadorUsuarioId);
 
   const recibidoId = await registrar(true);
   if (recibidoId) await pool.query("UPDATE llamadas_webhook SET recibido_id = $2 WHERE id = $1", [llamadaWebhookId, recibidoId]);
@@ -185,6 +204,9 @@ export async function procesarSolicitudLlamadaIA(args: {
     ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
     ...(referencia ? { referencia } : {}),
     ...(propietario.recibido ? { propietario_identificado: Boolean(propietario.usuarioId) } : {}),
+    ...(propietario.propietarioId ? { transferencia_a_propietario: true } : {}),
+    reintentos_buzon: reintentos,
+    ...(reintentos > 0 ? { minutos_reintento: minutosReintento } : {}),
   };
 
   if (futura && programadaPara) {
