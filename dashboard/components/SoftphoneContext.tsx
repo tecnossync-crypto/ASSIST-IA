@@ -107,6 +107,15 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
     setLlamadaIdEntrante("");
   }, []);
 
+  // Cierra el estado SOLO si la llamada que avisa sigue siendo la actual: el aviso tardío de una llamada vieja no debe
+  // tumbar la que se está atendiendo ahora.
+  const finalizarSiEsActual = useCallback(
+    (call: import("@twilio/voice-sdk").Call) => {
+      if (callRef.current === call) reiniciarEstadoLlamada();
+    },
+    [reiniciarEstadoLlamada]
+  );
+
   // (Re)registra el Device cada vez que cambia la sesión (identidad
   // compartida si no hay agente identificado, o la del agente si sí).
   useEffect(() => {
@@ -162,7 +171,14 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
           setSegundos(0);
 
           call.on("accept", () => setEstado("en_curso"));
-          call.on("disconnect", () => reiniciarEstadoLlamada());
+          // Cualquier forma de terminar libera el panel (también las llamadas que se contestan solas: antes no
+          // escuchaban cancel/reject/error y el panel se quedaba "en llamada" para siempre).
+          call.on("disconnect", () => finalizarSiEsActual(call));
+          call.on("cancel", () => finalizarSiEsActual(call));
+          call.on("reject", () => finalizarSiEsActual(call));
+          call.on("error", () => {
+            if (call.status() === "closed") finalizarSiEsActual(call);
+          });
 
           // El backend marca esto SOLO cuando el que está recibiendo esta
           // pierna es el mismo agente que originó la llamada él mismo
@@ -177,8 +193,6 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
           }
 
           setEstado("sonando");
-          call.on("cancel", () => reiniciarEstadoLlamada());
-          call.on("reject", () => reiniciarEstadoLlamada());
         });
 
         // Registrar el teléfono NO cambia el estado del asesor: se pone Activo /
@@ -204,6 +218,17 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sesion?.usuarioId]);
+
+  // Vigilante: si el SDK nunca avisó que la llamada terminó (señal perdida, ventana en segundo plano, evento que no
+  // llega), el panel no se queda congelado "en llamada": revisa el estado real de la pierna cada par de segundos.
+  useEffect(() => {
+    if (estado !== "en_curso" && estado !== "sonando") return;
+    const t = setInterval(() => {
+      const call = callRef.current;
+      if (!call || call.status() === "closed") reiniciarEstadoLlamada();
+    }, 2000);
+    return () => clearInterval(t);
+  }, [estado, reiniciarEstadoLlamada]);
 
   // Cronómetro de la llamada en curso.
   useEffect(() => {
@@ -261,8 +286,16 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
   }, [reiniciarEstadoLlamada]);
 
   const colgar = useCallback(() => {
-    callRef.current?.disconnect();
-  }, []);
+    const call = callRef.current;
+    if (!call) return;
+    call.disconnect();
+    // El botón nunca queda pegado: si el SDK no confirma el corte en 1.5 s se libera el panel y se cierra todo audio.
+    setTimeout(() => {
+      if (callRef.current !== call) return;
+      deviceRef.current?.disconnectAll();
+      reiniciarEstadoLlamada();
+    }, 1500);
+  }, [reiniciarEstadoLlamada]);
 
   const callSidAgente = useCallback(() => callRef.current?.parameters?.CallSid ?? "", []);
 
