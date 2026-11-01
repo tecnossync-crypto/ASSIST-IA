@@ -81,3 +81,38 @@ export async function terminarLlamadaCompleta(
   const errores = resultados.filter((x) => x === "error").length;
   return { ok: errores === 0, terminadas: resultados.filter((x) => x === "terminada").length, errores };
 }
+
+/**
+ * El CLIENTE terminó su llamada (colgó, se cayó, el buzón cortó): se cierra TODO lo que quede de esa llamada, ya mismo
+ * y sin esperar a ninguna revisión periódica: la conferencia, la pierna del asesor (navegador / extensión / central) y
+ * el registro en la base. Si `call_sid` no es el de un cliente (por ejemplo es la pierna de un asesor), no hace nada.
+ */
+export async function cerrarLlamadaSiClienteTermino(callSid: string): Promise<boolean> {
+  const r = await pool.query<{
+    id: string;
+    empresa_id: string;
+    call_sid: string;
+    agente_call_sid: string | null;
+    agentes_call_sids: string[] | null;
+  }>(
+    "SELECT id, empresa_id, call_sid, agente_call_sid, agentes_call_sids FROM llamadas WHERE call_sid = $1",
+    [callSid]
+  );
+  const l = r.rows[0];
+  if (!l) return false;
+
+  const piernas = [...new Set([...(l.agentes_call_sids ?? []), ...(l.agente_call_sid ? [l.agente_call_sid] : [])])];
+  await terminarLlamadaCompleta(l.empresa_id, [l.call_sid, ...piernas]);
+
+  // Respaldo por si el aviso de "completada" de Twilio no llega: el aviso normal, cuando llega, corrige la duración exacta.
+  await pool.query(
+    `UPDATE llamadas
+     SET estado = CASE WHEN resultado_automatico IS NOT NULL THEN 'fallida' ELSE 'completada' END,
+         finalizada_en = now(),
+         duracion_segundos = COALESCE(duracion_segundos, GREATEST(0, EXTRACT(EPOCH FROM (now() - iniciada_en))::int))
+     WHERE id = $1 AND finalizada_en IS NULL`,
+    [l.id]
+  );
+  return true;
+}
+

@@ -23,7 +23,7 @@ import { descartarFallbackCentral, reintentarDirectoSiCorresponde } from "../lib
 import { destinoDeTransferencia, extensionesDeTransferencia } from "../lib/enrutamiento.js";
 import { esperaConfig } from "../lib/espera.js";
 import { operadorDeLlamada } from "../lib/operador-origen.js";
-import { terminarLlamadaTwilio } from "../lib/colgar.js";
+import { cerrarLlamadaSiClienteTermino, terminarLlamadaTwilio } from "../lib/colgar.js";
 
 /**
  * Webhooks de Twilio para la cuenta del cliente.
@@ -343,6 +343,10 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
       await alSalirAgenteDeConferencia(friendlyName.slice("llamada-".length), callSid, body.ConferenceSid).catch((err) =>
         app.log.error({ err, callSid }, "Error manejando la salida de un agente de la conferencia")
       );
+      // Si quien salió es el CLIENTE, se cierra todo ya (no hace nada si era un asesor o un supervisor).
+      await cerrarLlamadaSiClienteTermino(callSid).catch((err) =>
+        app.log.error({ err, callSid }, "Error cerrando la llamada al salir el cliente de la conferencia")
+      );
       return;
     }
     if (evento !== "participant-join") return;
@@ -646,6 +650,14 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
         }
       } else {
         descartarFallbackCentral(callSid);
+      }
+
+      // El cliente terminó: se cierra de inmediato todo lo demás (asesor, conferencia, base) para que nada quede abierto.
+      // (Solo si había contestado: las que nunca conectaron no tienen asesor y las cierra su propio bloque más abajo.)
+      if (status === "completed") {
+        cerrarLlamadaSiClienteTermino(callSid).catch((err) =>
+          app.log.error({ err, callSid }, "Error cerrando la llamada al terminar el cliente")
+        );
       }
 
       // La llamada de la cola de salida (API / flujos) terminó: libera su lugar y, si hay llamadas esperando, sale la siguiente.

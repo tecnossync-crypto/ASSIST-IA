@@ -176,7 +176,7 @@ if (publicBaseUrl) {
 // o al revés) — ver lib/limpieza-llamadas.ts.
 setInterval(() => {
   limpiarLlamadasHuerfanas().catch((err) => app.log.error(err, "Error en la limpieza de llamadas abiertas"));
-}, Number(process.env.LIMPIEZA_LLAMADAS_TICK_MS ?? 60_000));
+}, Number(process.env.LIMPIEZA_LLAMADAS_TICK_MS ?? 30_000));
 
 // Limpieza de grabaciones vencidas (retención configurable por empresa,
 // 30 días por defecto): corre una vez por hora, no hace falta más seguido.

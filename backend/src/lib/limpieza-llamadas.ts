@@ -97,7 +97,12 @@ export async function limpiarLlamadasHuerfanas(): Promise<{ revisadas: number; c
       }
 
       // "Cerrar en base" y el tope no necesitan esperar; lo demás sí (dos revisiones seguidas).
-      const confirmado = problema === "demasiado_larga" || problema === "cerrar_en_base" || vistas.get(c.id) === problema;
+      // Si el cliente ya no está, no hay nada que esperar: se cuelga al asesor de inmediato.
+      const confirmado =
+        problema === "demasiado_larga" ||
+        problema === "cerrar_en_base" ||
+        problema === "asesor_sin_cliente" ||
+        vistas.get(c.id) === problema;
       if (!confirmado) {
         vistas.set(c.id, problema);
         continue;
