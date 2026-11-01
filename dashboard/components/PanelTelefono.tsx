@@ -224,6 +224,9 @@ export function PanelTelefono({
   const conocidasColaRef = useRef<Set<string> | null>(null);
   const estadoAsesorRef = useRef<string | null>(null);
   const enLlamadaRef = useRef(false);
+  // El asesor canceló mientras la llamada todavía se estaba originando (aún sin callSid): al llegar la respuesta del
+  // servidor se corta lo que se haya creado en vez de reanudar el seguimiento.
+  const cancelarMarcadoRef = useRef(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cronoRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -493,8 +496,14 @@ export function PanelTelefono({
     //    su estado real). Es lo que garantiza que el cliente también cuelgue aunque la pierna del navegador no se
     //    llegue a cerrar bien, o el cliente esté todavía timbrando o en el buzón de voz. Se reintenta si falla.
     const callSid = callSidRef.current ?? undefined;
-    if (!callSid && !agenteCallSid) return;
-    if (callSid) terminarLlamada("Llamada finalizada.", true);
+    const marcando = estado === "marcando";
+    if (marcando && !callSid) cancelarMarcadoRef.current = true;
+    if (!callSid && !agenteCallSid) {
+      // Aún no hay nada que cortar en Twilio (la llamada se está originando): se libera el panel de inmediato.
+      if (marcando) terminarLlamada("Llamada cancelada.", true);
+      return;
+    }
+    if (callSid || marcando) terminarLlamada("Llamada finalizada.", true);
 
     const cortar = async (intento: number): Promise<void> => {
       try {
@@ -532,6 +541,7 @@ export function PanelTelefono({
     if (!num || estado === "marcando" || estado === "en_curso") return;
     setEstado("marcando");
     setMensaje("");
+    cancelarMarcadoRef.current = false;
     try {
       const res = await fetch("/api/llamar-normal", {
         method: "POST",
@@ -539,6 +549,16 @@ export function PanelTelefono({
         body: JSON.stringify({ numero: num, colaId: colaId || undefined, usuarioId: sesionAgente?.usuarioId }),
       });
       const data = await res.json();
+      if (cancelarMarcadoRef.current) {
+        if (data.callSid) {
+          void fetch("/api/colgar", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ callSid: data.callSid }),
+          }).catch(() => {});
+        }
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Error originando la llamada");
       router.refresh();
       if (data.callSid) {
@@ -547,6 +567,7 @@ export function PanelTelefono({
         terminarLlamada("Llamando…", true);
       }
     } catch (err) {
+      if (cancelarMarcadoRef.current) return;
       limpiarTemporizadores();
       setEstado("error");
       setMensaje(err instanceof Error ? err.message : "Error desconocido");
@@ -929,10 +950,11 @@ export function PanelTelefono({
                 </div>
               )}
 
+              <div className={esVentana ? "sticky bottom-0 -mx-4 -mb-5 mt-4 bg-surface px-4 pb-4 pt-3" : "mt-4"}>
               <button
                 type="button"
                 onClick={colgar}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-red-500 to-red-600 py-3 text-sm font-semibold text-white shadow-lg shadow-red-500/30 transition-transform hover:scale-[1.01] active:scale-95"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-red-500 to-red-600 py-3 text-sm font-semibold text-white shadow-lg shadow-red-500/30 transition-transform hover:scale-[1.01] active:scale-95"
               >
                 {estado === "marcando" ? (
                   <>
@@ -944,6 +966,7 @@ export function PanelTelefono({
                   </>
                 )}
               </button>
+              </div>
             </div>
           )}
 
