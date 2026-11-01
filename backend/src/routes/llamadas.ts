@@ -38,13 +38,14 @@ export async function llamadasRoutes(app: FastifyInstance) {
       q?: string;
       estado?: string;
       callSid?: string;
+      llamadaId?: string;
       colaId?: string;
       agenteId?: string;
       limite?: string;
       offset?: string;
     };
   }>("/api/llamadas", async (req, reply) => {
-    const { empresaId, q, estado, callSid, colaId, agenteId, limite, offset } = req.query;
+    const { empresaId, q, estado, callSid, llamadaId, colaId, agenteId, limite, offset } = req.query;
 
     if (!empresaId) {
       reply.code(400).send({ error: "empresaId es requerido" });
@@ -62,6 +63,11 @@ export async function llamadasRoutes(app: FastifyInstance) {
     if (callSid) {
       valores.push(callSid);
       condiciones.push(`l.call_sid = $${valores.length}`);
+    }
+
+    if (llamadaId) {
+      valores.push(llamadaId);
+      condiciones.push(`l.id::text = $${valores.length}`);
     }
 
     // Un agente (rol operador) solo debe ver las llamadas de su propia cola

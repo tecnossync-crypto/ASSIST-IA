@@ -230,6 +230,39 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(t);
   }, [estado, reiniciarEstadoLlamada]);
 
+  // Si el cliente cuelga, Twilio termina la conferencia y el navegador debería enterarse solo; pero si ese aviso no
+  // llega (central, red, ventana en segundo plano), el panel se quedaba "en llamada" con nadie del otro lado. Mientras
+  // hay una llamada en curso se pregunta al servidor si ya la dio por terminada y, si es así, se corta la pierna.
+  useEffect(() => {
+    if (estado !== "en_curso" || !llamadaIdEntrante) return;
+    const call = callRef.current;
+    let cancelado = false;
+    const t = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/llamada-estado?llamadaId=${encodeURIComponent(llamadaIdEntrante)}`, {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelado) return;
+        const { llamada } = await res.json();
+        if (!llamada || !["completada", "fallida"].includes(llamada.estado)) return;
+        if (cancelado || !call || callRef.current !== call) return;
+        call.disconnect();
+        setTimeout(() => {
+          if (callRef.current === call) {
+            deviceRef.current?.disconnectAll();
+            reiniciarEstadoLlamada();
+          }
+        }, 1500);
+      } catch {
+        // se reintenta en el próximo tick
+      }
+    }, 4000);
+    return () => {
+      cancelado = true;
+      clearInterval(t);
+    };
+  }, [estado, llamadaIdEntrante, reiniciarEstadoLlamada]);
+
   // Cronómetro de la llamada en curso.
   useEffect(() => {
     if (estado !== "en_curso") return;

@@ -476,6 +476,7 @@ export function PanelTelefono({
             return prev;
           });
         } else if (["completada", "fallida"].includes(llamada.estado)) {
+          sp.colgar(); // el cliente ya no está: si la pierna del navegador sigue abierta, se corta
           terminarLlamada(
             llamada.estado === "completada" ? "Llamada finalizada." : "La llamada no se completó.",
             llamada.estado === "completada"

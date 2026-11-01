@@ -153,6 +153,18 @@ export async function buscarLlamadaPorCallSid(callSid: string): Promise<LlamadaR
   return data.llamadas[0] ?? null;
 }
 
+/** Estado de una llamada por su id (lo usa el panel del asesor para saber si el cliente ya colgó). */
+export async function buscarLlamadaPorId(llamadaId: string): Promise<LlamadaResumen | null> {
+  const url = new URL("/api/llamadas", BACKEND_URL);
+  url.searchParams.set("empresaId", EMPRESA_ID);
+  url.searchParams.set("llamadaId", llamadaId);
+  url.searchParams.set("limite", "1");
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Error consultando llamada: HTTP ${res.status}`);
+  const data = await res.json();
+  return data.llamadas[0] ?? null;
+}
+
 export async function obtenerLlamada(id: string): Promise<LlamadaDetalle> {
   const res = await fetch(new URL(`/api/llamadas/${id}`, BACKEND_URL), { cache: "no-store" });
   if (!res.ok) throw new Error(`Error obteniendo llamada: HTTP ${res.status}`);
