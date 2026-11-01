@@ -43,6 +43,7 @@ export async function iniciarLlamadaIA(opts: {
     statusCallbackMethod: "POST",
     statusCallbackEvent: ["completed"],
     timeout: twilioEmpresa.timeoutTimbrado,
+    timeLimit: Number(process.env.LLAMADA_TIME_LIMIT_SEGUNDOS ?? 7200),
     sendDigits,
   });
 

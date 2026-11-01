@@ -12,6 +12,8 @@ import { terminarLlamadaCompleta, terminarLlamadaTwilio } from "./colgar.js";
  *  - El asesor ya no está pero el cliente sigue en la línea  -> se cuelga al cliente.
  *  - El cliente ya no está pero alguna pierna de asesor sigue -> se cuelgan esas piernas.
  *  - La llamada terminó en Twilio y la base la sigue viendo abierta -> se cierra en la base.
+ *  - Llamada de IA que superó su duración máxima (+3 min) sin pasar a un asesor -> se corta (cliente en línea sin que
+ *    el bot la cierre).
  *  - Lleva más del máximo permitido abierta -> se corta de punta a punta.
  * Para no pelear con el camino normal (que reacciona en segundos), solo se actúa si lo mismo se observa en dos
  * revisiones seguidas.
@@ -30,12 +32,16 @@ export async function limpiarLlamadasHuerfanas(): Promise<{ revisadas: number; c
     agente_call_sid: string | null;
     agentes_call_sids: string[] | null;
     iniciada_en: Date;
+    transferida: boolean;
+    conferencia_nombre: string | null;
+    max_segundos: number;
   }>(
-    `SELECT id, empresa_id, call_sid, agente_call_sid, agentes_call_sids, iniciada_en
-     FROM llamadas
-     WHERE finalizada_en IS NULL AND estado = 'en_curso'
-       AND iniciada_en < now() - interval '90 seconds' AND iniciada_en > now() - interval '3 days'
-     ORDER BY iniciada_en LIMIT 60`
+    `SELECT l.id, l.empresa_id, l.call_sid, l.agente_call_sid, l.agentes_call_sids, l.iniciada_en, l.transferida,
+            l.conferencia_nombre, COALESCE(e.duracion_maxima_llamada_segundos, 600) AS max_segundos
+     FROM llamadas l JOIN empresas e ON e.id = l.empresa_id
+     WHERE l.finalizada_en IS NULL AND l.estado = 'en_curso'
+       AND l.iniciada_en < now() - interval '90 seconds' AND l.iniciada_en > now() - interval '3 days'
+     ORDER BY l.iniciada_en LIMIT 60`
   );
 
   const idsActuales = new Set(candidatas.rows.map((c) => c.id));
@@ -64,7 +70,17 @@ export async function limpiarLlamadasHuerfanas(): Promise<{ revisadas: number; c
       const minutosAbierta = (Date.now() - new Date(c.iniciada_en).getTime()) / 60_000;
 
       let problema: string | null = null;
+      // Llamada de IA que nunca pasó a un asesor y ya superó su duración máxima (la que configura la empresa, que el
+      // voice-server hace cumplir) más un margen: el voice-server o Twilio la dejaron colgada con el cliente en línea.
+      const iaSinCerrar =
+        !clienteTermino &&
+        !c.agente_call_sid &&
+        sidsAsesores.length === 0 &&
+        !c.transferida &&
+        !c.conferencia_nombre &&
+        minutosAbierta * 60 > c.max_segundos + 180;
       if (minutosAbierta > MAX_MINUTOS && !clienteTermino) problema = "demasiado_larga";
+      else if (iaSinCerrar) problema = "ia_sin_cerrar";
       else if (clienteTermino && asesoresVivos.length > 0) problema = "asesor_sin_cliente";
       else if (clienteTermino && asesoresVivos.length === 0) problema = "cerrar_en_base";
       else if (
@@ -88,7 +104,7 @@ export async function limpiarLlamadasHuerfanas(): Promise<{ revisadas: number; c
       }
       vistas.delete(c.id);
 
-      if (problema === "cliente_sin_asesor" || problema === "demasiado_larga") {
+      if (problema === "cliente_sin_asesor" || problema === "demasiado_larga" || problema === "ia_sin_cerrar") {
         await terminarLlamadaCompleta(c.empresa_id, [c.call_sid, ...sidsAsesores]);
       } else if (problema === "asesor_sin_cliente") {
         await Promise.all(asesoresVivos.map((a) => terminarLlamadaTwilio(client, a.sid)));

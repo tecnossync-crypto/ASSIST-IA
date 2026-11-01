@@ -91,6 +91,14 @@ export class ConversationSession {
     return this.empresa?.tts_provider === "elevenlabs" && !!this.empresa?.voz_agente;
   }
 
+  /** Lo último que dijo el bot (para detectar si lo que "contesta el cliente" es el eco de su propia voz). */
+  ultimosTextosAgente(n: number): string[] {
+    return this.turnos
+      .filter((t) => t.hablante === "agente")
+      .slice(-n)
+      .map((t) => t.texto);
+  }
+
   /** Lo último que se le dijo al cliente — para retomarlo si lo interrumpió un ruido. */
   ultimoTextoAgente = "";
 

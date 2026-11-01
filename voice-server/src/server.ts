@@ -207,6 +207,35 @@ function esRuidoSinContenido(texto: string | undefined): boolean {
 // Si el cliente corta al bot con un ruido y luego no dice nada útil, el bot
 // retoma solo pasado este tiempo (no antes: el STT tarda un poco en entregar
 // lo que de verdad dijo).
+// ── Bot hablándole al aire ──────────────────────────────────────────────────────────────────────────────
+// Casos en que el "cliente" no es una persona atendiendo: el eco del propio bot que vuelve por la línea (central /
+// troncal con eco), un buzón o un contestador que repite su mensaje, ruido que el STT convierte en palabras. Sin un
+// freno el bot le contesta a eso una y otra vez hasta el límite de duración. Se cuentan los turnos seguidos que son
+// eco del bot, repetición de lo mismo o ruido, y al llegar al tope se cuelga.
+const MAX_TURNOS_VACIOS_SEGUIDOS = Number(process.env.MAX_TURNOS_VACIOS_SEGUIDOS ?? 3);
+
+const normalizarTexto = (t: string) =>
+  t
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+/** ¿Lo que "dijo el cliente" es en realidad el eco de algo que acaba de decir el bot? */
+function esEcoDelBot(textoCliente: string, textosBot: string[]): boolean {
+  const palabras = normalizarTexto(textoCliente);
+  if (palabras.length < 4) return false;
+  for (const textoBot of textosBot) {
+    const bot = new Set(normalizarTexto(textoBot));
+    if (bot.size === 0) continue;
+    const coinciden = palabras.filter((p) => bot.has(p)).length;
+    if (coinciden / palabras.length >= 0.85) return true;
+  }
+  return false;
+}
+
 const ESPERA_REANUDAR_MS = Number(process.env.ESPERA_REANUDAR_MS ?? 4000);
 const MAX_REANUDACIONES_SEGUIDAS = 2;
 
@@ -225,6 +254,17 @@ wss.on("connection", (ws) => {
 
   let session: ConversationSession | null = null;
   let finalizadaManualmente = false;
+  let turnosVaciosSeguidos = 0;
+  let ultimoPromptNormalizado = "";
+  // Si Twilio abre la conexión pero nunca manda el "setup" (algo falló de su lado), la llamada quedaría en silencio
+  // sin que nadie la maneje: se cierra la conexión para que Twilio siga con el resto del TwiML y cuelgue.
+  const vigilanteSetup: NodeJS.Timeout = setTimeout(() => {
+    if (!session) {
+      console.warn("[ws] la conexión no mandó el setup en 15 s, se cierra");
+      ws.close();
+    }
+  }, 15_000);
+  ws.on("close", () => clearTimeout(vigilanteSetup));
   let temporizadorLimite: NodeJS.Timeout | null = null;
   // Llamadas que salen por la central propia: Twilio ya las considera
   // "contestadas" cuando contesta el DISA de la central, antes de que el
@@ -262,7 +302,7 @@ wss.on("connection", (ws) => {
 
   function armarInactividad(s: ConversationSession, textoDicho: string) {
     cancelarInactividad();
-    if (finalizadaManualmente) return;
+    if (finalizadaManualmente || ws.readyState !== WebSocket.OPEN) return;
     const espera = (avisosInactividad === 0 ? INACTIVIDAD_AVISO_MS : INACTIVIDAD_CIERRE_MS) + duracionHabladaMs(textoDicho);
     temporizadorInactividad = setTimeout(async () => {
       temporizadorInactividad = null;
@@ -362,6 +402,7 @@ wss.on("connection", (ws) => {
     try {
       switch (msg.type) {
         case "setup": {
+          clearTimeout(vigilanteSetup);
           const empresaId = msg.customParameters?.empresaId;
           if (!empresaId) {
             console.error(`[${msg.callSid}] setup sin empresaId en customParameters`);
@@ -450,6 +491,39 @@ wss.on("connection", (ws) => {
             // sobre el fragmento final del turno del usuario.
             return;
           }
+          // Eco del propio bot, repetición idéntica o ruido: no se le contesta (ver MAX_TURNOS_VACIOS_SEGUIDOS arriba).
+          // Si pasa varias veces seguidas no hay nadie real al otro lado: se cuelga en vez de hablarle al aire.
+          if (!esperandoPrimeraVoz) {
+            const normal = normalizarTexto(msg.voicePrompt ?? "").join(" ");
+            const repetido = normal.split(" ").length >= 4 && normal === ultimoPromptNormalizado;
+            ultimoPromptNormalizado = normal;
+            const eco = esEcoDelBot(msg.voicePrompt ?? "", session.ultimosTextosAgente(3));
+            if (sinContenido || eco || repetido) {
+              turnosVaciosSeguidos++;
+              console.log(
+                `[${session.callSid}] turno vacío ${turnosVaciosSeguidos}/${MAX_TURNOS_VACIOS_SEGUIDOS} (${
+                  eco ? "eco del bot" : repetido ? "repetido" : "ruido"
+                }): "${msg.voicePrompt}"`
+              );
+              if (turnosVaciosSeguidos >= MAX_TURNOS_VACIOS_SEGUIDOS) {
+                console.log(`[${session.callSid}] sin nadie real al otro lado, se cuelga`);
+                if (temporizadorLimite) clearTimeout(temporizadorLimite);
+                if (temporizadorSilencio) clearTimeout(temporizadorSilencio);
+                cancelarReanudacion();
+                cancelarInactividad();
+                finalizadaManualmente = true;
+                await session.finalizar();
+                enviar(ws, { type: "end" });
+                ws.close();
+                return;
+              }
+              // El eco y la repetición no se contestan; el ruido ya se descartaba abajo.
+              if (eco || repetido) return;
+            } else {
+              turnosVaciosSeguidos = 0;
+            }
+          }
+
           if (sinContenido && !esperandoPrimeraVoz) {
             console.log(`[${session.callSid}] ruido sin contenido ignorado: "${msg.voicePrompt}"`);
             return;

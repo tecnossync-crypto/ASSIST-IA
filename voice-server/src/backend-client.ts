@@ -12,6 +12,7 @@ function assertConfigured() {
 async function internalFetch(path: string, init: RequestInit = {}) {
   assertConfigured();
   const res = await fetch(`${BASE_URL}${path}`, {
+    signal: init.signal ?? AbortSignal.timeout(15_000),
     ...init,
     headers: {
       "content-type": "application/json",
