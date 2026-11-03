@@ -130,6 +130,7 @@ function FormularioRegla({
   const [operador, setOperador] = useState<string>(regla?.operador ?? "igual");
   const [valor, setValor] = useState(regla?.valor ?? "");
   const [prompt, setPrompt] = useState(regla?.prompt_personalizado ?? "");
+  const [generico, setGenerico] = useState(regla?.usar_prompt_generico ?? false);
   const [cuando, setCuando] = useState<Cuando>(cuandoDe(regla));
   const [hora, setHora] = useState(regla?.hora_del_dia ?? "12:00");
   const espera = esperaInicial(regla?.retraso_minutos ?? null);
@@ -222,6 +223,23 @@ function FormularioRegla({
           placeholder="Escribe aquí el guion completo de la llamada."
           className={`${CAMPO} font-mono text-xs leading-relaxed`}
         />
+        <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-md border border-edge bg-surface-2 p-2.5 text-sm text-ink-2">
+          <input
+            type="checkbox"
+            name="usarPromptGenerico"
+            checked={generico}
+            onChange={(e) => setGenerico(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-indigo-600"
+          />
+          <span>
+            <span className="font-medium text-ink">Dejar que la IA consulte el prompt general de la empresa</span>
+            <span className="block text-xs text-muted">
+              Si el cliente pregunta algo que este guion no cubre (precios, coberturas, horarios, procesos), la IA lo busca
+              en el prompt general y vuelve al objetivo de la llamada. Es solo información de consulta: el guion de arriba
+              sigue mandando y el prompt general no cambia el saludo ni el motivo de la llamada.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="flex flex-col gap-2 rounded-md border border-dashed border-edge p-3">

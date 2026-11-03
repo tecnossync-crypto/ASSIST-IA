@@ -3,15 +3,19 @@ import { pool } from "../db/pool.js";
 
 /**
  * Seguimiento por vendedor: los clientes a los que se les llamó (con IA o por un asesor), qué necesitan según el resumen
- * de la última conversación y cuándo volver a contactarlos. El vendedor solo ve los suyos (los que tiene asignados y los
- * que atendió); un administrador puede verlos todos o filtrar por vendedor.
+ * de la última conversación y cuándo volver a contactarlos. El vendedor solo ve los suyos (los que tiene asignados y,
+ * mientras no tengan dueño, los que atendió); nunca los de otro asesor. Un administrador puede verlos todos o filtrar
+ * por vendedor.
  */
 
-/** Condición SQL (alias `c` = contactos): el contacto es del usuario o es un cliente que él atendió. */
-const SQL_VISIBLE_PARA = (n: number) => `(c.propietario_usuario_id = $${n} OR EXISTS (
+/**
+ * Condición SQL (alias `c` = contactos): el cliente es del usuario, o todavía no tiene dueño y es un cliente que él
+ * atendió. Un cliente que ya es de otro asesor NO se ve aunque este usuario le haya contestado una llamada.
+ */
+const SQL_VISIBLE_PARA = (n: number) => `(c.propietario_usuario_id = $${n} OR (c.propietario_usuario_id IS NULL AND EXISTS (
            SELECT 1 FROM llamadas lv
            WHERE lv.empresa_id = c.empresa_id AND lv.agente_usuario_id = $${n}
-             AND (lv.numero_origen = c.numero OR lv.numero_destino = c.numero)))`;
+             AND (lv.numero_origen = c.numero OR lv.numero_destino = c.numero))))`;
 
 const FILTROS = ["todos", "pendientes", "vencidos", "por_programar", "hechos"] as const;
 

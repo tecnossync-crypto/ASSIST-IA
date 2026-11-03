@@ -9,6 +9,11 @@ import { despacharColaIA, encolarLlamadaIA } from "./cola-salida-ia.js";
 import { mapearPropietarioCliente } from "./propietario-cliente.js";
 import { reintentosPorDefecto } from "./reintento-buzon.js";
 
+/** true / "true" / 1 / "1" / "si" -> verdadero. */
+function esVerdadero(v: unknown): boolean {
+  return v === true || v === 1 || (typeof v === "string" && ["true", "1", "si", "sí", "yes"].includes(v.trim().toLowerCase()));
+}
+
 export interface ResultadoSolicitud {
   codigo: number;
   cuerpo: Record<string, unknown>;
@@ -175,8 +180,8 @@ export async function procesarSolicitudLlamadaIA(args: {
   const solicitud = await pool.query<{ id: string }>(
     `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para,
                                    operador_usuario_id, operador_externo, cola_id, departamento_recibido, referencia,
-                                   reintentos_restantes, minutos_reintento)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+                                   reintentos_restantes, minutos_reintento, usar_prompt_generico)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
     [
       empresaId,
       numero,
@@ -191,6 +196,8 @@ export async function procesarSolicitudLlamadaIA(args: {
       referencia,
       reintentos,
       minutosReintento,
+      // Solo tiene sentido si la llamada trae su propio guion (si no, ya se usa el prompt general completo).
+      Boolean(promptFinal) && (Boolean(reglaAplicada?.usarPromptGenerico) || esVerdadero(cuerpo.usar_prompt_generico)),
     ]
   );
   const llamadaWebhookId = solicitud.rows[0].id;

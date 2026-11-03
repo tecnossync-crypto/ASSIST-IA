@@ -9,6 +9,7 @@ interface ReglaApiLlamadas {
   operador: OperadorRegla;
   valor: string;
   prompt_personalizado: string;
+  usar_prompt_generico: boolean;
   retraso_minutos: number | null;
   fecha_programada: Date | null;
   hora_del_dia: string | null;
@@ -89,13 +90,14 @@ export async function evaluarReglaApiLlamadas(
   reglaId: string;
   nombre: string;
   promptPersonalizado: string;
+  usarPromptGenerico: boolean;
   retrasoMinutos: number | null;
   fechaProgramada: Date | null;
   horaDelDia: string | null;
   zonaHoraria: string | null;
 } | null> {
   const result = await pool.query<ReglaApiLlamadas>(
-    `SELECT id, nombre, campo, operador, valor, prompt_personalizado, retraso_minutos, fecha_programada,
+    `SELECT id, nombre, campo, operador, valor, prompt_personalizado, usar_prompt_generico, retraso_minutos, fecha_programada,
             to_char(hora_del_dia, 'HH24:MI') AS hora_del_dia, zona_horaria
      FROM reglas_api_llamadas
      WHERE empresa_id = $1 AND activa = true
@@ -109,6 +111,7 @@ export async function evaluarReglaApiLlamadas(
         reglaId: regla.id,
         nombre: regla.nombre,
         promptPersonalizado: regla.prompt_personalizado,
+        usarPromptGenerico: regla.usar_prompt_generico,
         retrasoMinutos: regla.retraso_minutos,
         fechaProgramada: regla.fecha_programada,
         horaDelDia: regla.hora_del_dia,

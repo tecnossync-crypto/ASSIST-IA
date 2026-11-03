@@ -37,12 +37,14 @@ export default async function SeguimientoPage({
   const sp = await searchParams;
   const sesion = await obtenerSesion();
   const permisos = permisosDe(sesion);
-  const soloPropios = permisos.contactos === "propios";
+  // Un asesor (rol operador) o un rol limitado a "propios" ve únicamente SUS clientes; ver los de otros es de
+  // administradores y supervisores.
+  const soloPropios = permisos.contactos === "propios" || sesion?.rol === "operador";
   const yo = sesion?.usuarioId ?? "";
 
   const filtro: Filtro = FILTROS.some((f) => f.id === sp.filtro) ? (sp.filtro as Filtro) : "todos";
-  // Un vendedor entra directo a "Mis clientes"; un administrador, a "Todos los clientes".
-  const vista = sp.vista === "mis" || sp.vista === "todos" ? sp.vista : soloPropios ? "mis" : "todos";
+  // Un vendedor solo tiene "Mis clientes"; un administrador entra a "Todos los clientes".
+  const vista = soloPropios ? "mis" : sp.vista === "mis" || sp.vista === "todos" ? sp.vista : "todos";
   const vendedor = !soloPropios && vista === "todos" ? sp.vendedor : undefined;
   const q = sp.q?.trim() ?? "";
 
@@ -50,7 +52,7 @@ export default async function SeguimientoPage({
 
   // Todo lo que se filtra a continuación sale de esta lista (hasta 300 clientes con llamadas).
   const delAlcance = base.filter((c) => {
-    if (vista === "mis" && c.propietario_usuario_id !== yo) return false;
+    if (!soloPropios && vista === "mis" && c.propietario_usuario_id !== yo) return false;
     if (vendedor === "ninguno" && c.propietario_usuario_id) return false;
     if (vendedor && vendedor !== "ninguno" && c.propietario_usuario_id !== vendedor) return false;
     return true;
@@ -81,7 +83,7 @@ export default async function SeguimientoPage({
     porAsesor.set(c.propietario_usuario_id, a);
   }
   const asesores = [...porAsesor.values()].sort((a, b) => b.total - a.total);
-  const misClientes = base.filter((c) => c.propietario_usuario_id === yo).length;
+  const misClientes = soloPropios ? base.length : base.filter((c) => c.propietario_usuario_id === yo).length;
 
   // Cliente abierto en el panel de conversación (si no es uno de la lista actual, se abre igual si el alcance lo permite).
   let conversacion: ConversacionCliente | null = null;
@@ -133,13 +135,15 @@ export default async function SeguimientoPage({
               </span>
               <span className="text-xs text-muted">{misClientes}</span>
             </Link>
-            <Link href={href({ vista: "todos", c: null })} className={`${ITEM} ${vista === "todos" && !vendedor ? ACTIVO : NORMAL}`}>
-              <span className="flex items-center gap-2">
-                <Users size={14} />
-                {soloPropios ? "Todos mis contactos" : "Todos los clientes"}
-              </span>
-              <span className="text-xs text-muted">{base.length}</span>
-            </Link>
+            {!soloPropios && (
+              <Link href={href({ vista: "todos", c: null })} className={`${ITEM} ${vista === "todos" && !vendedor ? ACTIVO : NORMAL}`}>
+                <span className="flex items-center gap-2">
+                  <Users size={14} />
+                  Todos los clientes
+                </span>
+                <span className="text-xs text-muted">{base.length}</span>
+              </Link>
+            )}
           </div>
 
           {!soloPropios && (

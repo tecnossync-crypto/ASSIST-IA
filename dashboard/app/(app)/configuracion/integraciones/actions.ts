@@ -42,6 +42,7 @@ interface DatosRegla {
   operador: string;
   valor: string;
   promptPersonalizado: string;
+  usarPromptGenerico: boolean;
   retrasoMinutos: number | null;
   fechaProgramada: string | null;
   horaDelDia: string | null;
@@ -84,7 +85,18 @@ function leerFormularioRegla(formData: FormData): { error: string } | { datos: D
   }
 
   return {
-    datos: { nombre, campo, operador, valor, promptPersonalizado, retrasoMinutos, fechaProgramada, horaDelDia, zonaHoraria },
+    datos: {
+      nombre,
+      campo,
+      operador,
+      valor,
+      promptPersonalizado,
+      usarPromptGenerico: formData.get("usarPromptGenerico") === "on",
+      retrasoMinutos,
+      fechaProgramada,
+      horaDelDia,
+      zonaHoraria,
+    },
   };
 }
 
@@ -122,6 +134,7 @@ export async function editarReglaAction(_prevState: EstadoRegla | null, formData
       operador: d.operador,
       valor: d.valor,
       promptPersonalizado: d.promptPersonalizado,
+      usarPromptGenerico: d.usarPromptGenerico,
       horario: {
         retrasoMinutos: d.retrasoMinutos,
         fechaProgramada: d.fechaProgramada,

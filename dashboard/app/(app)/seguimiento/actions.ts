@@ -14,8 +14,10 @@ export async function guardarSeguimientoAction(
   if (!sesion) return { error: "Tu sesión expiró. Vuelve a iniciar sesión." };
   const p = permisosDe(sesion);
   if (p.contactos === "ninguno") return { error: "Tu rol no tiene acceso a clientes." };
+  // Igual que en la pantalla: un asesor solo toca el seguimiento de sus propios clientes.
+  const soloPropios = p.contactos === "propios" || sesion.rol === "operador";
   try {
-    await guardarSeguimiento(contactoId, datos, p.contactos === "propios" ? sesion.usuarioId : undefined);
+    await guardarSeguimiento(contactoId, datos, soloPropios ? sesion.usuarioId : undefined);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "No se pudo guardar el seguimiento." };
   }

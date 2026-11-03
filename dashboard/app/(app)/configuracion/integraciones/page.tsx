@@ -175,6 +175,13 @@ export default async function IntegracionesPage({
                 1440 minutos). Respeta el horario permitido.
               </li>
               <li>
+                <span className="font-mono text-ink-2">usar_prompt_generico</span> — opcional (
+                <span className="font-mono">true</span>/<span className="font-mono">false</span>). La IA mantiene el guion
+                de la llamada pero puede consultar el prompt general de la empresa como referencia cuando el cliente
+                pregunta algo que el guion no cubre. También se puede dejar fijo en cada regla (casilla dentro de la
+                regla).
+              </li>
+              <li>
                 <span className="font-mono text-ink-2">origen</span> — opcional, libre, solo para identificar de dónde
                 vino la solicitud (también lo pueden usar las reglas de abajo para decidir el guion).
               </li>

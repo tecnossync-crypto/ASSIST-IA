@@ -58,8 +58,8 @@ export async function reglasApiRoutes(app: FastifyInstance) {
       return;
     }
     const result = await pool.query(
-      `SELECT id, nombre, campo, operador, valor, prompt_personalizado, activa, orden, retraso_minutos, fecha_programada,
-              to_char(hora_del_dia, 'HH24:MI') AS hora_del_dia, zona_horaria, creado_en
+      `SELECT id, nombre, campo, operador, valor, prompt_personalizado, usar_prompt_generico, activa, orden, retraso_minutos,
+              fecha_programada, to_char(hora_del_dia, 'HH24:MI') AS hora_del_dia, zona_horaria, creado_en
        FROM reglas_api_llamadas WHERE empresa_id = $1 ORDER BY orden, creado_en`,
       [empresaId]
     );
@@ -74,6 +74,7 @@ export async function reglasApiRoutes(app: FastifyInstance) {
       operador?: string;
       valor: string;
       promptPersonalizado: string;
+      usarPromptGenerico?: boolean;
       orden?: number;
       retrasoMinutos?: number | null;
       fechaProgramada?: string | null;
@@ -107,11 +108,11 @@ export async function reglasApiRoutes(app: FastifyInstance) {
     const result = await pool.query(
       `INSERT INTO reglas_api_llamadas
          (empresa_id, nombre, campo, operador, valor, prompt_personalizado, orden, retraso_minutos, fecha_programada,
-          hora_del_dia, zona_horaria)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING id, nombre, campo, operador, valor, prompt_personalizado, activa, orden, retraso_minutos, fecha_programada,
-                 to_char(hora_del_dia, 'HH24:MI') AS hora_del_dia, zona_horaria`,
-      [empresaId, nombre.trim(), campo.trim(), operadorFinal, (valor ?? "").trim(), promptPersonalizado.trim(), orden ?? 0, horario.retraso, horario.fecha, diaria.hora, diaria.zona]
+          hora_del_dia, zona_horaria, usar_prompt_generico)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING id, nombre, campo, operador, valor, prompt_personalizado, usar_prompt_generico, activa, orden, retraso_minutos,
+                 fecha_programada, to_char(hora_del_dia, 'HH24:MI') AS hora_del_dia, zona_horaria`,
+      [empresaId, nombre.trim(), campo.trim(), operadorFinal, (valor ?? "").trim(), promptPersonalizado.trim(), orden ?? 0, horario.retraso, horario.fecha, diaria.hora, diaria.zona, req.body.usarPromptGenerico === true]
     );
     reply.send({ ok: true, regla: result.rows[0] });
   });
@@ -125,6 +126,7 @@ export async function reglasApiRoutes(app: FastifyInstance) {
       operador?: string;
       valor?: string;
       promptPersonalizado?: string;
+      usarPromptGenerico?: boolean;
       activa?: boolean;
       orden?: number;
       // Si viene, reemplaza TODO el horario de la regla (los cuatro campos; null = sin eso).
@@ -185,6 +187,7 @@ export async function reglasApiRoutes(app: FastifyInstance) {
          prompt_personalizado = COALESCE($6, prompt_personalizado),
          activa = COALESCE($7, activa),
          orden = COALESCE($8, orden),
+         usar_prompt_generico = COALESCE($15::boolean, usar_prompt_generico),
          retraso_minutos = CASE WHEN $10::boolean THEN $11::int ELSE retraso_minutos END,
          fecha_programada = CASE WHEN $10::boolean THEN $12::timestamptz ELSE fecha_programada END,
          hora_del_dia = CASE WHEN $10::boolean THEN $13::time ELSE hora_del_dia END,
@@ -206,6 +209,7 @@ export async function reglasApiRoutes(app: FastifyInstance) {
         fecha,
         horaDia,
         zona,
+        typeof req.body.usarPromptGenerico === "boolean" ? req.body.usarPromptGenerico : null,
       ]
     );
     if (result.rows.length === 0) {

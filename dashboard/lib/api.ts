@@ -692,6 +692,8 @@ export interface ReglaApiLlamadas {
   operador: "igual" | "contiene" | "existe";
   valor: string;
   prompt_personalizado: string;
+  // La IA puede consultar el prompt general de la empresa como referencia (sin cambiar su guion).
+  usar_prompt_generico: boolean;
   activa: boolean;
   orden: number;
   // Horario opcional: espera en minutos y/o fecha fija (ISO) para la llamada.
@@ -717,6 +719,7 @@ export async function crearReglaApiLlamadas(data: {
   operador: string;
   valor: string;
   promptPersonalizado: string;
+  usarPromptGenerico?: boolean;
   retrasoMinutos?: number | null;
   fechaProgramada?: string | null;
   horaDelDia?: string | null;
@@ -741,6 +744,7 @@ export async function actualizarReglaApiLlamadas(
     operador?: string;
     valor?: string;
     promptPersonalizado?: string;
+    usarPromptGenerico?: boolean;
     activa?: boolean;
     // Si viene, reemplaza todo el horario de la regla.
     horario?: {
