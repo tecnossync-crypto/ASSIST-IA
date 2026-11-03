@@ -249,7 +249,9 @@ export async function operadorOrigenDisponible(
   operadorUsuarioId: string | null | undefined
 ): Promise<string | null> {
   if (!operadorUsuarioId) return null;
-  if (!(await modoOperadorOrigenActivo(empresaId, colaId))) return null;
+  // Si la plataforma externa identificó al asesor que originó la llamada (campo `operador` / dueño del cliente), la
+  // llamada es para él SIN importar el modo de reparto de la cola: el modo solo decide qué pasa cuando no hay asesor
+  // identificado o ese asesor no está disponible.
   const r = await pool.query<{ id: string }>(
     `SELECT u.id FROM usuarios u WHERE u.id = $1 AND u.empresa_id = $2 AND u.disponible = true AND ${SQL_ASESOR_LIBRE}`,
     [operadorUsuarioId, empresaId]

@@ -39,7 +39,7 @@ const PORT = Number(process.env.VOICE_SERVER_PORT ?? process.env.PORT ?? 3002);
 // saludar por su cuenta, y cuánto más antes de preguntar "¿aló?". El primer
 // tiempo es largo a propósito: cubre el marcado y el timbrado (la central
 // contesta primero), para no saludarle al tono de llamada.
-const ESPERA_VOZ_CLIENTE_MS = Number(process.env.ESPERA_VOZ_CLIENTE_MS ?? 18000);
+const ESPERA_VOZ_CLIENTE_MS = Number(process.env.ESPERA_VOZ_CLIENTE_MS ?? 12000);
 const ESPERA_REINTENTO_MS = Number(process.env.ESPERA_REINTENTO_MS ?? 12000);
 // Control de inactividad durante la conversación: si el cliente no dice nada
 // tras lo que dijo el bot, primero pregunta si sigue ahí y, si tampoco

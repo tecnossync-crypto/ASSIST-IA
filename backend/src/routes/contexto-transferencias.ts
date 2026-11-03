@@ -23,16 +23,22 @@ interface Turno {
  * departamento y las que no tienen departamento asignado.
  */
 export async function contextoTransferenciasRoutes(app: FastifyInstance) {
-  app.get<{ Querystring: { empresaId?: string; colaId?: string; minutos?: string } }>(
+  app.get<{ Querystring: { empresaId?: string; colaId?: string; minutos?: string; usuarioId?: string } }>(
     "/api/llamadas/transferidas-recientes",
     async (req, reply) => {
-      const { empresaId, colaId } = req.query;
+      const { empresaId, colaId, usuarioId } = req.query;
       if (!empresaId) {
         reply.code(400).send({ error: "empresaId es requerido" });
         return;
       }
       const minutos = Math.min(Math.max(parseInt(req.query.minutos ?? "30", 10) || 30, 1), 240);
       const cola = colaId && UUID.test(colaId) ? colaId : null;
+      // Con usuarioId solo se devuelven las llamadas que le suenan o atendió ESE asesor (no las de los demás).
+      if (usuarioId && !UUID.test(usuarioId)) {
+        reply.send({ activo: true, llamadas: [] });
+        return;
+      }
+      const asesor = usuarioId ?? null;
 
       const empresa = await pool.query<{ mostrar: boolean }>(
         "SELECT mostrar_resumen_transferencia AS mostrar FROM empresas WHERE id = $1",
@@ -63,9 +69,13 @@ export async function contextoTransferenciasRoutes(app: FastifyInstance) {
            AND l.transferida = true
            AND l.iniciada_en > now() - ($2 || ' minutes')::interval
            AND ($3::uuid IS NULL OR l.cola_id IS NULL OR l.cola_id = $3::uuid)
+           AND ($4::text IS NULL
+                OR l.agente_usuario_id::text = $4::text
+                -- Mientras nadie contesta, le suena a quien tenga su identidad en la llamada; al contestar uno, solo a ese.
+                OR (l.agente_usuario_id IS NULL AND l.agentes_call_sids_identidad::text LIKE '%agente-' || $4::text || '%'))
          ORDER BY COALESCE(t.creado_en, l.iniciada_en) DESC
          LIMIT 5`,
-        [empresaId, String(minutos), cola]
+        [empresaId, String(minutos), cola, asesor]
       );
 
       const ids = filas.rows.map((f) => f.id as string);

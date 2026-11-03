@@ -171,7 +171,9 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           voz: voz.rows[0]?.voz_agente ?? null,
           ttsProvider: voz.rows[0]?.tts_provider ?? null,
           campanaContactoId,
-          esperarVozCliente: salioPorCentral,
+          // Espera a que el cliente diga "aló" antes de saludar (y no le habla a un buzón): antes solo pasaba por la
+          // central y, en las demás, el bot arrancaba apenas se abría la línea, antes de que la persona tomara la llamada.
+          esperarVozCliente: process.env.ESPERAR_VOZ_CLIENTE === "0" ? salioPorCentral : true,
           publicBaseUrl,
         })
       );

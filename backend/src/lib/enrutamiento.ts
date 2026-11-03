@@ -1,5 +1,4 @@
 import { pool } from "../db/pool.js";
-import { modoOperadorOrigenActivo } from "./agentes.js";
 
 export type DestinoLlamadas = "plataforma" | "central" | "ambos";
 
@@ -31,7 +30,6 @@ export async function extensionDelOperador(
   operadorUsuarioId: string | null | undefined
 ): Promise<string | null> {
   if (!operadorUsuarioId) return null;
-  if (!(await modoOperadorOrigenActivo(empresaId, colaId))) return null;
   const r = await pool.query<{ numero: string }>(
     "SELECT numero FROM extensiones_central WHERE empresa_id = $1 AND usuario_id = $2 AND activa = true ORDER BY numero LIMIT 1",
     [empresaId, operadorUsuarioId]

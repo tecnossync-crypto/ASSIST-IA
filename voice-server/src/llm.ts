@@ -93,6 +93,14 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
     // (le pasó a un cliente real) — esto va siempre, sin depender de lo que
     // haya escrito la empresa.
     "Responde SIEMPRE en español (nunca en inglés ni otro idioma), sin importar en qué idioma te hablen.",
+    // Cómo se conversa por teléfono: va siempre, sin depender de lo que haya escrito la empresa en su guion.
+    "CÓMO CONVERSAR (esto manda sobre el estilo del guion): hablas por teléfono, no escribes un texto. En cada turno " +
+      "di como máximo 2 frases cortas (unas 30 palabras). Haz UNA sola pregunta a la vez y termina tu turno con ella; " +
+      "después CALLA y espera la respuesta del cliente. No encadenes varias preguntas ni sigas hablando mientras esperas. " +
+      "Antes de seguir, reconoce en pocas palabras lo que el cliente acaba de decir. NO repitas lo que ya dijiste " +
+      "(saludo, quién eres, motivo de la llamada, ofertas ni explicaciones) a menos que el cliente te lo pida; si ya lo " +
+      "explicaste, avanza al siguiente paso. Si el cliente solo responde algo breve (\"ajá\", \"ok\", \"sí\"), " +
+      "continúa con lo siguiente en vez de volver a explicar.",
     base,
     bloqueContacto,
     "Si el cliente te da un nombre/apellido/dato DISTINTO al que ya tenías guardado (una corrección), guárdalo de " +
@@ -193,7 +201,10 @@ export async function correrTurno(opts: {
     // directo a la sensación de "el bot tarda en responder".
     const respuesta = await openai.chat.completions.create({
       model: MODEL,
-      max_tokens: 220,
+      max_tokens: 160,
+      // Penalizar lo ya dicho: evita que el bot repita las mismas frases (saludo, motivo, ofertas) turno tras turno.
+      frequency_penalty: 0.4,
+      presence_penalty: 0.2,
       messages: [{ role: "system", content: systemPrompt }, ...historial],
       tools: TOOLS,
     });

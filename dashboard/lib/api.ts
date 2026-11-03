@@ -1311,11 +1311,13 @@ export interface TransferenciaContexto {
 }
 
 export async function listarTransferenciasRecientes(
-  colaId?: string
+  colaId?: string,
+  usuarioId?: string
 ): Promise<{ activo: boolean; llamadas: TransferenciaContexto[] }> {
   const url = new URL("/api/llamadas/transferidas-recientes", BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
   if (colaId) url.searchParams.set("colaId", colaId);
+  if (usuarioId) url.searchParams.set("usuarioId", usuarioId);
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Error listando transferencias: HTTP ${res.status}`);
   return res.json();
