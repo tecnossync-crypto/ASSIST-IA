@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PhoneIncoming, PhoneOutgoing, Radio, Bot } from "lucide-react";
+import { Bot, Headset, Hourglass, Radio } from "lucide-react";
 import type { LlamadaActiva } from "@/lib/api";
 import { MonitoreoLlamada } from "./MonitoreoLlamada";
 import { MonitoreoLlamadaIA } from "./MonitoreoLlamadaIA";
+import { EstadoVacio, IconoDireccion, Insignia, Metrica, TarjetaTabla, TH } from "./ui";
 
 function formatDuracionEnVivo(iniciadaEn: string): string {
   const segundos = Math.max(0, Math.floor((Date.now() - new Date(iniciadaEn).getTime()) / 1000));
@@ -43,77 +44,81 @@ export function TablaSupervision({ llamadasIniciales }: { llamadasIniciales: Lla
     };
   }, []);
 
-  if (llamadas.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-edge p-8 text-center">
-        <Radio size={22} className="mx-auto mb-2 text-slate-300" />
-        <p className="text-sm text-muted">No hay llamadas activas en este momento.</p>
-      </div>
-    );
-  }
+  const conAsesor = llamadas.filter((l) => l.agente_nombre).length;
+  const esperando = llamadas.filter((l) => !l.agente_nombre && l.conferencia_nombre).length;
+  const conBot = llamadas.length - conAsesor - esperando;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-edge bg-surface">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2 text-left text-muted">
-            <tr>
-              <th className="whitespace-nowrap px-4 py-2 font-medium">Dirección</th>
-              <th className="whitespace-nowrap px-4 py-2 font-medium">Cliente</th>
-              <th className="whitespace-nowrap px-4 py-2 font-medium">Cola</th>
-              <th className="whitespace-nowrap px-4 py-2 font-medium">Agente</th>
-              <th className="whitespace-nowrap px-4 py-2 font-medium">Duración</th>
-              <th className="px-4 py-2 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-edge">
-            {llamadas.map((l) => (
-              <tr key={l.id} className="hover:bg-surface-2">
-                <td className="whitespace-nowrap px-4 py-3">
-                  {l.direccion === "entrante" ? (
-                    <PhoneIncoming size={14} className="text-sky-500" />
-                  ) : (
-                    <PhoneOutgoing size={14} className="text-violet-500" />
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3">
-                  {l.direccion === "entrante" ? l.numero_origen : l.numero_destino}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-ink-2">{l.cola_nombre ?? "—"}</td>
-                <td className="whitespace-nowrap px-4 py-3">
-                  {l.agente_nombre ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      </span>
-                      {l.agente_nombre}
-                    </span>
-                  ) : l.conferencia_nombre ? (
-                    <span className="text-xs text-amber-600">Esperando que contesten…</span>
-                  ) : (
-                    <span className="flex items-center gap-1.5 text-xs text-indigo-600">
-                      <Bot size={12} /> Con el bot
-                    </span>
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-ink-2">
-                  {formatDuracionEnVivo(l.iniciada_en)}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right">
-                  {l.agente_call_sid ? (
-                    <MonitoreoLlamada llamadaId={l.id} />
-                  ) : !l.conferencia_nombre ? (
-                    <MonitoreoLlamadaIA callSid={l.call_sid} />
-                  ) : (
-                    <span className="text-xs text-slate-300">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Metrica Icon={Radio} tono="verde" etiqueta="Llamadas en vivo" valor={llamadas.length} />
+        <Metrica Icon={Bot} tono="azul" etiqueta="Con el bot" valor={conBot} />
+        <Metrica Icon={Headset} tono="violeta" etiqueta="Con un asesor" valor={conAsesor} />
+        <Metrica Icon={Hourglass} tono="ambar" etiqueta="Esperando asesor" valor={esperando} />
       </div>
+
+      <TarjetaTabla>
+        {llamadas.length === 0 ? (
+          <EstadoVacio
+            Icon={Radio}
+            titulo="No hay llamadas activas en este momento"
+            descripcion="Cuando entre o salga una llamada la verás aquí al instante, con quién la atiende."
+          />
+        ) : (
+          <table className="w-full min-w-[700px] text-sm">
+            <thead className="bg-surface-2 text-left text-muted">
+              <tr>
+                <th className={TH}>Dirección</th>
+                <th className={TH}>Cliente</th>
+                <th className={TH}>Cola</th>
+                <th className={TH}>Atiende</th>
+                <th className={TH}>Duración</th>
+                <th className={TH}></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-edge">
+              {llamadas.map((l) => (
+                <tr key={l.id} className="transition-colors hover:bg-surface-2">
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <IconoDireccion direccion={l.direccion} titulo />
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 font-mono text-[13px] text-ink">
+                    {l.direccion === "entrante" ? l.numero_origen : l.numero_destino}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-ink-2">{l.cola_nombre ?? "—"}</td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {l.agente_nombre ? (
+                      <Insignia tono="verde" pulso>
+                        {l.agente_nombre}
+                      </Insignia>
+                    ) : l.conferencia_nombre ? (
+                      <Insignia tono="ambar" pulso>
+                        Esperando que contesten
+                      </Insignia>
+                    ) : (
+                      <Insignia tono="azul" pulso>
+                        Con el bot
+                      </Insignia>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 font-mono text-[13px] tabular-nums text-ink-2">
+                    {formatDuracionEnVivo(l.iniciada_en)}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                    {l.agente_call_sid ? (
+                      <MonitoreoLlamada llamadaId={l.id} />
+                    ) : !l.conferencia_nombre ? (
+                      <MonitoreoLlamadaIA callSid={l.call_sid} />
+                    ) : (
+                      <span className="text-xs text-muted">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </TarjetaTabla>
     </div>
   );
 }

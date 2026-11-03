@@ -52,8 +52,8 @@ const PESTANAS: PestanaConfig[] = [
 
 function Codigo({ children }: { children: string }) {
   return (
-    <div className="overflow-x-auto rounded-md bg-slate-900 p-3">
-      <pre className="text-xs text-slate-100">
+    <div className="overflow-x-auto rounded-lg bg-slate-950 p-3.5 ring-1 ring-slate-800">
+      <pre className="text-xs leading-relaxed text-slate-100">
         <code>{children}</code>
       </pre>
     </div>
@@ -77,7 +77,7 @@ export default async function IntegracionesPage({
   const backendPublicUrl = process.env.NEXT_PUBLIC_BACKEND_PUBLIC_URL || "https://TU-DOMINIO-BACKEND";
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
+    <div className="flex max-w-4xl flex-col gap-6">
       <ConfiguracionHeader
         Icon={Plug}
         titulo="Integraciones"
