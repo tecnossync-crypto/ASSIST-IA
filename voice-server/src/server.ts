@@ -10,7 +10,7 @@ import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { ConversationSession } from "./session.js";
 import { clasificarGrabacion } from "./numero-inexistente.js";
-import { marcarResultadoAutomatico } from "./backend-client.js";
+import { marcarResultadoAutomatico, colgarLlamadaEnBackend } from "./backend-client.js";
 import type { ConversationRelayIncoming, ConversationRelayOutgoing } from "./types.js";
 import { registrarSupervisionStream } from "./supervision-stream.js";
 import { sintetizarVozElevenLabs } from "./backend-client.js";
@@ -632,6 +632,19 @@ wss.on("connection", (ws) => {
             await session.finalizar();
             enviar(ws, { type: "end" });
             ws.close();
+
+            // terminar_llamada: además del "end" (que lleva a <Hangup>), se le pide al backend cortar la llamada en
+            // Twilio pasado el tiempo de la despedida. Si el camino normal ya la colgó, no hace nada.
+            if (resultado.terminarSolicitada && !resultado.transferSolicitada) {
+              const callSidACerrar = session.callSid;
+              const empresaACerrar = session.empresaId;
+              const espera = Math.min(15_000, Math.max(4_000, (resultado.textoRespuesta?.length ?? 40) * 80));
+              setTimeout(() => {
+                colgarLlamadaEnBackend(callSidACerrar, empresaACerrar).catch((err) =>
+                  console.error(`[${callSidACerrar}] no se pudo confirmar el corte en el backend:`, err)
+                );
+              }, espera);
+            }
           }
           break;
         }

@@ -56,6 +56,14 @@ export async function marcarTransferencia(callSid: string, colaId?: string) {
   });
 }
 
+/** Garantiza que la llamada quede cortada en Twilio (y cerrada en la plataforma) tras un terminar_llamada. */
+export async function colgarLlamadaEnBackend(callSid: string, empresaId: string) {
+  await internalFetch(`/internal/llamadas/${callSid}/colgar`, {
+    method: "POST",
+    body: JSON.stringify({ empresaId }),
+  });
+}
+
 /** La llamada resultó ser una grabación (número inexistente) o un buzón de voz: el backend la cierra como "no contestada". */
 export async function marcarResultadoAutomatico(callSid: string, tipo: "numero_inexistente" | "buzon") {
   await internalFetch(`/internal/llamadas/${callSid}/resultado-automatico`, {

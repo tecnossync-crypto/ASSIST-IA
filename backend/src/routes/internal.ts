@@ -6,6 +6,7 @@ import { aplicarVariablesContacto } from "../lib/variables-prompt.js";
 import { sintetizarVoz } from "../lib/elevenlabs.js";
 import { normalizarNumero } from "../lib/telefono.js";
 import { asegurarContacto } from "../lib/contactos.js";
+import { cerrarLlamadaSiClienteTermino, terminarLlamadaCompleta } from "../lib/colgar.js";
 
 /**
  * Deja el seguimiento propuesto por la IA en el contacto de la llamada. No pisa un seguimiento que programó una persona
@@ -171,6 +172,34 @@ export async function internalRoutes(app: FastifyInstance) {
 
     reply.send({ ok: true });
   });
+
+  // El bot pidió cerrar la llamada (herramienta terminar_llamada). El camino normal ya cuelga (el voice-server manda
+  // "end" y el TwiML de post-relay hace <Hangup>); esto es la garantía: corta de verdad en Twilio —y por tanto la pierna
+  // hacia la central, que recibe el corte SIP— y deja la llamada cerrada en la base aunque ese camino falle.
+  // No hace nada si la llamada ya se marcó para transferir a un humano.
+  app.post<{ Params: { callSid: string }; Body: { empresaId?: string } }>(
+    "/internal/llamadas/:callSid/colgar",
+    async (req, reply) => {
+      const { callSid } = req.params;
+
+      const r = await pool.query<{ empresa_id: string; transferida: boolean }>(
+        "SELECT empresa_id, transferida FROM llamadas WHERE call_sid = $1",
+        [callSid]
+      );
+      const fila = r.rows[0];
+      if (fila?.transferida) {
+        reply.send({ ok: true, omitida: "transferida" });
+        return;
+      }
+      if (fila) {
+        await cerrarLlamadaSiClienteTermino(callSid);
+      } else if (req.body?.empresaId && UUID.test(req.body.empresaId)) {
+        // Todavía no hay fila (llamada que recién arranca): se corta solo la pierna por su identificador.
+        await terminarLlamadaCompleta(req.body.empresaId, [callSid]);
+      }
+      reply.send({ ok: true });
+    }
+  );
 
   // La IA colgó sola porque quien contestó era un buzón de voz / una grabación del operador (ver
   // voice-server/src/numero-inexistente.ts): la llamada se cierra como "no contestada".
