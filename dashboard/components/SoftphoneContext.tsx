@@ -120,6 +120,7 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
   // compartida si no hay agente identificado, o la del agente si sí).
   useEffect(() => {
     let cancelado = false;
+    const limpiezas: Array<() => void> = [];
 
     async function registrar() {
       try {
@@ -136,9 +137,55 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
         const device = new Device(token, { logLevel: "error" });
         deviceRef.current = device;
 
+        // Si el teléfono se desconecta (token vencido tras dormir la PC, red caída, error de Twilio) se vuelve a registrar
+        // solo: antes quedaba "Sin conexión" para siempre y había que cerrar y abrir la ventana de la extensión.
+        let reintento: ReturnType<typeof setTimeout> | null = null;
+        const reintentarRegistro = async () => {
+          if (cancelado || deviceRef.current !== device) return;
+          if (device.state === "registered" || device.state === "registering") return;
+          try {
+            const r = await fetch("/api/voice-token", { cache: "no-store" });
+            if (r.status === 401 || r.status === 403) {
+              // La sesión del dashboard venció: se manda al login en vez de dejar un panel muerto.
+              if (location.pathname.startsWith("/extension-panel")) location.href = "/login?next=/extension-panel";
+              return;
+            }
+            if (!r.ok || cancelado || deviceRef.current !== device) return;
+            const { token: nuevo } = await r.json();
+            device.updateToken(nuevo);
+            await device.register();
+          } catch (err) {
+            console.error("Softphone: no se pudo reconectar", err);
+          }
+        };
+        const programarReintento = (ms: number) => {
+          if (reintento) clearTimeout(reintento);
+          reintento = setTimeout(reintentarRegistro, ms);
+        };
+
         device.on("registered", () => setEstado((prev) => (prev === "desconectado" ? "listo" : prev)));
-        device.on("unregistered", () => setEstado("desconectado"));
-        device.on("error", (err) => console.error("Softphone: error de Twilio Device", err));
+        device.on("unregistered", () => {
+          // No pisar una llamada en curso con "desconectado": solo se marca así si no se está atendiendo nada.
+          setEstado((prev) => (prev === "en_curso" || prev === "sonando" ? prev : "desconectado"));
+          programarReintento(3000);
+        });
+        device.on("error", (err) => {
+          console.error("Softphone: error de Twilio Device", err);
+          programarReintento(5000);
+        });
+
+        const alVolver = () => {
+          if (document.visibilityState === "visible") void reintentarRegistro();
+        };
+        const latido = setInterval(reintentarRegistro, 30_000);
+        window.addEventListener("online", reintentarRegistro);
+        document.addEventListener("visibilitychange", alVolver);
+        limpiezas.push(() => {
+          clearInterval(latido);
+          if (reintento) clearTimeout(reintento);
+          window.removeEventListener("online", reintentarRegistro);
+          document.removeEventListener("visibilitychange", alVolver);
+        });
 
         // El token dura 1 hora: sin renovarlo, el teléfono dejaba de recibir
         // llamadas a la hora de estar abierto aunque el asesor siguiera Activo.
@@ -213,6 +260,7 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
 
     return () => {
       cancelado = true;
+      limpiezas.forEach((f) => f());
       deviceRef.current?.destroy();
       deviceRef.current = null;
     };

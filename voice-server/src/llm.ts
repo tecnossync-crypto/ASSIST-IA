@@ -113,6 +113,9 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
     "Si el cliente pide hablar con una persona (un asesor, vendedor, agente o supervisor), usa transferir_a_humano " +
       "DE INMEDIATO, sin pedirle datos ni verificaciones antes. También transfiere si está molesto/insatisfecho, el " +
       "caso es urgente, o está fuera de lo que puedes resolver o registrar bien. Para lo demás, registra la solicitud.",
+    "Cuando la conversación ya terminó (el cliente se despidió o no necesita nada más, ya resolviste o registraste " +
+      "todo, no le interesa, número equivocado, o contestó un buzón de voz / grabación), despídete en una frase y " +
+      "usa terminar_llamada para colgar. No la uses si aún tiene una duda pendiente.",
     "NUNCA pidas contraseñas, claves, PIN ni códigos de verificación al cliente, ni siquiera para transferirlo.",
     listaColas,
     "Nunca inventes información que no tengas; si no sabes algo, dilo y ofrece transferir.",
@@ -163,6 +166,8 @@ export async function generarSaludoInicial(systemPrompt: string, saliente = fals
 export interface TurnoResultado {
   textoRespuesta: string;
   transferSolicitada?: { motivo: string };
+  /** El modelo pidió cerrar la llamada (tool terminar_llamada) tras despedirse. */
+  terminarSolicitada?: { motivo: string };
 }
 
 /**
@@ -177,6 +182,7 @@ export async function correrTurno(opts: {
 }): Promise<TurnoResultado> {
   const { systemPrompt, historial, callSid } = opts;
   let transferSolicitada: TurnoResultado["transferSolicitada"];
+  let terminarSolicitada: TurnoResultado["terminarSolicitada"];
 
   // Loop de tool-use: el modelo puede pedir varias herramientas antes de dar
   // la respuesta de texto final que hay que hablarle al cliente.
@@ -198,7 +204,7 @@ export async function correrTurno(opts: {
     const toolCalls = mensaje.tool_calls ?? [];
 
     if (toolCalls.length === 0) {
-      return { textoRespuesta: (mensaje.content ?? "").trim(), transferSolicitada };
+      return { textoRespuesta: (mensaje.content ?? "").trim(), transferSolicitada, terminarSolicitada };
     }
 
     for (const toolCall of toolCalls) {
@@ -226,6 +232,7 @@ export async function correrTurno(opts: {
         resultado = { resultText: "Error técnico guardando esto — discúlpate brevemente y continúa la conversación." };
       }
       if (resultado.transferSolicitada) transferSolicitada = resultado.transferSolicitada;
+      if (resultado.terminarSolicitada) terminarSolicitada = resultado.terminarSolicitada;
 
       historial.push({
         role: "tool",
@@ -238,6 +245,7 @@ export async function correrTurno(opts: {
   return {
     textoRespuesta: "Perdón, tuve un problema procesando eso. ¿Puedes repetirlo?",
     transferSolicitada,
+    terminarSolicitada,
   };
 }
 

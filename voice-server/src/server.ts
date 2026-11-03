@@ -612,6 +612,9 @@ wss.on("connection", (ws) => {
           cancelarReanudacion();
           if (resultado.textoRespuesta) {
             await decir(session, resultado.textoRespuesta);
+          } else if (resultado.terminarSolicitada && !resultado.transferSolicitada) {
+            // Pidió colgar sin despedirse: una frase corta en vez de cortar en seco.
+            await decir(session, "Gracias por su tiempo. ¡Que tenga un excelente día!");
           } else if (!resultado.transferSolicitada) {
             // Nunca dejar al cliente en silencio: si el modelo no devolvió
             // texto, se le pide que repita en vez de callarse.
@@ -619,10 +622,10 @@ wss.on("connection", (ws) => {
             await decir(session, "Disculpe, no alcancé a escucharle bien. ¿Me puede repetir, por favor?");
           }
 
-          if (resultado.transferSolicitada) {
+          if (resultado.transferSolicitada || resultado.terminarSolicitada) {
             // El texto de despedida ya salió arriba; ahora sí terminamos la
             // sesión de ConversationRelay para que TwiML caiga al <Redirect>
-            // que hace el <Dial> real hacia el humano.
+            // que hace el <Dial> real hacia el humano (transferencia) o cuelga (terminar_llamada).
             if (temporizadorLimite) clearTimeout(temporizadorLimite);
             cancelarInactividad();
             finalizadaManualmente = true;

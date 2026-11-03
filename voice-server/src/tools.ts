@@ -43,6 +43,28 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
+      name: "terminar_llamada",
+      description:
+        "Cuelga la llamada después de tu despedida. Úsala SOLO cuando la conversación ya terminó: el cliente se " +
+        "despidió o dijo que no necesita nada más, ya resolviste/registraste todo lo que pidió, no le interesa, " +
+        "se equivocó de número, o contestó un buzón de voz / una grabación automática. Despídete brevemente en " +
+        "tu respuesta (la llamada se corta justo después de decirlo). NO la uses si el cliente todavía tiene " +
+        "una duda pendiente, ni para pasarlo con una persona (para eso es transferir_a_humano).",
+      parameters: {
+        type: "object",
+        properties: {
+          motivo: {
+            type: "string",
+            description: "Por qué se cierra: despedida | no_interesado | numero_equivocado | buzon_de_voz | otro",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "registrar_solicitud",
       description:
         "Guarda lo que el cliente pidió (pago, cotización, reclamo, información, cambio en su póliza, cita, " +
@@ -102,6 +124,7 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
 export interface ToolExecutionResult {
   resultText: string;
   transferSolicitada?: { motivo: string };
+  terminarSolicitada?: { motivo: string };
 }
 
 export async function ejecutarTool(
@@ -122,6 +145,14 @@ export async function ejecutarTool(
       return {
         resultText: "Transferencia marcada.",
         transferSolicitada: { motivo },
+      };
+    }
+
+    case "terminar_llamada": {
+      const motivo = String(input.motivo ?? "despedida");
+      return {
+        resultText: "Cierre marcado. Despídete ahora brevemente (una frase); la llamada se corta justo después.",
+        terminarSolicitada: { motivo },
       };
     }
 

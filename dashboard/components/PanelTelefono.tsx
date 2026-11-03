@@ -689,10 +689,12 @@ export function PanelTelefono({
                 <span
                   title={
                     sp.estado === "desconectado"
-                      ? "El teléfono del navegador no está conectado: no podrás recibir llamadas aquí."
+                      ? "El teléfono del navegador no está conectado: no podrás recibir llamadas aquí. Haz click para reconectar."
                       : "Teléfono del navegador conectado."
                   }
+                  onClick={sp.estado === "desconectado" ? () => window.location.reload() : undefined}
                   className={
+                    (sp.estado === "desconectado" ? "cursor-pointer " : "") +
                     "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium " +
                     (sp.estado === "desconectado" ? "bg-amber-400/15 text-amber-300" : "bg-emerald-400/15 text-emerald-300")
                   }
