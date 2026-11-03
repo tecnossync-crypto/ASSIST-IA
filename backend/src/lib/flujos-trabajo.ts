@@ -112,14 +112,28 @@ export async function ejecutarFlujosPorEtiquetasNuevas(opts: {
 
   const flujos = await pool.query<FlujoEtiqueta>(
     `SELECT id, disparador_datos, accion, accion_datos FROM flujos_trabajo
-     WHERE empresa_id = $1 AND disparador = 'etiqueta_agregada' AND activo = true`,
+     WHERE empresa_id = $1 AND disparador = 'etiqueta_agregada' AND activo = true
+     ORDER BY creado_en, id`,
     [empresaId]
   );
 
-  for (const flujo of flujos.rows) {
-    const etiquetaObjetivo = flujo.disparador_datos?.etiqueta;
-    if (!etiquetaObjetivo || !etiquetasNuevas.includes(etiquetaObjetivo)) continue;
-    if (flujo.accion !== "llamar_contacto") continue;
+  // UN cliente = UNA llamada. Si las etiquetas nuevas activan varios flujos de llamar, solo se hace el del flujo más
+  // antiguo (el primero que se creó); los demás no llaman otra vez al mismo cliente. Tampoco se encola otra llamada
+  // mientras ese cliente ya tenga una pendiente.
+  const coinciden = flujos.rows.filter(
+    (f) =>
+      f.accion === "llamar_contacto" &&
+      Boolean(f.disparador_datos?.etiqueta) &&
+      etiquetasNuevas.includes(f.disparador_datos.etiqueta as string)
+  );
+  if (coinciden.length === 0) return;
+  const pendiente = await pool.query(
+    "SELECT 1 FROM llamadas_programadas WHERE empresa_id = $1 AND contacto_id = $2 AND estado = 'pendiente' LIMIT 1",
+    [empresaId, contactoId]
+  );
+  if (pendiente.rows.length > 0) return;
+
+  for (const flujo of coinciden.slice(0, 1)) {
 
     try {
       const espera = retrasoMinutos(flujo.accion_datos);
