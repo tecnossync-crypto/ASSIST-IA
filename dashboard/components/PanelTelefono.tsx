@@ -227,6 +227,7 @@ export function PanelTelefono({
   // El asesor canceló mientras la llamada todavía se estaba originando (aún sin callSid): al llegar la respuesta del
   // servidor se corta lo que se haya creado en vez de reanudar el seguimiento.
   const cancelarMarcadoRef = useRef(false);
+  const colgarRef = useRef<() => void>(() => {});
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cronoRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -251,6 +252,18 @@ export function PanelTelefono({
   }
 
   useEffect(() => () => limpiarTemporizadores(), []);
+
+  // Tope de seguridad al marcar: Twilio ya corta solo a los ~30 s si nadie contesta (y el sondeo de abajo cierra el
+  // panel), pero si ese aviso se pierde el panel no puede quedarse en "Marcando…" para siempre. A los 150 s sin que
+  // conteste nadie se cancela la llamada (también en Twilio) y se libera el panel.
+  useEffect(() => {
+    if (estado !== "marcando") return;
+    const t = setTimeout(() => {
+      colgarRef.current();
+      setMensaje("No contestó nadie: la llamada se cerró.");
+    }, 150_000);
+    return () => clearTimeout(t);
+  }, [estado]);
 
   async function cargarDatos() {
     try {
@@ -522,6 +535,8 @@ export function PanelTelefono({
     };
     void cortar(1);
   }
+
+  colgarRef.current = colgar;
 
   // El cliente no contestó (buzón de voz) y la llamada llegó hasta aquí: cuelga al cliente desde nuestro lado.
   async function cerrarLlamadaDelCliente(llamadaId: string) {
