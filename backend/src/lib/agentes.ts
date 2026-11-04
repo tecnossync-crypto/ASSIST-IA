@@ -251,11 +251,11 @@ export async function operadorOrigenDisponible(
   if (!operadorUsuarioId) return null;
   // Si la plataforma externa identificó al asesor que originó la llamada (campo `operador` / dueño del cliente), la
   // llamada es para él SIN importar el modo de reparto de la cola: el modo solo decide qué pasa cuando no hay asesor
-  // identificado o ese asesor no está conectado. Basta con que tenga sesión abierta (Activo o En pausa, o con la
-  // llamada ocupada): si estuviera "libre" como exigía el reparto normal, una llamada suya se iría a todo el
-  // departamento solo porque en ese instante estaba hablando o en pausa.
+  // identificado. Si ese asesor no está Activo y libre, devuelve null y quien llama decide: en la transferencia de
+  // la IA el cliente espera en la cola a que ESE asesor se libere (ver post-relay y asignarColaAAsesoresLibres),
+  // en vez de repartirse al departamento.
   const r = await pool.query<{ id: string }>(
-    `SELECT u.id FROM usuarios u WHERE u.id = $1 AND u.empresa_id = $2 AND u.estado_presencia <> 'desconectado'`,
+    `SELECT u.id FROM usuarios u WHERE u.id = $1 AND u.empresa_id = $2 AND u.disponible = true AND ${SQL_ASESOR_LIBRE}`,
     [operadorUsuarioId, empresaId]
   );
   return r.rows[0]?.id ?? null;

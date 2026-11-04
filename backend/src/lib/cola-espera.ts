@@ -279,17 +279,33 @@ export async function asignarColaAAsesoresLibres(publicBaseUrl: string): Promise
       cola_id: string | null;
       asignada_a: string | null;
       asignada_en: string | null;
+      operador_id: string | null;
     }>(
-      `SELECT id, empresa_id, cola_id, asignada_a, asignada_en FROM llamadas
-       WHERE en_cola_desde IS NOT NULL AND agente_call_sid IS NULL AND estado IN ('en_curso', 'transferida')
-         AND (asignada_en IS NULL OR asignada_en < now() - interval '45 seconds')
-       ORDER BY en_cola_desde ASC
+      `SELECT l.id, l.empresa_id, l.cola_id, l.asignada_a, l.asignada_en,
+              (SELECT w.operador_usuario_id FROM llamadas_webhook w
+               WHERE w.call_sid = l.call_sid ORDER BY w.creado_en DESC LIMIT 1) AS operador_id
+       FROM llamadas l
+       WHERE l.en_cola_desde IS NOT NULL AND l.agente_call_sid IS NULL AND l.estado IN ('en_curso', 'transferida')
+         AND (l.asignada_en IS NULL OR l.asignada_en < now() - interval '45 seconds')
+       ORDER BY l.en_cola_desde ASC
        LIMIT 20`
     );
 
     let asignadas = 0;
     for (const c of esperando.rows) {
-      if ((await destinoDeTransferencia(c.empresa_id, c.cola_id)) !== "plataforma") continue;
+      const destino = await destinoDeTransferencia(c.empresa_id, c.cola_id);
+      // Una llamada dirigida a un asesor concreto espera SOLO por él (aunque sea de otro departamento).
+      if (c.operador_id) {
+        if (destino === "central") continue;
+        const suyo = await pool.query<{ id: string }>(
+          `SELECT u.id FROM usuarios u
+           WHERE u.id = $1 AND u.empresa_id = $2 AND u.disponible = true AND ${SQL_ASESOR_LIBRE}`,
+          [c.operador_id, c.empresa_id]
+        );
+        if (suyo.rows[0] && (await timbrarAsesorParaCola(c.id, c.empresa_id, suyo.rows[0].id, publicBaseUrl))) asignadas++;
+        continue;
+      }
+      if (destino !== "plataforma") continue;
       const libre = await pool.query<{ id: string }>(
         `SELECT u.id FROM usuarios u
          WHERE u.empresa_id = $1 AND u.disponible = true

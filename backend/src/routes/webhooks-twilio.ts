@@ -461,14 +461,23 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     if (destino !== "central" && !vendedorSoloEnCentral) {
       const conferenciaNombre = `llamada-${row.id}`;
       const cola = await colaEsperaConfig(row.empresa_id);
-      const hayAsesores = Boolean(operadorElegido) || (await hayAsesoresDisponibles(row.empresa_id, row.cola_id));
+      // La llamada va dirigida a un asesor concreto (el vendedor que la disparó) pero ahora no está Activo y libre:
+      // el cliente espera en la cola A ESE asesor, en vez de repartirse al departamento.
+      const esperaAlOperador = Boolean(operadorOrigenId) && !operadorElegido && cola.activa;
+      const hayAsesores =
+        Boolean(operadorElegido) || (!esperaAlOperador && (await hayAsesoresDisponibles(row.empresa_id, row.cola_id)));
 
       // Sin asesores activos y con la cola de espera encendida: el cliente
       // espera en línea (con música) en vez de que se le cuelgue, y los
       // asesores lo ven en la pestaña "Cola" del panel de teléfono.
-      if (!hayAsesores && cola.activa && destino === "plataforma") {
+      if (cola.activa && (esperaAlOperador || (!hayAsesores && destino === "plataforma"))) {
         await marcarEnCola(row.id, conferenciaNombre);
-        app.log.info({ callSid, colaId: row.cola_id }, "Sin asesores disponibles: el cliente espera en la cola");
+        app.log.info(
+          { callSid, colaId: row.cola_id, operadorOrigenId: esperaAlOperador ? operadorOrigenId : undefined },
+          esperaAlOperador
+            ? "El asesor al que va dirigida la llamada no está libre: el cliente espera en la cola por él"
+            : "Sin asesores disponibles: el cliente espera en la cola"
+        );
         reply.type("text/xml").send(
           twimlEsperarConferencia({
             conferenciaNombre,
