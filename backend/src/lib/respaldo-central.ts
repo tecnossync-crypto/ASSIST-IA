@@ -28,17 +28,17 @@ export async function twimlParaCentral(opts: {
   const central = twilioEmpresa?.centralPropia;
   if (!central?.entrante) return { motivo: "central_apagada" };
 
-  // Modo "Al operador que originó la llamada": se marca a UNA persona a la vez, nunca a todos juntos.
+  // Si la plataforma externa identificó al vendedor que disparó la llamada, se marca SU teléfono primero, sin
+  // importar el modo de reparto de la cola (el modo solo decide qué pasa si ese vendedor no se pudo identificar o no contesta).
   //   1) el teléfono del vendedor que originó la llamada,
-  //   2) si no contesta o no tiene extensión: otro vendedor al azar (hasta MAX_INDIVIDUALES intentos),
+  //   2) solo en modo "Al operador que originó": si no contesta o no tiene extensión, otro vendedor al azar
+  //      (hasta MAX_INDIVIDUALES intentos),
   //   3) como último recurso, el grupo del departamento.
   const MAX_INDIVIDUALES = 3;
   let individual: string | null = null;
-  if (await modoOperadorOrigenActivo(empresaId, colaId)) {
-    individual = excluir.length === 0 ? await extensionDelOperador(empresaId, colaId, operadorUsuarioId) : null;
-    if (!individual && excluir.length < MAX_INDIVIDUALES) {
-      individual = await extensionAleatoriaDeVendedor(empresaId, colaId, excluir);
-    }
+  if (excluir.length === 0) individual = await extensionDelOperador(empresaId, colaId, operadorUsuarioId);
+  if (!individual && excluir.length < MAX_INDIVIDUALES && (await modoOperadorOrigenActivo(empresaId, colaId))) {
+    individual = await extensionAleatoriaDeVendedor(empresaId, colaId, excluir);
   }
   const extensiones = individual
     ? [individual]

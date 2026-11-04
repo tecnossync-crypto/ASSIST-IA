@@ -20,7 +20,7 @@ import { ejecutarFlujosTrabajo } from "../lib/flujos-trabajo.js";
 import { operadorOrigenDisponible, usuarioIdDesdeIdentidad } from "../lib/agentes.js";
 import { iniciarConferenciaConAgentes } from "../lib/conferencia-agentes.js";
 import { descartarFallbackCentral, reintentarDirectoSiCorresponde } from "../lib/fallback-central.js";
-import { destinoDeTransferencia, extensionesDeTransferencia } from "../lib/enrutamiento.js";
+import { destinoDeTransferencia, extensionDelOperador, extensionesDeTransferencia } from "../lib/enrutamiento.js";
 import { esperaConfig } from "../lib/espera.js";
 import { operadorDeLlamada } from "../lib/operador-origen.js";
 import { cerrarLlamadaSiClienteTermino, terminarLlamadaTwilio } from "../lib/colgar.js";
@@ -450,7 +450,15 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
     const operadorElegido = await operadorOrigenDisponible(row.empresa_id, row.cola_id, operadorOrigenId);
     if (operadorElegido) app.log.info({ callSid, operadorElegido }, "Transferencia al operador que originó la llamada");
 
-    if (destino !== "central") {
+    // Con destino "ambos", si el vendedor que disparó la llamada no está libre en la plataforma pero tiene
+    // teléfono en la central, se le llama a ese teléfono en vez de sonarle a todo el departamento en la plataforma.
+    const vendedorSoloEnCentral =
+      destino === "ambos" &&
+      !operadorElegido &&
+      Boolean(operadorOrigenId) &&
+      Boolean(await extensionDelOperador(row.empresa_id, row.cola_id, operadorOrigenId));
+
+    if (destino !== "central" && !vendedorSoloEnCentral) {
       const conferenciaNombre = `llamada-${row.id}`;
       const cola = await colaEsperaConfig(row.empresa_id);
       const hayAsesores = Boolean(operadorElegido) || (await hayAsesoresDisponibles(row.empresa_id, row.cola_id));
