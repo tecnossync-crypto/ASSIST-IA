@@ -9,9 +9,11 @@ export async function GET() {
   const sesion = await obtenerSesion();
   if (!sesion) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const colaId = permisosDe(sesion).llamadas === "todas" ? undefined : sesion.colaId;
+  const verTodas = permisosDe(sesion).llamadas === "todas";
+  const colaId = verTodas ? undefined : sesion.colaId;
   try {
-    return NextResponse.json({ llamadas: await listarColaEspera(colaId ?? undefined) });
+    // Las llamadas dirigidas a otro vendedor no se muestran (salvo a quien ve todas las llamadas).
+    return NextResponse.json({ llamadas: await listarColaEspera(colaId ?? undefined, sesion.usuarioId ?? undefined, verTodas) });
   } catch {
     return NextResponse.json({ llamadas: [] });
   }

@@ -1338,23 +1338,27 @@ export interface LlamadaEnCola {
   contacto_nombre: string | null;
   motivo: string | null;
   solicitud: string | null;
+  dirigida_a?: string | null;
+  dirigida_a_nombre?: string | null;
 }
 
-export async function listarColaEspera(colaId?: string): Promise<LlamadaEnCola[]> {
+export async function listarColaEspera(colaId?: string, usuarioId?: string, verTodas = false): Promise<LlamadaEnCola[]> {
   const url = new URL("/api/cola-espera", BACKEND_URL);
   url.searchParams.set("empresaId", EMPRESA_ID);
   if (colaId) url.searchParams.set("colaId", colaId);
+  if (usuarioId) url.searchParams.set("usuarioId", usuarioId);
+  if (verTodas) url.searchParams.set("verTodas", "true");
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Error listando la cola de espera: HTTP ${res.status}`);
   const data = await res.json();
   return data.llamadas ?? [];
 }
 
-export async function atenderLlamadaCola(llamadaId: string, usuarioId?: string): Promise<void> {
+export async function atenderLlamadaCola(llamadaId: string, usuarioId?: string, verTodas = false): Promise<void> {
   await enviarJson(
     `/api/cola-espera/${encodeURIComponent(llamadaId)}/atender`,
     "POST",
-    { empresaId: EMPRESA_ID, usuarioId },
+    { empresaId: EMPRESA_ID, usuarioId, verTodas },
     "No se pudo atender la llamada"
   );
 }

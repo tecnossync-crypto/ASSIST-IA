@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { atenderLlamadaCola } from "@/lib/api";
 import { obtenerSesion } from "@/lib/session";
+import { permisosDe } from "@/lib/permisos";
 
 // Un asesor toma una llamada de la cola ("Atender" en el panel de teléfono).
 export async function POST(req: Request) {
@@ -13,7 +14,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    await atenderLlamadaCola(llamadaId, typeof usuarioId === "string" && usuarioId ? usuarioId : undefined);
+    // Quien atiende es el de la sesión (no lo que mande el navegador): así nadie toma una llamada dirigida a otro.
+    const quien = sesion.usuarioId ?? (typeof usuarioId === "string" && usuarioId ? usuarioId : undefined);
+    await atenderLlamadaCola(llamadaId, quien, permisosDe(sesion).llamadas === "todas");
     return NextResponse.json({ ok: true });
   } catch (err) {
     const mensaje = err instanceof Error ? err.message : "No se pudo atender la llamada.";

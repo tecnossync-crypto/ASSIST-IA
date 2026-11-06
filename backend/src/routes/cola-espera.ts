@@ -22,25 +22,25 @@ export async function colaEsperaRoutes(app: FastifyInstance) {
     reply.send({ ok: true });
   });
 
-  app.get<{ Querystring: { empresaId?: string; colaId?: string } }>("/api/cola-espera", async (req, reply) => {
-    const { empresaId, colaId } = req.query;
+  app.get<{ Querystring: { empresaId?: string; colaId?: string; usuarioId?: string; verTodas?: string } }>("/api/cola-espera", async (req, reply) => {
+    const { empresaId, colaId, usuarioId, verTodas } = req.query;
     if (!empresaId) {
       reply.code(400).send({ error: "empresaId es requerido" });
       return;
     }
-    reply.send({ llamadas: await listarColaEspera(empresaId, colaId) });
+    reply.send({ llamadas: await listarColaEspera(empresaId, colaId, usuarioId, verTodas === "true") });
   });
 
-  app.post<{ Params: { id: string }; Body: { empresaId?: string; usuarioId?: string | null } }>(
+  app.post<{ Params: { id: string }; Body: { empresaId?: string; usuarioId?: string | null; verTodas?: boolean } }>(
     "/api/cola-espera/:id/atender",
     async (req, reply) => {
-      const { empresaId, usuarioId } = req.body ?? {};
+      const { empresaId, usuarioId, verTodas } = req.body ?? {};
       const publicBaseUrl = process.env.PUBLIC_BASE_URL;
       if (!empresaId || !publicBaseUrl) {
         reply.code(400).send({ error: "empresaId es requerido" });
         return;
       }
-      const r = await atenderDeCola({ empresaId, llamadaId: req.params.id, usuarioId, publicBaseUrl });
+      const r = await atenderDeCola({ empresaId, llamadaId: req.params.id, usuarioId, publicBaseUrl, verTodas: verTodas === true });
       if (!r.ok) {
         reply.code(r.codigo).send({ error: r.error });
         return;

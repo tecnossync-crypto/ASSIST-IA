@@ -46,6 +46,20 @@ export interface LlamadaEnCola {
   contacto_nombre: string | null;
   motivo: string | null;
   solicitud: string | null;
+  /** Asesor al que va dirigida (el vendedor que disparó la llamada por API), si lo hay. */
+  dirigida_a: string | null;
+  dirigida_a_nombre: string | null;
+}
+
+/** Asesor al que va dirigida una llamada de la cola (el vendedor que la disparó), o null si es para el departamento. */
+async function operadorDestinoDeLlamada(llamadaId: string, empresaId: string): Promise<string | null> {
+  const r = await pool.query<{ operador_id: string | null }>(
+    `SELECT (SELECT w.operador_usuario_id FROM llamadas_webhook w
+             WHERE w.call_sid = l.call_sid ORDER BY w.creado_en DESC LIMIT 1) AS operador_id
+     FROM llamadas l WHERE l.id = $1 AND l.empresa_id = $2`,
+    [llamadaId, empresaId]
+  );
+  return r.rows[0]?.operador_id ?? null;
 }
 
 /**
@@ -77,14 +91,22 @@ export async function cerrarLlamada(empresaId: string, llamadaId: string): Promi
   return { ok: true };
 }
 
-export async function listarColaEspera(empresaId: string, colaId?: string | null): Promise<LlamadaEnCola[]> {
+export async function listarColaEspera(
+  empresaId: string,
+  colaId?: string | null,
+  /** Quien consulta: las llamadas dirigidas a OTRO asesor no se le muestran (salvo `verTodas`). */
+  usuarioId?: string | null,
+  verTodas = false
+): Promise<LlamadaEnCola[]> {
   const cola = colaId && UUID.test(colaId) ? colaId : null;
+  const yo = usuarioId && UUID.test(usuarioId) ? usuarioId : null;
   const r = await pool.query(
     `SELECT l.id, l.direccion, l.numero_origen, l.numero_destino, l.en_cola_desde,
             EXTRACT(EPOCH FROM (now() - l.en_cola_desde))::int AS espera_segundos,
             c.nombre AS cola_nombre,
             ct.nombre AS contacto_nombre, ct.apellido AS contacto_apellido,
-            t.resumen_motivo, t.resumen_solicitud
+            t.resumen_motivo, t.resumen_solicitud,
+            dest.operador_id, dest.operador_nombre
      FROM llamadas l
      LEFT JOIN colas c ON c.id = l.cola_id AND c.empresa_id = l.empresa_id
      LEFT JOIN contactos ct ON ct.id = l.contacto_id
@@ -92,13 +114,22 @@ export async function listarColaEspera(empresaId: string, colaId?: string | null
        SELECT resumen_motivo, resumen_solicitud FROM transcripciones
        WHERE llamada_id = l.id ORDER BY creado_en DESC LIMIT 1
      ) t ON true
+     LEFT JOIN LATERAL (
+       SELECT w.operador_usuario_id AS operador_id, uo.nombre AS operador_nombre
+       FROM llamadas_webhook w LEFT JOIN usuarios uo ON uo.id = w.operador_usuario_id
+       WHERE w.call_sid = l.call_sid ORDER BY w.creado_en DESC LIMIT 1
+     ) dest ON true
      WHERE l.empresa_id = $1
        AND l.en_cola_desde IS NOT NULL
        AND l.estado IN ('en_curso', 'transferida')
-       AND ($2::uuid IS NULL OR l.cola_id IS NULL OR l.cola_id = $2::uuid)
+       AND ($3::boolean OR dest.operador_id IS NULL OR dest.operador_id = $4::uuid)
+       AND (
+         ($2::uuid IS NULL OR l.cola_id IS NULL OR l.cola_id = $2::uuid)
+         OR (dest.operador_id IS NOT NULL AND dest.operador_id = $4::uuid)
+       )
      ORDER BY l.en_cola_desde ASC
      LIMIT 20`,
-    [empresaId, cola]
+    [empresaId, cola, verTodas, yo]
   );
 
   return r.rows.map((f) => ({
@@ -110,10 +141,12 @@ export async function listarColaEspera(empresaId: string, colaId?: string | null
     contacto_nombre: [f.contacto_nombre, f.contacto_apellido].filter(Boolean).join(" ") || null,
     motivo: f.resumen_motivo,
     solicitud: f.resumen_solicitud,
+    dirigida_a: f.operador_id ?? null,
+    dirigida_a_nombre: f.operador_nombre ?? null,
   }));
 }
 
-export type ResultadoAtender = { ok: true } | { ok: false; codigo: 404 | 409 | 502 | 400; error: string };
+export type ResultadoAtender = { ok: true } | { ok: false; codigo: 404 | 409 | 502 | 400 | 403; error: string };
 
 /**
  * Un asesor toma una llamada de la cola: se le timbra su softphone (con
@@ -126,14 +159,24 @@ export async function atenderDeCola(opts: {
   llamadaId: string;
   usuarioId?: string | null;
   publicBaseUrl: string;
+  /** Admin/supervisor: puede tomar también las llamadas dirigidas a otro asesor. */
+  verTodas?: boolean;
 }): Promise<ResultadoAtender> {
-  const { empresaId, llamadaId, usuarioId, publicBaseUrl } = opts;
+  const { empresaId, llamadaId, usuarioId, publicBaseUrl, verTodas = false } = opts;
   if (!UUID.test(llamadaId)) return { ok: false, codigo: 400, error: "Llamada inválida." };
 
   if (usuarioId) {
     if (!UUID.test(usuarioId)) return { ok: false, codigo: 400, error: "Asesor inválido." };
     const u = await pool.query("SELECT 1 FROM usuarios WHERE id = $1 AND empresa_id = $2", [usuarioId, empresaId]);
     if (u.rows.length === 0) return { ok: false, codigo: 404, error: "Asesor no encontrado." };
+  }
+
+  // Una llamada dirigida a un asesor concreto solo la toma él (o un admin/supervisor).
+  if (!verTodas) {
+    const dirigida = await operadorDestinoDeLlamada(llamadaId, empresaId);
+    if (dirigida && dirigida !== usuarioId) {
+      return { ok: false, codigo: 403, error: "Esta llamada va dirigida a otro asesor." };
+    }
   }
 
   // Claim atómico: solo si sigue esperando y nadie la tiene.
