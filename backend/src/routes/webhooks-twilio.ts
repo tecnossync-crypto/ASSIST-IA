@@ -507,7 +507,15 @@ export async function webhooksTwilioRoutes(app: FastifyInstance) {
           app.log.info({ callSid, identidades }, "Transfiriendo llamada del bot a agente(s) disponible(s)");
           // Mientras nadie conteste, el cliente cuenta como "en cola" (la
           // conferencia-evento lo saca de ahí cuando un asesor entra).
-          if (cola.activa) await marcarEnCola(row.id, conferenciaNombre);
+          if (cola.activa) {
+            await marcarEnCola(row.id, conferenciaNombre);
+            // Ya se le está timbrando: la cola automática no debe cortar ese timbre para volver a timbrar a mitad
+            // de sonar (esperaría 45 s antes de reintentar). Si es un asesor concreto, queda como su asignado.
+            await pool.query("UPDATE llamadas SET asignada_a = $2, asignada_en = now() WHERE id = $1", [
+              row.id,
+              operadorElegido,
+            ]);
+          }
           // "Plataforma primero, teléfonos de respaldo": si nadie contesta en lo
           // que dura el timbre, la llamada pasa sola a los teléfonos físicos.
           if (destino === "ambos" && twilioPost?.centralPropia?.entrante) {
