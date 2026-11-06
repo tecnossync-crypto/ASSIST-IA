@@ -3,7 +3,7 @@ import { clienteTwilioEmpresa } from "./twilio-empresa.js";
 import { asegurarContacto } from "./contactos.js";
 import { registrarWebhookRecibido } from "./webhooks-log.js";
 import { evaluarReglaApiLlamadas, proximaOcurrencia } from "./reglas-api-llamadas.js";
-import { resolverOperadorExterno } from "./operador-origen.js";
+import { primerIdentificador, resolverOperadorExterno } from "./operador-origen.js";
 import { resolverDepartamento } from "./departamentos.js";
 import { despacharColaIA, encolarLlamadaIA } from "./cola-salida-ia.js";
 import { mapearPropietarioCliente } from "./propietario-cliente.js";
@@ -99,10 +99,10 @@ export async function procesarSolicitudLlamadaIA(args: {
   // ── Operador que la pidió, departamento fijo, referencia.
   // La plataforma que pide la llamada (su `origen`, ej. "zoho-salesiq" o "zoho-crm") decide en qué lista de ids se busca.
   const fuente = cuerpo.fuente ?? cuerpo.origen;
-  const operadorRecibido = cuerpo.operador ?? cuerpo.operador_id ?? cuerpo.operador_email ?? cuerpo.agente;
+  const operadorRecibido = primerIdentificador(cuerpo, ["operador", "operador_id", "operador_email", "agente"]);
   const operadorUsuarioId = await resolverOperadorExterno(empresaId, operadorRecibido, fuente);
   const operadorExterno =
-    typeof operadorRecibido === "string" && operadorRecibido.trim() ? operadorRecibido.trim().slice(0, 200) : null;
+    operadorRecibido ? operadorRecibido.slice(0, 200) : null;
 
   const departamentoRecibido = cuerpo.departamento ?? cuerpo.colaId ?? cuerpo.cola_id ?? cuerpo.cola;
   const departamento = await resolverDepartamento(empresaId, departamentoRecibido);

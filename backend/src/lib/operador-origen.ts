@@ -7,6 +7,32 @@ import { pool } from "../db/pool.js";
  * suena a ESE operador — si está activo; si no, se reparte como "suena en todos".
  */
 
+/**
+ * Lo que mandó la plataforma como identificador, en texto: acepta texto, número (ej. un id numérico) o un objeto
+ * con `id` / `email` / `nombre` (ej. {"id": "123", "email": "a@b.com"}). Vacío si no hay nada utilizable.
+ */
+export function aTextoId(valor: unknown): string {
+  if (typeof valor === "string") return valor.trim();
+  if (typeof valor === "number" && Number.isFinite(valor)) return String(valor);
+  if (valor && typeof valor === "object" && !Array.isArray(valor)) {
+    const o = valor as Record<string, unknown>;
+    for (const k of ["id", "email", "correo", "nombre", "name"]) {
+      const t = aTextoId(o[k]);
+      if (t) return t;
+    }
+  }
+  return "";
+}
+
+/** El primer campo del cuerpo que traiga un identificador utilizable (un campo vacío no tapa a los siguientes). */
+export function primerIdentificador(cuerpo: Record<string, unknown>, campos: string[]): string {
+  for (const c of campos) {
+    const t = aTextoId(cuerpo[c]);
+    if (t) return t;
+  }
+  return "";
+}
+
 /** "Zoho-SalesIQ " -> "zoho-salesiq". Vacío si no viene una fuente. */
 export function normalizarFuente(valor: unknown): string {
   return typeof valor === "string" ? valor.trim().toLowerCase().slice(0, 80) : "";
@@ -25,8 +51,7 @@ const coincideFuente = (solicitada: string, registrada: string) => solicitada ==
  * Solo cuenta si hay UNA coincidencia: ante la duda (dos asesores con el mismo valor) no se adivina.
  */
 export async function resolverOperadorExterno(empresaId: string, valor: unknown, fuente?: unknown): Promise<string | null> {
-  if (typeof valor !== "string") return null;
-  const v = valor.trim().toLowerCase();
+  const v = aTextoId(valor).toLowerCase();
   if (!v || v.length > 200) return null;
   const f = normalizarFuente(fuente);
 

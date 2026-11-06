@@ -1,5 +1,5 @@
 import { pool } from "../db/pool.js";
-import { resolverOperadorExterno } from "./operador-origen.js";
+import { aTextoId, resolverOperadorExterno } from "./operador-origen.js";
 import { normalizarNumero } from "./telefono.js";
 
 /** Campos con los que un CRM puede mandar el dueño del cliente (ej. "Propietario de Contacto" en Zoho). */
@@ -44,9 +44,9 @@ export async function mapearPropietarioCliente(
   let recibido: string | null = null;
   let usuarioId: string | null = null;
   for (const campo of CAMPOS_PROPIETARIO) {
-    const v = cuerpo[campo];
-    if (typeof v === "string" && v.trim()) {
-      recibido = v.trim().slice(0, 200);
+    const v = aTextoId(cuerpo[campo]);
+    if (v) {
+      recibido = v.slice(0, 200);
       usuarioId = await resolverOperadorExterno(empresaId, recibido, fuente);
       break;
     }
