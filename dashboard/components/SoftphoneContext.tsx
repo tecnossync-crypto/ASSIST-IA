@@ -22,6 +22,8 @@ interface SoftphoneCtx {
   enEspera: boolean;
   cargandoAccion: boolean;
   mensaje: string;
+  /** Por qué NO se conectó el audio de este teléfono a la última llamada ("" si no hubo fallo). No se borra al cerrar la pierna. */
+  fallo: string;
   agentes: AgenteParaTransferir[];
   transfiriendoA: string | null;
   contestar: () => void;
@@ -94,6 +96,7 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
   const [enEspera, setEnEspera] = useState(false);
   const [cargandoAccion, setCargandoAccion] = useState(false);
   const [mensaje, setMensaje] = useState("");
+  const [fallo, setFallo] = useState("");
   const [agentes, setAgentes] = useState<AgenteParaTransferir[]>([]);
   const [transfiriendoA, setTransfiriendoA] = useState<string | null>(null);
 
@@ -208,9 +211,11 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
             const numero = call.customParameters?.get("numero") || call.parameters.From || "otro cliente";
             call.reject();
             setMensaje(`Entró otra llamada (${numero}) mientras atendías; se envió a otro asesor.`);
+            setFallo("Tu teléfono tenía otra llamada abierta y rechazó esta. Cuelga la anterior (o cierra y abre la ventana del panel) y vuelve a intentar.");
             return;
           }
           callRef.current = call;
+          setFallo("");
           // El servidor manda el teléfono del cliente y el id de la llamada junto
           // al timbre (si no, "From" es el número de la empresa, no el del cliente).
           setNumeroEntrante(call.customParameters?.get("numero") || call.parameters.From || "Llamada entrante");
@@ -223,7 +228,17 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
           call.on("disconnect", () => finalizarSiEsActual(call));
           call.on("cancel", () => finalizarSiEsActual(call));
           call.on("reject", () => finalizarSiEsActual(call));
-          call.on("error", () => {
+          call.on("error", (err: { code?: number; message?: string }) => {
+            console.error("Softphone: error en la llamada", err);
+            // El audio no se pudo conectar: sin esto el panel decía "en llamada" sin botones ni sonido y nadie sabía por qué.
+            if (callRef.current === call) {
+              const codigo = err?.code ? ` (código ${err.code})` : "";
+              setFallo(
+                err?.code === 31208 || err?.code === 31402
+                  ? `El navegador no dio permiso al micrófono${codigo}. Permite el micrófono para este sitio / la extensión y vuelve a llamar.`
+                  : `No se pudo conectar el audio de tu teléfono a la llamada${codigo}. Revisa micrófono y bocinas, y que no haya otra pestaña con el panel abierto.`
+              );
+            }
             if (call.status() === "closed") finalizarSiEsActual(call);
           });
 
@@ -234,8 +249,14 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
           // su propia llamada saliente, así que se conecta directo sin
           // mostrar el botón de Contestar/Rechazar.
           if (call.customParameters?.get("autoContestar") === "true") {
-            call.accept();
-            setEstado("en_curso");
+            try {
+              call.accept();
+              setEstado("en_curso");
+            } catch (err) {
+              console.error("Softphone: no se pudo contestar la llamada propia", err);
+              setFallo("No se pudo conectar el audio de tu teléfono a la llamada. Revisa el permiso del micrófono.");
+              finalizarSiEsActual(call);
+            }
             return;
           }
 
@@ -459,6 +480,7 @@ export function SoftphoneProvider({ children }: { children: ReactNode }) {
         enEspera,
         cargandoAccion,
         mensaje,
+        fallo,
         agentes,
         transfiriendoA,
         contestar,

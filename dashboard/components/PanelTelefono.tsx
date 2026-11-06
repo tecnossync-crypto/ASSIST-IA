@@ -956,6 +956,16 @@ export function PanelTelefono({
 
               {sp.mensaje && <p className="mt-3 text-center text-xs text-ink-2">{sp.mensaje}</p>}
 
+              {/* La llamada existe en el servidor pero el audio de ESTE teléfono no se conectó: sin esto no hay botones ni sonido y no se sabe por qué. */}
+              {!enLlamadaSoftphone && estado === "en_curso" && (
+                <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-center text-xs text-red-700 ring-1 ring-red-200 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/30">
+                  {sp.fallo ||
+                    (sp.estado === "desconectado"
+                      ? "Tu teléfono está desconectado de Twilio, por eso no hay audio ni botones. Recarga el panel."
+                      : "El audio de tu teléfono aún no se conecta a esta llamada. Si no pasa en unos segundos, cuelga y revisa el permiso del micrófono.")}
+                </p>
+              )}
+
               {contextoActual && (
                 <div className="mt-4 max-h-48 overflow-y-auto">
                   <ContextoLlamada
