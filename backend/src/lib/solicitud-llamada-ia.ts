@@ -1,6 +1,6 @@
 import { pool } from "../db/pool.js";
 import { clienteTwilioEmpresa } from "./twilio-empresa.js";
-import { asegurarContacto } from "./contactos.js";
+import { asegurarContacto, upsertContacto } from "./contactos.js";
 import { registrarWebhookRecibido } from "./webhooks-log.js";
 import { evaluarReglaApiLlamadas, proximaOcurrencia } from "./reglas-api-llamadas.js";
 import { primerIdentificador, resolverOperadorExterno } from "./operador-origen.js";
@@ -14,6 +14,54 @@ function esVerdadero(v: unknown): boolean {
   return v === true || v === 1 || (typeof v === "string" && ["true", "1", "si", "sí", "yes"].includes(v.trim().toLowerCase()));
 }
 
+/** Primer texto no vacío de estos campos del cuerpo (acepta número; ignora objetos). */
+function primerTexto(cuerpo: Record<string, unknown>, campos: string[], max = 200): string | null {
+  for (const c of campos) {
+    const v = cuerpo[c];
+    if (typeof v === "string" || typeof v === "number") {
+      const t = String(v).trim();
+      if (t) return t.slice(0, max);
+    }
+  }
+  return null;
+}
+
+/**
+ * Guarda en Contactos lo que la plataforma mandó del cliente, ANTES de llamar: así la IA ya lo conoce (usa {{nombre}},
+ * {{apellido}} y los campos personalizados en el guion) y el asesor lo ve en el panel. Campos: nombre (o
+ * nombre_cliente / cliente_nombre / cliente / contacto_nombre), apellido, y `datos` = objeto con claves = api_name de
+ * los campos personalizados de Configuración. Lo vacío no pisa lo que ya había.
+ */
+async function guardarDatosDelCliente(empresaId: string, numero: string, cuerpo: Record<string, unknown>): Promise<string[]> {
+  const guardados: string[] = [];
+  const nombre = primerTexto(cuerpo, ["nombre", "nombre_cliente", "cliente_nombre", "cliente", "contacto_nombre"]);
+  if (nombre) {
+    await upsertContacto(empresaId, numero, "nombre", nombre);
+    guardados.push("nombre");
+  }
+  const apellido = primerTexto(cuerpo, ["apellido", "apellido_cliente"]);
+  if (apellido) {
+    await upsertContacto(empresaId, numero, "apellido", apellido);
+    guardados.push("apellido");
+  }
+  const datos = cuerpo.datos;
+  if (datos && typeof datos === "object" && !Array.isArray(datos)) {
+    const r = await pool.query<{ campos: { nombre: string; api_name?: string }[] | null }>(
+      "SELECT campos_personalizados AS campos FROM empresas WHERE id = $1",
+      [empresaId]
+    );
+    const porApiName = new Map((r.rows[0]?.campos ?? []).filter((c) => c.api_name).map((c) => [c.api_name as string, c.nombre]));
+    for (const [apiName, valor] of Object.entries(datos as Record<string, unknown>)) {
+      const campo = porApiName.get(apiName);
+      const texto = typeof valor === "string" || typeof valor === "number" ? String(valor).trim().slice(0, 500) : "";
+      if (!campo || !texto) continue;
+      await upsertContacto(empresaId, numero, campo, texto);
+      guardados.push(apiName);
+    }
+  }
+  return guardados;
+}
+
 export interface ResultadoSolicitud {
   codigo: number;
   cuerpo: Record<string, unknown>;
@@ -24,8 +72,8 @@ export interface ResultadoSolicitud {
  * lote). Valida, aplica la regla de API que corresponda, fija el departamento, evita duplicados y la deja en la cola
  * de salida; si hay línea libre y no hay fila esperando, la llamada sale al instante (igual que antes).
  *
- * Campos del cuerpo: numero (requerido), prompt, origen, departamento | colaId, operador, referencia,
- * no_repetir_horas, fecha_programada | retraso_minutos.
+ * Campos del cuerpo: numero (requerido), nombre, apellido, datos, prompt, origen, departamento | colaId, operador,
+ * referencia, no_repetir_horas, fecha_programada | retraso_minutos.
  */
 export async function procesarSolicitudLlamadaIA(args: {
   empresaId: string;
@@ -161,6 +209,7 @@ export async function procesarSolicitudLlamadaIA(args: {
 
   // ── El cliente queda asignado a su propietario (lo que mandó el CRM) y, si hay transferencia a un asesor, le suena a él.
   await asegurarContacto(empresaId, numero);
+  const datosGuardados = await guardarDatosDelCliente(empresaId, numero, cuerpo).catch(() => [] as string[]);
   const propietario = await mapearPropietarioCliente(empresaId, numero, cuerpo, operadorUsuarioId, fuente);
 
   // ── Reintento si cae en buzón de voz o no contestan (por defecto 1 vez, a los 20 min).
@@ -212,6 +261,7 @@ export async function procesarSolicitudLlamadaIA(args: {
     ...infoDepartamento,
     ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
     ...(referencia ? { referencia } : {}),
+    ...(datosGuardados.length > 0 ? { contacto_guardado: datosGuardados } : {}),
     ...(propietario.recibido ? { propietario_identificado: Boolean(propietario.usuarioId) } : {}),
     ...(propietario.propietarioId ? { transferencia_a_propietario: true } : {}),
     reintentos_buzon: reintentos,

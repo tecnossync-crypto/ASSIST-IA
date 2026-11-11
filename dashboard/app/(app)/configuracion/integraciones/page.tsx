@@ -153,6 +153,16 @@ export default async function IntegracionesPage({
                 para que compruebes que lo reconoció.
               </li>
               <li>
+                <span className="font-mono text-ink-2">nombre</span> y{" "}
+                <span className="font-mono text-ink-2">apellido</span> — opcionales. Se guardan en Contactos antes de
+                llamar: la IA ya sabe cómo se llama el cliente (puedes usar{" "}
+                <span className="font-mono">{"{{nombre}}"}</span> en el guion) y el asesor lo ve en el panel. También se
+                reconocen <span className="font-mono">nombre_cliente</span> y{" "}
+                <span className="font-mono">cliente</span>. Para campos personalizados manda{" "}
+                <span className="font-mono">datos</span>: un objeto con claves = el api_name del campo. La respuesta trae{" "}
+                <span className="font-mono">contacto_guardado</span> con lo que se guardó.
+              </li>
+              <li>
                 <span className="font-mono text-ink-2">referencia</span> — opcional. El id del registro en tu CRM (ej.
                 la cotización): si repites la misma referencia dentro de{" "}
                 <span className="font-mono">no_repetir_horas</span> (24 por defecto) no se vuelve a llamar. Si hay muchas
