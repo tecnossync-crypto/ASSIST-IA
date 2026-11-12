@@ -14,6 +14,16 @@ function esVerdadero(v: unknown): boolean {
   return v === true || v === 1 || (typeof v === "string" && ["true", "1", "si", "sí", "yes"].includes(v.trim().toLowerCase()));
 }
 
+/** [60, 1440] o "60,1440" -> minutos válidos (1 min a 30 días), máximo 10; lo inválido se ignora. */
+function listaDeMinutos(v: unknown): number[] {
+  const crudo = Array.isArray(v) ? v : typeof v === "string" ? v.split(/[,;\s]+/) : [];
+  return crudo
+    .map((x) => Number(x))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 30 * 24 * 60)
+    .map((n) => Math.floor(n))
+    .slice(0, 10);
+}
+
 /** Primer texto no vacío de estos campos del cuerpo (acepta número; ignora objetos). */
 function primerTexto(cuerpo: Record<string, unknown>, campos: string[], max = 200): string | null {
   for (const c of campos) {
@@ -240,12 +250,17 @@ export async function procesarSolicitudLlamadaIA(args: {
   const porDefecto = reintentosPorDefecto();
   const reintentosRaw = Number(cuerpo.reintentos_buzon);
   const minutosRaw = Number(cuerpo.minutos_reintento);
-  const reintentos =
-    cuerpo.reintentos_buzon !== undefined && cuerpo.reintentos_buzon !== "" && Number.isFinite(reintentosRaw)
+  // Seguimientos escalonados: `seguimientos` = minutos hasta cada nuevo intento (ej. [60, 1440, 4320]); manda sobre
+  // reintentos_buzon / minutos_reintento.
+  const seguimientos = listaDeMinutos(cuerpo.seguimientos ?? cuerpo.seguimiento_minutos);
+  const reintentos = seguimientos.length
+    ? seguimientos.length
+    : cuerpo.reintentos_buzon !== undefined && cuerpo.reintentos_buzon !== "" && Number.isFinite(reintentosRaw)
       ? Math.max(0, Math.min(5, Math.floor(reintentosRaw)))
       : porDefecto.reintentos;
-  const minutosReintento =
-    cuerpo.minutos_reintento !== undefined && cuerpo.minutos_reintento !== "" && Number.isFinite(minutosRaw)
+  const minutosReintento = seguimientos.length
+    ? seguimientos[0]
+    : cuerpo.minutos_reintento !== undefined && cuerpo.minutos_reintento !== "" && Number.isFinite(minutosRaw)
       ? Math.max(1, Math.min(1440, Math.floor(minutosRaw)))
       : porDefecto.minutos;
 
@@ -253,8 +268,9 @@ export async function procesarSolicitudLlamadaIA(args: {
   const solicitud = await pool.query<{ id: string }>(
     `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para,
                                    operador_usuario_id, operador_externo, cola_id, departamento_recibido, referencia,
-                                   reintentos_restantes, minutos_reintento, usar_prompt_generico, variables)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
+                                   reintentos_restantes, minutos_reintento, usar_prompt_generico, variables,
+                                   intervalos_reintento)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
     [
       empresaId,
       numero,
@@ -272,6 +288,7 @@ export async function procesarSolicitudLlamadaIA(args: {
       // Solo tiene sentido si la llamada trae su propio guion (si no, ya se usa el prompt general completo).
       Boolean(promptFinal) && (Boolean(reglaAplicada?.usarPromptGenerico) || esVerdadero(cuerpo.usar_prompt_generico)),
       JSON.stringify(variablesDeLaLlamada(cuerpo)),
+      seguimientos.length ? seguimientos : null,
     ]
   );
   const llamadaWebhookId = solicitud.rows[0].id;
@@ -292,6 +309,7 @@ export async function procesarSolicitudLlamadaIA(args: {
     ...(propietario.propietarioId ? { transferencia_a_propietario: true } : {}),
     reintentos_buzon: reintentos,
     ...(reintentos > 0 ? { minutos_reintento: minutosReintento } : {}),
+    ...(seguimientos.length ? { seguimientos_minutos: seguimientos } : {}),
   };
 
   if (futura && programadaPara) {

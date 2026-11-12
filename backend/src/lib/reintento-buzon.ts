@@ -33,18 +33,21 @@ export async function programarReintentoSiNoContesto(callSid: string, status: st
     `UPDATE llamadas_webhook SET reintento_creado = true
      WHERE call_sid = $1 AND reintentos_restantes > 0 AND NOT reintento_creado
      RETURNING id, empresa_id, numero, prompt, origen, regla_aplicada_id, operador_usuario_id, operador_externo, cola_id,
-               departamento_recibido, referencia, reintentos_restantes, minutos_reintento, intento, usar_prompt_generico, variables`,
+               departamento_recibido, referencia, reintentos_restantes, minutos_reintento, intento, usar_prompt_generico, variables, intervalos_reintento`,
     [callSid]
   );
   const o = orig.rows[0];
   if (!o) return false;
 
-  const minutos = o.minutos_reintento ?? reintentosPorDefecto().minutos;
+  // Con seguimientos escalonados, este intento sale en el primer intervalo de la lista y al siguiente le quedan los demás.
+  const lista: number[] = Array.isArray(o.intervalos_reintento) ? o.intervalos_reintento : [];
+  const minutos = lista[0] ?? o.minutos_reintento ?? reintentosPorDefecto().minutos;
+  const restantes = lista.slice(1);
   const nueva = await pool.query<{ id: string }>(
     `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, operador_usuario_id, operador_externo,
                                    cola_id, departamento_recibido, referencia, reintentos_restantes, minutos_reintento,
-                                   reintento_de, intento, programada_para, usar_prompt_generico, variables)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now() + ($15 || ' minutes')::interval, $16, $17)
+                                   reintento_de, intento, programada_para, usar_prompt_generico, variables, intervalos_reintento)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now() + ($15 || ' minutes')::interval, $16, $17, $18)
      RETURNING id`,
     [
       o.empresa_id,
@@ -57,13 +60,14 @@ export async function programarReintentoSiNoContesto(callSid: string, status: st
       o.cola_id,
       o.departamento_recibido,
       o.referencia,
-      o.reintentos_restantes - 1,
-      o.minutos_reintento,
+      lista.length ? restantes.length : o.reintentos_restantes - 1,
+      lista.length ? (restantes[0] ?? o.minutos_reintento) : o.minutos_reintento,
       o.id,
       o.intento + 1,
       String(minutos),
       o.usar_prompt_generico,
       JSON.stringify(o.variables ?? {}),
+      restantes.length ? restantes : null,
     ]
   );
   await encolarLlamadaIA({

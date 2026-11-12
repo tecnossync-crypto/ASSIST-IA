@@ -200,6 +200,16 @@ export default async function IntegracionesPage({
                 1440 minutos). Respeta el horario permitido.
               </li>
               <li>
+                <span className="font-mono text-ink-2">seguimientos</span> — opcional. Llamadas de seguimiento
+                escalonadas si el cliente no responde (no contesta, ocupado o buzón): lista de minutos hasta cada nuevo
+                intento. Ej. <span className="font-mono">&quot;seguimientos&quot;: [60, 1440, 4320]</span> = vuelve a
+                llamar a la hora, al día siguiente y a los 3 días (hasta 10 intentos, cada uno de 1 minuto a 30 días).
+                Si el cliente contesta, se detienen. Mandan sobre <span className="font-mono">reintentos_buzon</span> y{" "}
+                <span className="font-mono">minutos_reintento</span>; cada intento conserva el prompt, las variables, el
+                departamento y el operador. También acepta <span className="font-mono">&quot;60,1440,4320&quot;</span>. La
+                respuesta trae <span className="font-mono">seguimientos_minutos</span>.
+              </li>
+              <li>
                 <span className="font-mono text-ink-2">usar_prompt_generico</span> — opcional (
                 <span className="font-mono">true</span>/<span className="font-mono">false</span>). La IA mantiene el guion
                 de la llamada pero puede consultar el prompt general de la empresa como referencia cuando el cliente
