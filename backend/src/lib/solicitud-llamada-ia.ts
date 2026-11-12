@@ -85,8 +85,8 @@ function variablesDeLaLlamada(cuerpo: Record<string, unknown>): Record<string, s
       if (Object.keys(resultado).length >= 40) break;
       if (!/^[a-zA-Z0-9_]{1,60}$/.test(clave)) continue;
       if (typeof valor !== "string" && typeof valor !== "number" && typeof valor !== "boolean") continue;
-      const texto = String(valor).trim().slice(0, 500);
-      if (texto) resultado[clave] = texto;
+      // Vacía también cuenta: así {{clave}} se reemplaza por nada en vez de que la IA lea las llaves en voz alta.
+      resultado[clave] = String(valor).trim().slice(0, 500);
     }
   }
   const nombre = primerTexto(cuerpo, ["nombre", "nombre_cliente", "cliente_nombre", "cliente", "contacto_nombre"]);
