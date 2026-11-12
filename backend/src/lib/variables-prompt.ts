@@ -36,9 +36,12 @@ export async function aplicarVariablesContacto(
   guionAgente: Record<string, unknown>,
   camposPersonalizados: CampoPersonalizado[],
   empresaId: string,
-  numeroCliente: string | null | undefined
+  numeroCliente: string | null | undefined,
+  // Datos propios de ESTA llamada (los que mandó la solicitud de API: aseguradora, vencimiento, etc.). Mandan sobre los
+  // del contacto cuando se llaman igual.
+  extras: Record<string, string> = {}
 ): Promise<{ guion: Record<string, unknown>; contacto: ContactoConocido | null }> {
-  if (!numeroCliente) return { guion: guionAgente, contacto: null };
+  if (!numeroCliente) return { guion: sustituirVariables(guionAgente, extras), contacto: null };
 
   // BUG que hacía que esto casi nunca encontrara al contacto: comparaba el
   // número tal cual llegaba (de Twilio, o como se haya escrito a mano)
@@ -56,7 +59,7 @@ export async function aplicarVariablesContacto(
     numeroNormalizado,
   ]);
   const c = contacto.rows[0];
-  if (!c) return { guion: guionAgente, contacto: null };
+  if (!c) return { guion: sustituirVariables(guionAgente, extras), contacto: null };
 
   const variables: Record<string, string> = {
     nombre: c.nombre ?? "",
@@ -67,22 +70,23 @@ export async function aplicarVariablesContacto(
     if (campo.api_name) variables[campo.api_name] = c.datos?.[campo.nombre] ?? "";
   }
 
-  function sustituir(texto: string): string {
-    return texto.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) =>
-      key in variables ? variables[key] : match
-    );
-  }
+  return {
+    guion: sustituirVariables(guionAgente, { ...variables, ...extras }),
+    contacto: { nombre: c.nombre, apellido: c.apellido, datos: c.datos ?? {} },
+  };
+}
 
+/** Reemplaza cada {{clave}} de los textos del guion por su valor; las claves que no se conocen quedan tal cual. */
+function sustituirVariables(guionAgente: Record<string, unknown>, variables: Record<string, string>): Record<string, unknown> {
+  if (Object.keys(variables).length === 0) return guionAgente;
   const resultado: Record<string, unknown> = { ...guionAgente };
   for (const campo of CAMPOS_CON_VARIABLES) {
     const valor = resultado[campo];
     if (typeof valor === "string" && valor.includes("{{")) {
-      resultado[campo] = sustituir(valor);
+      resultado[campo] = valor.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) =>
+        Object.prototype.hasOwnProperty.call(variables, key) ? variables[key] : match
+      );
     }
   }
-
-  return {
-    guion: resultado,
-    contacto: { nombre: c.nombre, apellido: c.apellido, datos: c.datos ?? {} },
-  };
+  return resultado;
 }

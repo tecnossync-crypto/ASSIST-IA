@@ -163,6 +163,21 @@ export default async function IntegracionesPage({
                 <span className="font-mono">contacto_guardado</span> con lo que se guardó.
               </li>
               <li>
+                <span className="font-mono text-ink-2">variables</span> — opcional. Datos de ESTA llamada, p. ej.{" "}
+                <span className="font-mono">{`{"aseguradora":"Mapfre","ramo":"Auto","vencimiento":"15 de diciembre"}`}</span>
+                . Escríbelos en el prompt como <span className="font-mono">{"{{aseguradora}}"}</span>,{" "}
+                <span className="font-mono">{"{{ramo}}"}</span>… (y <span className="font-mono">{"{{nombre}}"}</span>,{" "}
+                <span className="font-mono">{"{{apellido}}"}</span>) y se reemplazan al llamar; sirve tanto en el{" "}
+                <span className="font-mono">prompt</span> de la solicitud como en el de una regla. La IA además los tiene
+                presentes aunque el prompt no los use. Claves: letras, números y guion bajo. No se guardan en el cliente,
+                así que cada renovación trae los suyos. Los de <span className="font-mono">datos</span> funcionan igual.
+                La respuesta trae <span className="font-mono">variables_recibidas</span>. Ejemplo de prompt:{" "}
+                <em>
+                  &quot;Llama a {"{{nombre}}"} para recordarle que su póliza de {"{{ramo}}"} con {"{{aseguradora}}"} vence el{" "}
+                  {"{{vencimiento}}"} y ofrécele renovarla.&quot;
+                </em>
+              </li>
+              <li>
                 <span className="font-mono text-ink-2">referencia</span> — opcional. El id del registro en tu CRM (ej.
                 la cotización): si repites la misma referencia dentro de{" "}
                 <span className="font-mono">no_repetir_horas</span> (24 por defecto) no se vuelve a llamar. Si hay muchas

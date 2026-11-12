@@ -71,6 +71,8 @@ export interface EmpresaConfig {
   // Contactos), lo que ya sabemos de él — para que el bot lo salude por su
   // nombre y NO vuelva a pedir datos que ya tiene (ver construirSystemPrompt
   // en llm.ts). null si es la primera vez que hablamos con este número.
+  // Datos propios de ESTA llamada (los que mandó la solicitud de API: aseguradora, vencimiento, etc.).
+  datos_llamada?: Record<string, string> | null;
   contacto_conocido?: { nombre: string | null; apellido: string | null; datos: Record<string, string> } | null;
 }
 

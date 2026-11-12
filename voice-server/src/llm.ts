@@ -87,6 +87,15 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
         .join("\n")
     : null;
 
+  // Datos que la plataforma que pidió esta llamada mandó sobre el motivo (ej. aseguradora, vencimiento): la IA los tiene
+  // presentes aunque el guion no use {{variables}}.
+  const datosLlamada = Object.entries(empresa.datos_llamada ?? {}).filter(([, v]) => v);
+  const bloqueDatosLlamada = datosLlamada.length
+    ? `Datos de ESTA llamada (el motivo por el que se contacta al cliente; úsalos con naturalidad, no los inventes ni los cambies): ${datosLlamada
+        .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+        .join("; ")}.`
+    : null;
+
   return [
     // No condicional al guion: si el prompt_personalizado de la empresa no
     // menciona el idioma, el modelo puede terminar respondiendo en inglés
@@ -103,6 +112,7 @@ export function construirSystemPrompt(empresa: EmpresaConfig): string {
       "continúa con lo siguiente en vez de volver a explicar.",
     base,
     bloqueContacto,
+    bloqueDatosLlamada,
     "Si el cliente te da un nombre/apellido/dato DISTINTO al que ya tenías guardado (una corrección), guárdalo de " +
       'nuevo con registrar_dato — el nuevo valor reemplaza al anterior. Fuera de eso, con datos que ya tienes no ' +
       "hace falta llamar registrar_dato de nuevo.",

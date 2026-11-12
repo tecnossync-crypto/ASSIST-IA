@@ -33,7 +33,7 @@ export async function programarReintentoSiNoContesto(callSid: string, status: st
     `UPDATE llamadas_webhook SET reintento_creado = true
      WHERE call_sid = $1 AND reintentos_restantes > 0 AND NOT reintento_creado
      RETURNING id, empresa_id, numero, prompt, origen, regla_aplicada_id, operador_usuario_id, operador_externo, cola_id,
-               departamento_recibido, referencia, reintentos_restantes, minutos_reintento, intento, usar_prompt_generico`,
+               departamento_recibido, referencia, reintentos_restantes, minutos_reintento, intento, usar_prompt_generico, variables`,
     [callSid]
   );
   const o = orig.rows[0];
@@ -43,8 +43,8 @@ export async function programarReintentoSiNoContesto(callSid: string, status: st
   const nueva = await pool.query<{ id: string }>(
     `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, operador_usuario_id, operador_externo,
                                    cola_id, departamento_recibido, referencia, reintentos_restantes, minutos_reintento,
-                                   reintento_de, intento, programada_para, usar_prompt_generico)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now() + ($15 || ' minutes')::interval, $16)
+                                   reintento_de, intento, programada_para, usar_prompt_generico, variables)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now() + ($15 || ' minutes')::interval, $16, $17)
      RETURNING id`,
     [
       o.empresa_id,
@@ -63,6 +63,7 @@ export async function programarReintentoSiNoContesto(callSid: string, status: st
       o.intento + 1,
       String(minutos),
       o.usar_prompt_generico,
+      JSON.stringify(o.variables ?? {}),
     ]
   );
   await encolarLlamadaIA({

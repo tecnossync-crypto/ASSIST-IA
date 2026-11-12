@@ -439,7 +439,8 @@ export async function internalRoutes(app: FastifyInstance) {
         numero: string;
         cola_id: string | null;
         usar_prompt_generico: boolean;
-      }>("SELECT empresa_id, prompt, numero, cola_id, usar_prompt_generico FROM llamadas_webhook WHERE id = $1", [
+        variables: Record<string, string> | null;
+      }>("SELECT empresa_id, prompt, numero, cola_id, usar_prompt_generico, variables FROM llamadas_webhook WHERE id = $1", [
         llamadaWebhookId,
       ]);
       if (solicitud.rows.length === 0) {
@@ -447,6 +448,7 @@ export async function internalRoutes(app: FastifyInstance) {
         return;
       }
       const { empresa_id: empresaId, prompt, numero, cola_id: colaFija, usar_prompt_generico: usarGenerico } = solicitud.rows[0];
+      const variablesLlamada = solicitud.rows[0].variables ?? {};
 
       const empresa = await pool.query(
         `SELECT nombre, guion_agente, horario_atencion, voz_agente, tts_provider, campos_personalizados,
@@ -477,13 +479,19 @@ export async function internalRoutes(app: FastifyInstance) {
         ? { ...empresaRow.guion_agente, prompt_personalizado: promptFinalLlamada }
         : empresaRow.guion_agente;
       const [{ guion: guionConVariables, contacto: contactoConocido }, colas] = await Promise.all([
-        aplicarVariablesContacto(guionCombinado, empresaRow.campos_personalizados ?? [], empresaId, numero),
+        aplicarVariablesContacto(guionCombinado, empresaRow.campos_personalizados ?? [], empresaId, numero, variablesLlamada),
         obtenerColasParaPrompt(empresaId),
       ]);
 
       // Con un departamento fijado por la API, la IA solo ve ese (y no tiene nada que elegir).
       const colasVisibles = colaFija ? colas.filter((c) => c.id === colaFija) : colas;
-      reply.send({ ...empresaRow, guion_agente: guionConVariables, colas: colasVisibles, contacto_conocido: contactoConocido });
+      reply.send({
+        ...empresaRow,
+        guion_agente: guionConVariables,
+        colas: colasVisibles,
+        contacto_conocido: contactoConocido,
+        datos_llamada: variablesLlamada,
+      });
     }
   );
 

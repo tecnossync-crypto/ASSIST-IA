@@ -62,6 +62,30 @@ async function guardarDatosDelCliente(empresaId: string, numero: string, cuerpo:
   return guardados;
 }
 
+/**
+ * Datos de ESTA llamada para usar como {{variables}} en su prompt y para que la IA los tenga presentes: todo lo de
+ * `variables` y `datos` (claves con letras, números o _), más nombre y apellido. A diferencia de Contactos, no se
+ * guardan en el cliente: cada solicitud trae los suyos (ej. la aseguradora y el vencimiento de ESA renovación).
+ */
+function variablesDeLaLlamada(cuerpo: Record<string, unknown>): Record<string, string> {
+  const resultado: Record<string, string> = {};
+  for (const origen of [cuerpo.datos, cuerpo.variables]) {
+    if (!origen || typeof origen !== "object" || Array.isArray(origen)) continue;
+    for (const [clave, valor] of Object.entries(origen as Record<string, unknown>)) {
+      if (Object.keys(resultado).length >= 40) break;
+      if (!/^[a-zA-Z0-9_]{1,60}$/.test(clave)) continue;
+      if (typeof valor !== "string" && typeof valor !== "number" && typeof valor !== "boolean") continue;
+      const texto = String(valor).trim().slice(0, 500);
+      if (texto) resultado[clave] = texto;
+    }
+  }
+  const nombre = primerTexto(cuerpo, ["nombre", "nombre_cliente", "cliente_nombre", "cliente", "contacto_nombre"]);
+  if (nombre && !resultado.nombre) resultado.nombre = nombre;
+  const apellido = primerTexto(cuerpo, ["apellido", "apellido_cliente"]);
+  if (apellido && !resultado.apellido) resultado.apellido = apellido;
+  return resultado;
+}
+
 export interface ResultadoSolicitud {
   codigo: number;
   cuerpo: Record<string, unknown>;
@@ -229,8 +253,8 @@ export async function procesarSolicitudLlamadaIA(args: {
   const solicitud = await pool.query<{ id: string }>(
     `INSERT INTO llamadas_webhook (empresa_id, numero, prompt, origen, regla_aplicada_id, programada_para,
                                    operador_usuario_id, operador_externo, cola_id, departamento_recibido, referencia,
-                                   reintentos_restantes, minutos_reintento, usar_prompt_generico)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+                                   reintentos_restantes, minutos_reintento, usar_prompt_generico, variables)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
     [
       empresaId,
       numero,
@@ -247,6 +271,7 @@ export async function procesarSolicitudLlamadaIA(args: {
       minutosReintento,
       // Solo tiene sentido si la llamada trae su propio guion (si no, ya se usa el prompt general completo).
       Boolean(promptFinal) && (Boolean(reglaAplicada?.usarPromptGenerico) || esVerdadero(cuerpo.usar_prompt_generico)),
+      JSON.stringify(variablesDeLaLlamada(cuerpo)),
     ]
   );
   const llamadaWebhookId = solicitud.rows[0].id;
@@ -262,6 +287,7 @@ export async function procesarSolicitudLlamadaIA(args: {
     ...(operadorExterno ? { operador_identificado: Boolean(operadorUsuarioId) } : {}),
     ...(referencia ? { referencia } : {}),
     ...(datosGuardados.length > 0 ? { contacto_guardado: datosGuardados } : {}),
+    variables_recibidas: Object.keys(variablesDeLaLlamada(cuerpo)),
     ...(propietario.recibido ? { propietario_identificado: Boolean(propietario.usuarioId) } : {}),
     ...(propietario.propietarioId ? { transferencia_a_propietario: true } : {}),
     reintentos_buzon: reintentos,
